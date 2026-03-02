@@ -49,6 +49,10 @@ textarea.big { width:100%; min-height:80px; }
 .admin-panel { display:flex; gap:20px; }
 .admin-box { flex:1; border:1px solid #ddd; padding:12px; }
 .category-grid { display:grid; gap:6px; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); }
+.reviewed-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.reviewed-value { font-weight:600; }
+.review-edit { display:none; margin-top:6px; }
+.review-edit.active { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 
 /* Print modal */
 #printModal {
@@ -1178,9 +1182,49 @@ function normalizeResourceServices(r){
   return false;
 }
 
+function normalizeResourceReviewedOn(r){
+  if(!r || typeof r !== "object") return;
+  if(typeof r.reviewedOn !== "string"){
+    r.reviewedOn = "";
+    return;
+  }
+  const trimmed = r.reviewedOn.trim();
+  if(!trimmed){
+    r.reviewedOn = "";
+    return;
+  }
+  // Allow legacy MM/DD/YY or MMDDYY input and convert to ISO for storage.
+  // Rule: 00-69 => 2000-2069, 70-99 => 1970-1999.
+  r.reviewedOn = /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : (parseDisplayToISO(trimmed) || "");
+}
+
 function normalizeDataServicesShape(data){
   if(!data.resources) return;
   data.resources.forEach(normalizeResourceServices);
+}
+
+function normalizeDataReviewedOnShape(nextData){
+  if(!nextData || !Array.isArray(nextData.resources)) return;
+  nextData.resources.forEach(normalizeResourceReviewedOn);
+}
+
+function formatReviewedOnForDisplay(yyyy_mm_dd){
+  if(!yyyy_mm_dd || !/^\d{4}-\d{2}-\d{2}$/.test(yyyy_mm_dd)) return "not reviewed";
+  const parts = yyyy_mm_dd.split("-");
+  return `${parts[1]}/${parts[2]}/${parts[0].slice(2)}`;
+}
+
+function parseDisplayToISO(mm_dd_yy){
+  const raw = String(mm_dd_yy || "").trim();
+  if(!raw) return "";
+  const match = raw.match(/^(\d{1,2})[\/\-]?(\d{1,2})[\/\-]?(\d{2})$/);
+  if(!match) return "";
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const yy = Number(match[3]);
+  if(month < 1 || month > 12 || day < 1 || day > 31) return "";
+  const fullYear = yy <= 69 ? 2000 + yy : 1900 + yy;
+  return `${String(fullYear).padStart(4,"0")}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
 }
 
 function normalizeDataTagsShape(nextData){
@@ -1236,11 +1280,13 @@ if(!data){
 
 normalizeDataServicesShape(data);
 normalizeDataTagsShape(data);
+normalizeDataReviewedOnShape(data);
 
 let favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
 let view = "categories";
 let currentCategory = null;
 let adminTab = "categories";
+let adminShowReviewDates = false;
 let editing = null;
 let editorSnapshot = "";
 let categoryTagFilters = {}; // categoryId -> [tag, ...]
@@ -1679,6 +1725,7 @@ function importJSON(event){
         imported.resources.forEach(r => normalizeResourceServices(r));
       }
       normalizeDataTagsShape(imported);
+      normalizeDataReviewedOnShape(imported);
 
       data = imported;
       persist();
@@ -1732,6 +1779,8 @@ function resourceEditorDraft(){
   const descEl = document.getElementById("res_description");
   const servicesEl = document.getElementById("res_services");
   if(!idEl || !nameEl || !orderEl || !phoneEl || !addressEl || !websiteEl || !hoursEl || !descEl || !servicesEl) return null;
+  const reviewedEl = document.getElementById("res_reviewed_on");
+  const reviewedOn = reviewedEl ? reviewedEl.value : "";
 
   const tags = Array.from(document.querySelectorAll(".resTag"))
     .filter(cb => cb.checked)
@@ -1748,6 +1797,7 @@ function resourceEditorDraft(){
     hours: hoursEl.value.trim(),
     description: descEl.value,
     servicesText: servicesEl.value,
+    reviewedOn,
     categories: Array.from(document.querySelectorAll(".resCat"))
       .filter(cb=>cb.checked)
       .map(cb=>cb.value)
@@ -1789,6 +1839,7 @@ function applyResourceDraft(idx, draft){
   res.hours = draft.hours;
   res.description = draft.description;
   res.servicesText = draft.servicesText;
+  res.reviewedOn = typeof draft.reviewedOn === "string" ? draft.reviewedOn : "";
   res.categories = draft.categories;
   res.tags = draft.tags || [];
   res.lastModified = nowISO();
@@ -1955,6 +2006,10 @@ function renderAdminResources(container){
     <div class="admin-panel">
       <div class="admin-box">
         <h3>Resources</h3>
+        <label style="display:block; margin-bottom:8px;">
+          <input type="checkbox" id="resSortShowReview">
+          Show review dates
+        </label>
         <select id="resSelect"></select>
         <div style="margin-top:8px;">
           <button class="button" onclick="newResource()">New</button>
@@ -1966,16 +2021,19 @@ function renderAdminResources(container){
   `;
 
   const sel = document.getElementById("resSelect");
+  const sortToggle = document.getElementById("resSortShowReview");
+  if(sortToggle){
+    sortToggle.checked = adminShowReviewDates;
+    sortToggle.onchange = () => {
+      adminShowReviewDates = !!sortToggle.checked;
+      const selectedIdx = editing && editing.kind === "resource"
+        ? editing.idx
+        : parseInt(sel.value, 10);
+      populateResourceSelectOptions(sel, selectedIdx);
+    };
+  }
 
-  const pairs = data.resources.map((r,i)=>({r,i}));
-  pairs.sort((a,b)=>(a.r.displayOrder ?? 999)-(b.r.displayOrder ?? 999) || a.r.name.localeCompare(b.r.name));
-
-  pairs.forEach(({r,i})=>{
-    const opt = document.createElement("option");
-    opt.value = String(i);
-    opt.textContent = r.name;
-    sel.appendChild(opt);
-  });
+  populateResourceSelectOptions(sel);
 
   sel.onchange = ()=> {
     commitPendingEditsIfChanged();
@@ -1983,11 +2041,54 @@ function renderAdminResources(container){
   };
 
   if(sel.options.length){
-    sel.value = sel.options[0].value;
-    editResource(parseInt(sel.value,10));
+    const selected = parseInt(sel.value, 10);
+    if(Number.isInteger(selected)){
+      editResource(selected);
+    }else{
+      sel.value = sel.options[0].value;
+      editResource(parseInt(sel.value,10));
+    }
   }else{
     editing = null;
     editorSnapshot = "";
+  }
+}
+
+function populateResourceSelectOptions(sel, preferredIdx){
+  if(!sel) return;
+  const prev = Number.isInteger(preferredIdx) ? preferredIdx : parseInt(sel.value, 10);
+  sel.innerHTML = "";
+
+  const reviewedPairs = [];
+  const unreviewedPairs = [];
+  const allPairs = data.resources.map((r, i) => ({ r, i }));
+
+  if(adminShowReviewDates){
+    allPairs.forEach(pair => {
+      if(pair.r.reviewedOn) reviewedPairs.push(pair);
+      else unreviewedPairs.push(pair);
+    });
+    reviewedPairs.sort((a, b) => a.r.reviewedOn.localeCompare(b.r.reviewedOn) || a.r.name.localeCompare(b.r.name));
+    unreviewedPairs.sort((a, b) => a.r.name.localeCompare(b.r.name));
+    [...reviewedPairs, ...unreviewedPairs].forEach(({ r, i }) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = `${r.name} \u2014 ${r.reviewedOn ? formatReviewedOnForDisplay(r.reviewedOn) : "Not reviewed"}`;
+      sel.appendChild(opt);
+    });
+  }else{
+    allPairs
+      .sort((a, b) => a.r.name.localeCompare(b.r.name))
+      .forEach(({ r, i }) => {
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = r.name;
+        sel.appendChild(opt);
+      });
+  }
+
+  if(Number.isInteger(prev) && Array.from(sel.options).some(opt => Number(opt.value) === prev)){
+    sel.value = String(prev);
   }
 }
 
@@ -2006,6 +2107,7 @@ function newResource(){
     hours: "",
     description: "",
     servicesText: "",
+    reviewedOn: "",
     verifiedDate: "",
     verifiedBy: "",
     displayOrder: null,
@@ -2060,7 +2162,10 @@ function editResource(idx){
   if(!res || !editor) return;
 
   normalizeResourceServices(res);
+  normalizeResourceReviewedOn(res);
   if(!Array.isArray(res.tags)) res.tags = [];
+  const reviewedDisplay = formatReviewedOnForDisplay(res.reviewedOn);
+  const todayISO = new Date().toISOString().slice(0,10);
 
   const catChecks = data.categories
     .slice()
@@ -2107,6 +2212,20 @@ function editResource(idx){
     <label>Description<br>
       <textarea id="res_description" class="big">${escapeHTML(res.description || "")}</textarea>
     </label><br><br>
+
+    <div>
+      <strong>Reviewed on</strong><br>
+      <div class="reviewed-row">
+        <span id="res_reviewed_display" class="reviewed-value">${escapeHTML(reviewedDisplay)}</span>
+        <button class="button" type="button" id="res_review_btn">Review</button>
+      </div>
+      <div id="res_review_edit" class="review-edit">
+        <input id="res_review_input" type="date" value="${todayISO}">
+        <button class="button primary" type="button" id="res_review_save">Save</button>
+        <button class="button" type="button" id="res_review_cancel">Cancel</button>
+      </div>
+      <input type="hidden" id="res_reviewed_on" value="${escapeHTML(res.reviewedOn || "")}">
+    </div><br><br>
 
     <label>Services (free-form; lines starting with * become bullets)<br>
       <textarea id="res_services" class="big">${escapeHTML(res.servicesText || "")}</textarea>
@@ -2158,6 +2277,31 @@ function editResource(idx){
   // Hidden checklist source of truth for snapshot/commit.
   syncHiddenTagInputs();
   editor.appendChild(hiddenTagContainer);
+
+  const reviewBtn = document.getElementById("res_review_btn");
+  const reviewEdit = document.getElementById("res_review_edit");
+  const reviewInput = document.getElementById("res_review_input");
+  const reviewSave = document.getElementById("res_review_save");
+  const reviewCancel = document.getElementById("res_review_cancel");
+  const reviewDisplay = document.getElementById("res_reviewed_display");
+  const reviewedOnHidden = document.getElementById("res_reviewed_on");
+
+  if(reviewBtn && reviewEdit && reviewInput && reviewSave && reviewCancel && reviewDisplay && reviewedOnHidden){
+    reviewBtn.onclick = () => {
+      reviewInput.value = todayISO;
+      reviewEdit.classList.add("active");
+    };
+    reviewSave.onclick = () => {
+      if(!reviewInput.value) return;
+      reviewedOnHidden.value = reviewInput.value;
+      reviewDisplay.textContent = formatReviewedOnForDisplay(reviewInput.value);
+      reviewEdit.classList.remove("active");
+      populateResourceSelectOptions(document.getElementById("resSelect"), idx);
+    };
+    reviewCancel.onclick = () => {
+      reviewEdit.classList.remove("active");
+    };
+  }
 
   editing = { kind: "resource", idx };
   editorSnapshot = snapshotResourceEditor();
