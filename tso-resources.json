@@ -1,30 +1,30 @@
 {
   "version": 6,
-  "lastModified": "2026-02-26T04:49:36.046Z",
+  "lastModified": "2026-02-27T18:09:10.774Z",
   "categories": [
     {
       "id": "food",
-      "label": "Food Assistance",
+      "label": "Food",
       "icon": "utensils",
       "active": true,
-      "lastModified": "",
-      "displayOrder": 30
+      "lastModified": "2026-02-27T16:43:59.799Z",
+      "displayOrder": 20
     },
     {
       "id": "health",
       "label": "Health Care",
       "icon": "med",
       "active": true,
-      "lastModified": "2026-02-17T21:39:51.252Z",
-      "displayOrder": 40
+      "lastModified": "2026-02-27T16:37:04.671Z",
+      "displayOrder": 50
     },
     {
       "id": "housing",
       "label": "Housing",
       "icon": "home",
       "active": true,
-      "lastModified": "",
-      "displayOrder": 50
+      "lastModified": "2026-02-27T16:43:24.551Z",
+      "displayOrder": 10
     },
     {
       "id": "id",
@@ -44,10 +44,10 @@
     },
     {
       "id": "substance",
-      "label": "Substance Abuse",
+      "label": "Addiction",
       "icon": "pill",
       "active": true,
-      "lastModified": "2026-02-17T21:40:07.314Z",
+      "lastModified": "2026-02-27T16:35:04.078Z",
       "displayOrder": 80
     },
     {
@@ -65,38 +65,95 @@
       "active": true,
       "lastModified": "2026-02-19T18:09:30.392Z",
       "displayOrder": 100
+    },
+    {
+      "id": "temp_work",
+      "label": "Temp Work",
+      "icon": "",
+      "active": true,
+      "lastModified": "2026-02-27T16:44:48.560Z",
+      "displayOrder": 30
+    },
+    {
+      "id": "employment",
+      "label": "Employment",
+      "icon": "",
+      "active": true,
+      "lastModified": "2026-02-27T16:45:21.192Z",
+      "displayOrder": 40
     }
   ],
   "resources": [
     {
+      "id": "988-suicide-crisis-lifeline-utah",
+      "name": "988 Suicide & Crisis Lifeline (Utah)",
+      "categories": [
+        "mental"
+      ],
+      "website": "https://988.utah.gov/",
+      "phone": "988",
+      "address": "Call or text 988",
+      "description": "24/7 free, confidential emotional and mental health support.",
+      "services": [],
+      "favorite": false,
+      "lastModified": "2026-02-13T18:21:23Z",
+      "verifiedDate": "",
+      "verifiedBy": "",
+      "evaluation": {
+        "servesJusticeInvolved": null,
+        "requiresID": null,
+        "appointmentRequired": null,
+        "typicalWait": "",
+        "transportationBarrier": "",
+        "dignityRating": null,
+        "reliabilityRating": null,
+        "notes": "",
+        "lastEvaluatedDate": "",
+        "evaluatedBy": ""
+      },
+      "displayOrder": null
+    },
+    {
       "id": "casfb",
       "name": "Community Action Services And Food Bank - Provo",
       "categories": [
-        "food",
         "housing",
-        "id"
+        "food"
       ],
       "phone": "801-373-8200",
       "address": "815 S Freedom Blvd, Provo, UT",
-      "website": "https://www.communityactionprovo.org",
+      "website": "",
       "hours": "",
       "description": "A non-profit organization that provides emergency assistance and long-term support to help families in poverty become self-reliant through programs and counseling.",
+      "services": [
+        "Emergency assistance",
+        "Food pantry",
+        "Rent & rent deposit payment assistance (as available)",
+        "Utility service payment assistance (as available)",
+        "Personal finance counseling",
+        "Driver license fee payment (as available)",
+        "Clothing vouchers (as available)",
+        "Bus fare (as available)"
+      ],
       "verifiedDate": "",
-      "lastModified": "2026-02-26T01:38:47.810Z",
+      "lastModified": "2026-02-13T07:05:50Z",
       "verifiedBy": "",
-      "displayOrder": null,
-      "servicesText": "Help getting an ID; verify homelessness (waives ID fee and residency requiremnts), \nthen apply in person at Drivers License Division office)\n\n* Food pantry\n* Rent & rent deposit payment assistance (as available)\n*Utility service payment assistance (as available)\n* Personal finance counseling\n* Driver license fee payment (as available)\n* Clothing vouchers (as available)\n* Bus fare (as available)"
+      "displayOrder": null
     },
     {
       "id": "deseret-industries-provo",
       "name": "Deseret Industries (Provo)",
-      "categories": [],
+      "categories": [
+        "clothing",
+        "employment"
+      ],
       "website": "https://www.deseretindustries.org/locations/provo-ut",
       "phone": "801-373-7920",
       "address": "1415 N State St, Provo, UT 84604",
       "description": "Thrift store and job training opportunities.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-23T20:22:14.647Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -111,19 +168,21 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "Nonprofit thrift store\nTraining and job readiness\nFurther education\nRemove employment barriers\nExplore career options\nSupport during job search"
+      "displayOrder": null
     },
     {
       "id": "dws-vocational-rehabilitation-provo-office",
       "name": "DWS Vocational Rehabilitation - Provo Office",
-      "categories": [],
+      "categories": [
+        "employment"
+      ],
       "website": "https://jobs.utah.gov/",
       "phone": "801-806-0955",
       "address": "150 E Center St Suite 3300, Provo, UT 84606",
       "description": "Vocational rehabilitation services (disability employment support).",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-23T20:29:27.437Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -138,21 +197,21 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "Employment--help with resume, workshops, paying for education or training, apprenticeships\nVeteran and Military employment services--education, training, career path, transition\nRefugee resettlement, employment, resources\nDisabled services, blind, deaf, eligility, vocational rehabilititation"
+      "displayOrder": null
     },
     {
       "id": "easterseals-goodwill-senior-employment-program-scsep",
       "name": "Easterseals-Goodwill Senior Employment Program (SCSEP)",
       "categories": [
-        "mental"
+        "employment"
       ],
       "website": "http://www.esgw.org/scsep/",
       "phone": "1-800-771-2153",
       "address": "Utah (serves multiple counties; see website)",
       "description": "Paid on-the-job training for qualifying older adults.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-23T20:33:58.569Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -167,8 +226,7 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "Early intervention for disabled children under three\nOn-the-job employment services for low-income adults over 55."
+      "displayOrder": null
     },
     {
       "id": "family-promise-salt-lake",
@@ -180,8 +238,9 @@
       "phone": "801-961-8622",
       "address": "814 W 800 S, Salt Lake City, UT 84104",
       "description": "Emergency shelter and support for families with children experiencing homelessness.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-23T20:36:00.409Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -196,17 +255,16 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "Provide safe family emergency shelter and basic needs for families with children."
+      "displayOrder": null
     },
     {
       "id": "facc",
       "name": "Food and Care Coalition",
       "categories": [
+        "clothing",
         "food",
         "health",
         "housing",
-        "id",
         "mental",
         "Seniors"
       ],
@@ -215,11 +273,21 @@
       "website": "https://foodandcare.org",
       "hours": "M–Sa 8:30am – 5:30pm",
       "description": "Provides services for individuals who are homeless, including prepared hot meals, bathing facilities, haircuts, laundry, dental, case management, emergency shelter, and transitional housing. Also has onsite partners providing mental health and medical services.",
+      "services": [
+        "Prepared hot meals",
+        "Public showers/baths",
+        "Laundry facilities",
+        "Haircuts / grooming supplies",
+        "Dental services (as available)",
+        "Case management",
+        "Emergency shelter",
+        "Transitional housing",
+        "Temporary mailing address (as available)"
+      ],
       "verifiedDate": "",
-      "lastModified": "2026-02-26T01:44:12.076Z",
+      "lastModified": "2026-02-19T20:14:08.007Z",
       "verifiedBy": "",
-      "displayOrder": null,
-      "servicesText": "Help getting an ID; verify homelessness (waives ID fee and residency requiremnts), \nthen apply in person at Drivers License Division office)\n\n* prepared hot meals\n* public showers/baths\n* laundry facilities\n* haircuts / grooming supplies\n* dental services (as available)\n* case management\n* emergency shelter\n* transitional housing\n* temporary mailing address (as available)"
+      "displayOrder": null
     },
     {
       "id": "housing-authority-of-utah-county",
@@ -230,9 +298,10 @@
       "website": "https://housinguc.org/",
       "phone": "801-373-8333",
       "address": "485 N Freedom Blvd, Provo, UT 84601",
-      "description": "Affordable housing programs",
+      "description": "Affordable housing programs including Section 8 and related services.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-23T20:42:19.294Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -247,8 +316,7 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "Portal for waiting lists for housing for 55+, 62+, family housing, Spring Lake Apartments and Willow Cove."
+      "displayOrder": null
     },
     {
       "id": "mountainlands-community-health-center-provo-family-health-ce",
@@ -260,8 +328,9 @@
       "phone": "801-429-2000",
       "address": "589 S State St, Provo, UT 84606",
       "description": "Sliding-fee primary care clinic and related services.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-23T20:44:58.073Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -276,8 +345,7 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "Provide low-income, uninsured and under-insured persons with high-quality health care.\nMedical\nMental Health\nDental\nPharmacy"
+      "displayOrder": null
     },
     {
       "id": "odyssey-house-of-utah",
@@ -290,8 +358,9 @@
       "phone": "",
       "address": "Salt Lake City, UT (multiple programs)",
       "description": "Substance use disorder and mental health treatment programs.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-23T20:51:34.667Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -306,8 +375,7 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "Largest and most comprehensive addiction program in Utah. Free for low-income Salt Lake residents."
+      "displayOrder": null
     },
     {
       "id": "provo-city-housing-authority",
@@ -319,8 +387,9 @@
       "phone": "801-900-5676",
       "address": "688 W 100 N, Provo, UT 84601",
       "description": "Public housing and housing assistance for Provo residents.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-26T01:45:06.918Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -335,21 +404,21 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "Help with Dept. of Housing and Urban Development programs: \nPublic Housing and Housing Choice Voucher program for the city of Provo\n\n* Supportive Housing\n* LIHTC (Low-Income Housing Tax Credit) housing\n* Senior housing (six Provo locations)\n* Family Self Sufficiency program"
+      "displayOrder": null
     },
     {
       "id": "proxima-careers",
       "name": "Proxima Careers",
       "categories": [
-        "health"
+        "employment"
       ],
       "website": "https://proximacareers.org/",
       "phone": "",
       "address": "Utah (program-based; see website)",
       "description": "Supports pathways into healthcare certification/degree programs and job readiness.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-23T21:07:08.523Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -364,22 +433,51 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "Career assessment\nCertification/degree from a school of your choice. They cover the majority or full costs."
+      "displayOrder": null
     },
     {
-      "id": "Catholic Community Services",
+      "id": "social-security-administration-provo-office",
+      "name": "Social Security Administration - Provo Office",
+      "categories": [
+        "id"
+      ],
+      "website": "https://www.ssa.gov/locator/",
+      "phone": "866-366-9549",
+      "address": "88 W 100 N, Provo, UT 84601",
+      "description": "Social Security card services and related SSA support (hours vary).",
+      "services": [],
+      "favorite": false,
+      "lastModified": "2026-02-13T18:21:23Z",
+      "verifiedDate": "",
+      "verifiedBy": "",
+      "evaluation": {
+        "servesJusticeInvolved": null,
+        "requiresID": null,
+        "appointmentRequired": null,
+        "typicalWait": "",
+        "transportationBarrier": "",
+        "dignityRating": null,
+        "reliabilityRating": null,
+        "notes": "",
+        "lastEvaluatedDate": "",
+        "evaluatedBy": ""
+      },
+      "displayOrder": null
+    },
+    {
+      "id": "st-vincent-de-paul-dining-hall-bishop-weigand-resource-cente",
       "name": "St. Vincent de Paul Dining Hall & Bishop Weigand Resource Center (CCS Utah)",
       "categories": [
-        "food",
-        "housing"
+        "clothing",
+        "food"
       ],
       "website": "https://www.ccsutah.org/programs/st-vincent-de-paul-dining-hall",
       "phone": "801-363-7710",
       "address": "437 W 200 S, Salt Lake City, UT 84101",
       "description": "Meals and basic needs services (Salt Lake City).",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-26T01:45:34.504Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -394,25 +492,61 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "* Bishop Weigand Resource Center (shelter)\n* St. Vincent de Paul Dining Hall\n* St. Vincent's Kitchen Academy (fourteen week culinary arts training)\n* Refugee services: foster care for unaccompanied minors, resettlement"
+      "displayOrder": null
     },
     {
       "id": "tabitha",
-      "name": "Tabitha's Way",
+      "name": "Tabitha's Way - Pleasant Grove",
       "categories": [
-        "food"
+        "food",
+        "clothing"
       ],
-      "phone": "Pleasant Grove: 801-692-1881, Spanish Fork: 801-709-8573, Saratoga Springs: 801-692-1881, ext 301",
-      "address": "675 W Garden Dr #100, Pleasant Grove; 50 E 100. North, Spanish Fork, 1439 N Commerce Dr, Saratoga Springs",
-      "website": "tabithasway.org",
+      "phone": "801-692-1881",
+      "address": "675 W Garden Dr #100, Pleasant Grove, UT",
+      "website": "",
       "hours": "",
       "description": "A non-profit organization that provides a food pantry and hygiene items to those in need in the community.",
+      "services": [
+        "Food pantry",
+        "Hygiene items",
+        "Diapers (as available)",
+        "Baby food (as available)",
+        "Thanksgiving baskets (seasonal)"
+      ],
       "verifiedDate": "",
-      "lastModified": "2026-02-26T01:45:58.468Z",
+      "lastModified": "2026-02-13T07:05:50Z",
       "verifiedBy": "",
-      "displayOrder": null,
-      "servicesText": "Requirements: picture ID, proof of address (for example a piece of mail)\n\n* Food pantry--two week supply of food twice a month\n* Hygiene items\n* Diapers (as available)\n* Baby food (as available)\n* Thanksgiving baskets (seasonal)"
+      "displayOrder": null
+    },
+    {
+      "id": "tabitha-s-way-local-food-pantry-pleasant-grove",
+      "name": "Tabitha's Way Local Food Pantry (Pleasant Grove)",
+      "categories": [
+        "clothing",
+        "food"
+      ],
+      "website": "https://tabithasway.org/",
+      "phone": "801-692-1881",
+      "address": "675 W Garden Dr #100, Pleasant Grove, UT 84062",
+      "description": "Local food pantry serving North Utah County.",
+      "services": [],
+      "favorite": false,
+      "lastModified": "2026-02-13T18:21:23Z",
+      "verifiedDate": "",
+      "verifiedBy": "",
+      "evaluation": {
+        "servesJusticeInvolved": null,
+        "requiresID": null,
+        "appointmentRequired": null,
+        "typicalWait": "",
+        "transportationBarrier": "",
+        "dignityRating": null,
+        "reliabilityRating": null,
+        "notes": "",
+        "lastEvaluatedDate": "",
+        "evaluatedBy": ""
+      },
+      "displayOrder": null
     },
     {
       "id": "the-road-home",
@@ -424,8 +558,9 @@
       "phone": "801-456-5900",
       "address": "242 Paramount Ave, Salt Lake City, UT 84115 (Gail Miller Resource Center)",
       "description": "Shelter and housing services (Salt Lake County); statewide referral relevance.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-23T21:29:01.318Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -440,27 +575,23 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "Homeless services line: 801-990-9999\nFINCH housing--family emergency shelter with private furnished rooms for families with children\nPamela Atkinson Resource Center (shelter)\nGail Miller Resource Center (shelter)\nConnie Crosby Family Resource Center"
+      "displayOrder": null
     },
     {
-      "id": "united-way-of-utah-county",
-      "name": "United Way of Utah County",
+      "id": "the-salvation-army-provo-service-center",
+      "name": "The Salvation Army Provo Service Center",
       "categories": [
+        "clothing",
         "food",
-        "health",
-        "housing",
-        "mental",
-        "substance",
-        "transportation",
-        "Seniors"
+        "housing"
       ],
-      "website": "app.utah211.org (choose Southern Utah)",
-      "phone": "801-471-0601",
-      "address": "Utah County",
-      "description": "A wide range of listings of resources",
+      "website": "https://provo.salvationarmy.org/provo_service_center/",
+      "phone": "1-800-SAL-ARMY",
+      "address": "3549 N University Ave Suite 100, Provo, UT 84604",
+      "description": "Local service center connecting individuals to basic needs supports.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-23T22:08:33.471Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -475,8 +606,36 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "directory of a wide range of resources in Utah County."
+      "displayOrder": null
+    },
+    {
+      "id": "united-way-of-utah-county-paratransit",
+      "name": "United Way of Utah County - Paratransit",
+      "categories": [
+        "transportation"
+      ],
+      "website": "https://unitedwayuc.org/paratransit/",
+      "phone": "801-471-0601",
+      "address": "Utah County",
+      "description": "Volunteer-driver paratransit service coordinated by United Way of Utah County.",
+      "services": [],
+      "favorite": false,
+      "lastModified": "2026-02-13T18:21:23Z",
+      "verifiedDate": "",
+      "verifiedBy": "",
+      "evaluation": {
+        "servesJusticeInvolved": null,
+        "requiresID": null,
+        "appointmentRequired": null,
+        "typicalWait": "",
+        "transportationBarrier": "",
+        "dignityRating": null,
+        "reliabilityRating": null,
+        "notes": "",
+        "lastEvaluatedDate": "",
+        "evaluatedBy": ""
+      },
+      "displayOrder": null
     },
     {
       "id": "uta-paratransit",
@@ -488,8 +647,9 @@
       "phone": "801-287-7433",
       "address": "Utah (paratransit)",
       "description": "Paratransit scheduling and information line.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-23T21:56:22.246Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -504,8 +664,7 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "Transportation for people with physical, cognitive or visual disabilities who are functionally unable to independently use the UTA fixed route bus service."
+      "displayOrder": null
     },
     {
       "id": "uta-reduced-fare-farepay-card",
@@ -517,8 +676,9 @@
       "phone": "801-743-3882",
       "address": "Apply online or at UTA customer service locations",
       "description": "Reduced fare program for qualifying riders (seniors, youth, disability, income-qualified).",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-23T21:52:03.044Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -533,22 +693,22 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "$1.00 one-way fares for qualifying seniors, youth, disabled, low-income"
+      "displayOrder": null
     },
     {
       "id": "utah-community-action",
       "name": "Utah Community Action",
       "categories": [
-        "food",
+        "employment",
         "housing"
       ],
       "website": "https://utahca.org/",
       "phone": "801-359-2444",
       "address": "Utah (multiple locations)",
       "description": "Programs including homelessness prevention and workforce supports.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-26T02:43:57.777Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -563,8 +723,36 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "emergency rental assistance\neviction mediation \ncriminal record expungement\nutility assistance\nhome weatherization\nnutrition education\nHead Start preschool\nWorkforce Development (Offering classes, certifications, and services at no cost, \nthe Workforce Development program assists in obtaining employment, increasing \nwage-earning potential, and improving resume and interviewing skills.)"
+      "displayOrder": null
+    },
+    {
+      "id": "utah-county-health-department-birth-death-certificates-provo",
+      "name": "Utah County Health Department - Birth & Death Certificates (Provo)",
+      "categories": [
+        "id"
+      ],
+      "website": "https://health.utahcounty.gov/birth-death-certificates/",
+      "phone": "801-851-7005",
+      "address": "151 S University Ave Suite 1100, Provo, UT 84601",
+      "description": "Order birth and death certificates through Utah County Health Department.",
+      "services": [],
+      "favorite": false,
+      "lastModified": "2026-02-13T18:21:23Z",
+      "verifiedDate": "",
+      "verifiedBy": "",
+      "evaluation": {
+        "servesJusticeInvolved": null,
+        "requiresID": null,
+        "appointmentRequired": null,
+        "typicalWait": "",
+        "transportationBarrier": "",
+        "dignityRating": null,
+        "reliabilityRating": null,
+        "notes": "",
+        "lastEvaluatedDate": "",
+        "evaluatedBy": ""
+      },
+      "displayOrder": null
     },
     {
       "id": "utah-crisis-line-huntsman-mental-health-institute",
@@ -576,6 +764,7 @@
       "phone": "801-587-3000",
       "address": "Utah (24/7 crisis line)",
       "description": "24/7 crisis support and diversion resources.",
+      "services": [],
       "favorite": false,
       "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
@@ -592,19 +781,21 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": ""
+      "displayOrder": null
     },
     {
       "id": "utah-department-of-workforce-services-provo-employment-cente",
       "name": "Utah Department of Workforce Services - Provo Employment Center",
-      "categories": [],
+      "categories": [
+        "employment"
+      ],
       "website": "https://jobs.utah.gov/",
       "phone": "801-342-2600",
       "address": "1550 N 200 W, Provo, UT 84604",
       "description": "Job search help, employment counseling, and related workforce services.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-23T22:13:10.625Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -619,8 +810,7 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "Employment--help with resume, workshops, paying for education or training, apprenticeships\nVeteran and Military employment services--education, training, career path, transition\nRefugee resettlement, employment, resources\nDisabled services, blind, deaf, eligility, vocational rehabilititation"
+      "displayOrder": null
     },
     {
       "id": "utah-dhhs-opidemic-free-naloxone",
@@ -632,6 +822,7 @@
       "phone": "",
       "address": "Utah (statewide)",
       "description": "State resource page for free naloxone locations and information.",
+      "services": [],
       "favorite": false,
       "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
@@ -648,8 +839,65 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": ""
+      "displayOrder": null
+    },
+    {
+      "id": "utah-driver-license-division-orem",
+      "name": "Utah Driver License Division (Orem)",
+      "categories": [
+        "id"
+      ],
+      "website": "https://dld.utah.gov/office-locations/",
+      "phone": "801-965-4437",
+      "address": "759 N 1370 W, Orem, UT 84057",
+      "description": "Driver license and state ID services (appointments and documents required).",
+      "services": [],
+      "favorite": false,
+      "lastModified": "2026-02-13T18:21:23Z",
+      "verifiedDate": "",
+      "verifiedBy": "",
+      "evaluation": {
+        "servesJusticeInvolved": null,
+        "requiresID": null,
+        "appointmentRequired": null,
+        "typicalWait": "",
+        "transportationBarrier": "",
+        "dignityRating": null,
+        "reliabilityRating": null,
+        "notes": "",
+        "lastEvaluatedDate": "",
+        "evaluatedBy": ""
+      },
+      "displayOrder": null
+    },
+    {
+      "id": "utah-food-bank",
+      "name": "Utah Food Bank",
+      "categories": [
+        "food"
+      ],
+      "website": "https://www.utahfoodbank.org/",
+      "phone": "801-978-2452",
+      "address": "3150 S 900 W, South Salt Lake, UT 84119",
+      "description": "Statewide food bank with partner pantries and mobile pantry resources.",
+      "services": [],
+      "favorite": false,
+      "lastModified": "2026-02-13T18:21:23Z",
+      "verifiedDate": "",
+      "verifiedBy": "",
+      "evaluation": {
+        "servesJusticeInvolved": null,
+        "requiresID": null,
+        "appointmentRequired": null,
+        "typicalWait": "",
+        "transportationBarrier": "",
+        "dignityRating": null,
+        "reliabilityRating": null,
+        "notes": "",
+        "lastEvaluatedDate": "",
+        "evaluatedBy": ""
+      },
+      "displayOrder": null
     },
     {
       "id": "utah-naloxone",
@@ -661,6 +909,7 @@
       "phone": "",
       "address": "Utah (statewide naloxone education/access)",
       "description": "Naloxone awareness, training, and access resources.",
+      "services": [],
       "favorite": false,
       "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
@@ -677,8 +926,36 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": ""
+      "displayOrder": null
+    },
+    {
+      "id": "utah-office-of-vital-records-and-statistics",
+      "name": "Utah Office of Vital Records and Statistics",
+      "categories": [
+        "id"
+      ],
+      "website": "https://vitalrecords.utah.gov/",
+      "phone": "801-538-6105",
+      "address": "Salt Lake City, UT (state office; mail/online; local health depts for walk-in)",
+      "description": "State office for vital records (birth/death/marriage/divorce) ordering and info.",
+      "services": [],
+      "favorite": false,
+      "lastModified": "2026-02-13T18:21:23Z",
+      "verifiedDate": "",
+      "verifiedBy": "",
+      "evaluation": {
+        "servesJusticeInvolved": null,
+        "requiresID": null,
+        "appointmentRequired": null,
+        "typicalWait": "",
+        "transportationBarrier": "",
+        "dignityRating": null,
+        "reliabilityRating": null,
+        "notes": "",
+        "lastEvaluatedDate": "",
+        "evaluatedBy": ""
+      },
+      "displayOrder": null
     },
     {
       "id": "utah-transit-authority-uta-contact",
@@ -690,6 +967,7 @@
       "phone": "801-743-3882",
       "address": "Utah (fixed-route transit statewide)",
       "description": "Public transit information and customer service for UTA services.",
+      "services": [],
       "favorite": false,
       "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
@@ -706,23 +984,21 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": ""
+      "displayOrder": null
     },
     {
-      "id": "volunteers-of-america-utah",
-      "name": "Volunteers of America, Utah",
+      "id": "volunteers-of-america-utah-youth-resource-center",
+      "name": "Volunteers of America, Utah - Youth Resource Center",
       "categories": [
-        "health",
-        "housing",
-        "mental"
+        "housing"
       ],
-      "website": "https://www.voaut.org/",
-      "phone": "801-363-9414, youth resource center: 801-364-0744, ext 707",
-      "address": "1875 S Redwood Rd., Salt Lake CIty, youth resource center at 888 S 400 W, Salt Lake City",
-      "description": "Homeless resources\nDrop-in resource center and emergency shelter for youth ages 15–22.",
+      "website": "https://www.voaut.org/get-help/youth-homeless-services",
+      "phone": "",
+      "address": "888 S 400 W, Salt Lake City, UT 84101",
+      "description": "Drop-in resource center and emergency shelter for youth ages 15–22.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-26T02:45:55.685Z",
+      "lastModified": "2026-02-13T18:21:23Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -737,8 +1013,7 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "* homeless support: shelters, meals, basic needs, education, employment, \n  legal aid, housing, physical and mental health care\n* addiction detox\n* Youth Resource Center for ages 15-22 who are homeless or at risk of \n  homelessness; wide range of help: shelter, meals, showers, laundry, dental, medical"
+      "displayOrder": null
     },
     {
       "id": "wasatch-behavioral-health-utah-county",
@@ -753,8 +1028,9 @@
       "phone": "801-373-4760",
       "address": "750 N Freedom Blvd, Provo, UT 84601",
       "description": "Community mental health authority for Utah County.",
+      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-23T22:24:37.571Z",
+      "lastModified": "2026-02-19T20:15:20.498Z",
       "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
@@ -769,8 +1045,7 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null,
-      "servicesText": "Outpatient mental health\npsychological assessment\nmedical services\ncrisis residential support (stay for up to a week)\ncrisis residential service for children and youth 10-17 (runaways, runaway risks, serious parent-child conflicts.)"
+      "displayOrder": null
     },
     {
       "id": "boulders",
@@ -779,51 +1054,60 @@
         "housing",
         "Seniors"
       ],
-      "lastModified": "2026-02-26T01:46:43.230Z",
+      "services": [
+        "The Boulders Apartments offers one, two and three bedroom apartments at an affordable price, with picturesque views of the Utah mountains. Enjoy plenty of on-site outdoor amenities including the pool, basketball court and spacious picnic area. ",
+        "We are also located close to shopping, dining and entertainment near downtown Provo. "
+      ],
+      "lastModified": "2026-02-19T18:42:02.807Z",
       "phone": "(385) 230-6692",
       "website": "boulders-apts.com",
       "address": "750 S 650 W, Provo",
-      "description": "",
-      "servicesText": "The Boulders Apartments offers one, two and three bedroom apartments \nat an affordable price, with picturesque views of the Utah mountains. \nEnjoy plenty of on-site outdoor amenities including the pool, basketball court \nand spacious picnic area. We are also located close to shopping, dining and \nentertainment near downtown Provo. "
+      "description": ""
     },
     {
       "id": "BioLife",
       "name": "BioLife Plasma",
-      "categories": [],
-      "lastModified": "2026-02-23T22:17:31.912Z",
+      "categories": [
+        "employment"
+      ],
+      "services": [],
+      "lastModified": "2026-02-19T20:49:27.811Z",
       "phone": "385-881-0353",
       "website": "biolifeplasma.com/locations/utah/orem",
       "address": "168 E University Parkway, Orem",
-      "description": "Requires permanent local address, $80? for the first donation",
-      "servicesText": "Plasma donation center"
+      "description": "Requires permanent local address, $80? for the first donation"
     },
     {
       "id": "people_ready",
       "name": "People Ready",
-      "categories": [],
-      "lastModified": "2026-02-23T22:19:58.793Z",
+      "categories": [
+        "employment"
+      ],
+      "services": [],
+      "lastModified": "2026-02-19T21:21:24.709Z",
       "phone": "801.561.0881",
       "website": "https://www.peopleready.com/location/provo-ut-1201/",
       "address": "175 S. Freedom Blvd. Provo ",
-      "description": "PeopleReady supports a wide range of industries, including construction, manufacturing and logistics, retail and hospitality. Pays daily.",
-      "servicesText": "Gig work through JobStack app."
+      "description": "PeopleReady supports a wide range of industries, including construction, manufacturing and logistics, retail and hospitality. Pays daily."
     },
     {
       "id": "grifols_plasma",
-      "name": "Talecris Plasma",
+      "name": "Grifols Plasma",
       "phone": "801-377-1243",
       "website": "grifols.com",
       "address": "651 Columbia Lane, Provo",
       "hours": "",
       "description": "Requires proof of current address (or border crossing card)",
-      "categories": [],
+      "categories": [
+        "employment"
+      ],
+      "services": [],
       "verifiedDate": "",
       "verifiedBy": "",
       "displayOrder": null,
       "evaluation": {},
       "favorite": false,
-      "lastModified": "2026-02-23T22:16:45.356Z",
-      "servicesText": "Plasma donation center"
+      "lastModified": "2026-02-19T21:27:41.888Z"
     },
     {
       "id": "baconwork",
@@ -832,15 +1116,17 @@
       "website": "baconwork.com",
       "address": "",
       "hours": "",
-      "description": "Temporary work--warehouse, events, catering, general labor",
-      "categories": [],
+      "description": "It’s an iPhone or Android app (search for bacon work) — Warehouse, events, catering, general labor",
+      "categories": [
+        "employment"
+      ],
+      "services": [],
       "verifiedDate": "",
       "verifiedBy": "",
       "displayOrder": null,
       "evaluation": {},
       "favorite": false,
-      "lastModified": "2026-02-23T22:15:11.632Z",
-      "servicesText": "an iPhone or Android app (search for bacon work) — Warehouse, events, catering, general labor"
+      "lastModified": "2026-02-19T21:36:53.368Z"
     },
     {
       "id": "bingham_clinic",
@@ -853,32 +1139,20 @@
       "categories": [
         "health"
       ],
-      "verifiedDate": "",
-      "verifiedBy": "",
-      "displayOrder": null,
-      "evaluation": {},
-      "favorite": false,
-      "lastModified": "2026-02-22T08:44:38.037Z",
-      "servicesText": "Acute Care\nPrimary Care\nSpecialty Care\nEducational Classes"
-    },
-    {
-      "id": "driver_license-division",
-      "name": "Driver License Division (ID for homeless persons)",
-      "phone": "801-965-4437 for all offices",
-      "website": "https://dld.utah.gov/homeless-fee-waiver/",
-      "address": "1503 S 40 E, suite 250, Provo or 759 N 1370 W, Orem or 2277 W 700 S, suite 1, Springville",
-      "hours": "",
-      "description": "Driver License Offices for homeless ID",
-      "categories": [
-        "id"
+      "services": [
+        "Acute Care",
+        "Primary Care",
+        "Specialty Care",
+        "Educational Classes"
       ],
       "verifiedDate": "",
       "verifiedBy": "",
       "displayOrder": null,
       "evaluation": {},
       "favorite": false,
-      "lastModified": "2026-02-26T01:43:03.128Z",
-      "servicesText": "homeless ID--go to Community Action Services or Food & Care Coalition \nto get a verification of homelessness (waives fee), then take the verification\nand apply in person."
+      "lastModified": "2026-02-22T08:44:38.037Z"
     }
   ]
 }
+
+
