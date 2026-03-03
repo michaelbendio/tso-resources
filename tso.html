@@ -1290,6 +1290,8 @@ let adminShowReviewDates = false;
 let adminCheckedTags = [];
 let adminManageTagsOpen = false;
 let adminManageTagsSnapshot = "";
+let adminCategoryOrderEditorOpen = false;
+let adminCategoryOrderDraft = null; // array by category index, values are "" or numeric strings
 let editing = null;
 let editorSnapshot = "";
 let categoryTagFilters = {}; // categoryId -> [tag, ...]
@@ -1964,14 +1966,12 @@ function switchAdminTab(nextTab){
 function categoryEditorDraft(){
   const idEl = document.getElementById("cat_id");
   const labelEl = document.getElementById("cat_label");
-  const iconEl = document.getElementById("cat_icon");
   const orderEl = document.getElementById("cat_order");
   const activeEl = document.getElementById("cat_active");
-  if(!idEl || !labelEl || !iconEl || !orderEl || !activeEl) return null;
+  if(!idEl || !labelEl || !orderEl || !activeEl) return null;
   return {
     id: idEl.value.trim(),
     label: labelEl.value.trim(),
-    icon: iconEl.value.trim(),
     displayOrder: orderEl.value,
     active: !!activeEl.checked
   };
@@ -2030,10 +2030,45 @@ function applyCategoryDraft(idx, draft){
   if(!cat) return;
   cat.id = draft.id || cat.id;
   cat.label = draft.label || cat.label;
-  cat.icon = draft.icon;
   cat.displayOrder = draft.displayOrder === "" ? null : Number(draft.displayOrder);
   cat.active = draft.active;
   cat.lastModified = nowISO();
+}
+
+function openCategoryOrderEditor(){
+  commitPendingEditsIfChanged();
+  adminCategoryOrderEditorOpen = true;
+  adminCategoryOrderDraft = data.categories.map(cat => cat.displayOrder == null ? "" : String(cat.displayOrder));
+  renderAdmin();
+}
+
+function closeCategoryOrderEditor(shouldRender = true){
+  adminCategoryOrderEditorOpen = false;
+  adminCategoryOrderDraft = null;
+  if(shouldRender) renderAdmin();
+}
+
+function applyCategoryOrderEditor(){
+  const draft = Array.isArray(adminCategoryOrderDraft) ? adminCategoryOrderDraft.slice() : [];
+  // Close first to avoid visible panel flicker during render/update.
+  adminCategoryOrderEditorOpen = false;
+  adminCategoryOrderDraft = null;
+
+  let changed = false;
+  data.categories.forEach((cat, idx) => {
+    const raw = String(draft[idx] ?? "").trim();
+    const nextDisplayOrder = raw === "" ? null : Number(raw);
+    if(raw !== "" && Number.isNaN(nextDisplayOrder)) return;
+    const prevDisplayOrder = cat.displayOrder == null ? null : Number(cat.displayOrder);
+    if(nextDisplayOrder !== prevDisplayOrder){
+      cat.displayOrder = nextDisplayOrder;
+      cat.lastModified = nowISO();
+      changed = true;
+    }
+  });
+
+  if(changed) persist();
+  renderAdmin();
 }
 
 function applyResourceDraft(idx, draft){
@@ -2092,6 +2127,17 @@ function renderAdminCategories(container){
         <div style="margin-top:8px;">
           <button class="button" onclick="newCategory()">New</button>
           <button class="button danger" onclick="deleteCategory()">Delete</button>
+          <button class="button" onclick="openCategoryOrderEditor()">Edit display order...</button>
+        </div>
+        <div id="categoryOrderOverlay" style="${adminCategoryOrderEditorOpen ? "position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:40; display:flex; align-items:center; justify-content:center;" : "display:none;"}">
+          <div id="categoryOrderPanel" style="background:#fff; border-radius:8px; border:1px solid #ccc; width:min(640px,90vw); max-height:80vh; overflow:auto; padding:12px;">
+            <h4 style="margin:0 0 10px 0;">Edit display order</h4>
+            <div id="categoryOrderRows"></div>
+            <div style="margin-top:12px; display:flex; gap:8px;">
+              <button class="button primary" type="button" id="categoryOrderOkBtn">OK</button>
+              <button class="button" type="button" id="categoryOrderCancelBtn">Cancel</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="admin-box" id="catEditor"></div>
@@ -2123,6 +2169,62 @@ function renderAdminCategories(container){
     editing = null;
     editorSnapshot = "";
   }
+
+  if(adminCategoryOrderEditorOpen){
+    const panel = document.getElementById("categoryOrderPanel");
+    const overlay = document.getElementById("categoryOrderOverlay");
+    const rows = document.getElementById("categoryOrderRows");
+    const okBtn = document.getElementById("categoryOrderOkBtn");
+    const cancelBtn = document.getElementById("categoryOrderCancelBtn");
+    const draft = Array.isArray(adminCategoryOrderDraft)
+      ? adminCategoryOrderDraft
+      : data.categories.map(cat => cat.displayOrder == null ? "" : String(cat.displayOrder));
+    adminCategoryOrderDraft = draft;
+
+    if(rows){
+      rows.innerHTML = "";
+      data.categories.forEach((cat, idx) => {
+        const row = document.createElement("div");
+        row.style.display = "flex";
+        row.style.alignItems = "center";
+        row.style.gap = "10px";
+        row.style.marginBottom = "8px";
+
+        const label = document.createElement("div");
+        label.style.flex = "1";
+        label.textContent = cat.label || "(no label)";
+
+        const input = document.createElement("input");
+        input.type = "number";
+        input.value = draft[idx] ?? "";
+        input.style.width = "130px";
+        input.oninput = () => { draft[idx] = input.value; };
+
+        row.appendChild(label);
+        row.appendChild(input);
+        rows.appendChild(row);
+      });
+    }
+
+    if(okBtn){
+      okBtn.onclick = (e) => {
+        e.stopPropagation();
+        applyCategoryOrderEditor();
+      };
+    }
+    if(cancelBtn){
+      cancelBtn.onclick = (e) => {
+        e.stopPropagation();
+        closeCategoryOrderEditor(true);
+      };
+    }
+    if(panel) panel.addEventListener("click", (e) => e.stopPropagation());
+    if(overlay){
+      overlay.addEventListener("click", () => {
+        closeCategoryOrderEditor(true);
+      });
+    }
+  }
 }
 
 function newCategory(){
@@ -2130,9 +2232,8 @@ function newCategory(){
   const newIndex = data.categories.length;
 
   data.categories.push({
-    id: "new-category",
-    label: "New Category",
-    icon: "",
+    id: "",
+    label: "",
     active: true,
     lastModified: nowISO(),
     displayOrder: null
@@ -2146,6 +2247,8 @@ function newCategory(){
   if(sel){
     sel.value = String(newIndex);
     editCategory(newIndex);
+    const idInput = document.getElementById("cat_id");
+    if(idInput) idInput.focus();
   }
 }
 
@@ -2191,10 +2294,6 @@ function editCategory(idx){
 
     <label>Label<br>
       <input id="cat_label" value="${escapeHTML(cat.label || "")}">
-    </label><br><br>
-
-    <label>Icon<br>
-      <input id="cat_icon" value="${escapeHTML(cat.icon || "")}">
     </label><br><br>
 
     <label>Display order (optional)<br>
