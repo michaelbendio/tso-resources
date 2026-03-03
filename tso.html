@@ -1288,6 +1288,8 @@ let currentCategory = null;
 let adminTab = "categories";
 let adminShowReviewDates = false;
 let adminCheckedTags = [];
+let adminManageTagsOpen = false;
+let adminManageTagsSnapshot = "";
 let editing = null;
 let editorSnapshot = "";
 let categoryTagFilters = {}; // categoryId -> [tag, ...]
@@ -1413,6 +1415,69 @@ function pruneDeletedTagsFromFilters(deletedTags){
       delete categoryTagFilters[categoryId];
     }
   });
+}
+
+
+function renderAdminTagDeleteList(){
+
+  if(adminManageTagsOpen){
+    renderAdminTagDeleteList();
+
+    const addBtn = document.getElementById("adminAddTagBtn");
+    const input = document.getElementById("adminNewTagInput");
+    if(addBtn && input){
+      const doAdd = () => {
+        const value = input.value;
+        const result = addGlobalTag(value);
+        if(result && result.added){
+          input.value = "";
+          input.focus();
+        }
+      };
+      addBtn.onclick = doAdd;
+      input.addEventListener("keydown", (e) => {
+        if(e.key === "Enter"){
+          e.preventDefault();
+          doAdd();
+        }
+      });
+    }
+
+    // Click-away closes the panel and counts as a unit-of-work persist.
+    const panel = document.getElementById("adminManageTagsPanel");
+    const outsideHandler = (e) => {
+      if(panel && !panel.contains(e.target)){
+        document.removeEventListener("click", outsideHandler, true);
+        closeManageTags();
+      }
+    };
+    setTimeout(() => document.addEventListener("click", outsideHandler, true), 0);
+
+    if(panel) panel.addEventListener("click", (e) => e.stopPropagation());
+  }else{
+    updateDeleteCheckedTagsButtonState();
+  }
+
+}
+
+function openManageTags(){
+  commitPendingEditsIfChanged();
+  adminManageTagsOpen = true;
+  adminManageTagsSnapshot = JSON.stringify(data.tags || []);
+  renderAdmin();
+}
+
+function closeManageTags(){
+  if(!adminManageTagsOpen) return;
+  commitPendingEditsIfChanged();
+  adminManageTagsOpen = false;
+  const nextSnapshot = JSON.stringify(data.tags || []);
+  // Unit of work: if tags changed while open, persist on close.
+  if(nextSnapshot !== adminManageTagsSnapshot){
+    persist();
+  }
+  adminManageTagsSnapshot = "";
+  renderAdmin();
 }
 
 function createChecklistPanel({buttonText, selectedTags, allTags, onToggle, onAddTag, selectedPrefix}){
@@ -1588,6 +1653,7 @@ function render(){
     controls.style.flexWrap = "wrap";
     controls.style.gap = "8px";
     controls.style.marginBottom = "8px";
+    controls.style.alignItems = "center";
 
     const back=document.createElement("button");
     back.className = "button";
@@ -1595,29 +1661,114 @@ function render(){
     back.onclick=()=>{ view="categories"; render(); };
     controls.appendChild(back);
 
-    const selectedTags = [...getCategoryFilterTags(currentCategory)];
+    const appliedSelectedTags = [...getCategoryFilterTags(currentCategory)];
+    let stagedSelectedTags = appliedSelectedTags.slice();
 
-    const filterControl = createChecklistPanel({
-      buttonText: "Filter",
-      selectedTags,
-      allTags: data.tags,
-      selectedPrefix: "Selected tags:",
-      onToggle: (tag, checked) => {
-        const next = getCategoryFilterTags(currentCategory).slice();
-        const i = next.indexOf(tag);
-        if(checked && i === -1) next.push(tag);
-        if(!checked && i !== -1) next.splice(i, 1);
-        setCategoryFilterTags(currentCategory, next);
-        render();
+    const filterWrap = document.createElement("div");
+    filterWrap.style.position = "relative";
+    filterWrap.style.display = "inline-block";
+
+    const filterBtn = document.createElement("button");
+    filterBtn.className = "button";
+    filterBtn.textContent = "Filter";
+    filterWrap.appendChild(filterBtn);
+
+    const filterPanel = document.createElement("div");
+    filterPanel.style.position = "absolute";
+    filterPanel.style.zIndex = "20";
+    filterPanel.style.top = "36px";
+    filterPanel.style.left = "0";
+    filterPanel.style.width = "280px";
+    filterPanel.style.maxHeight = "280px";
+    filterPanel.style.overflow = "auto";
+    filterPanel.style.padding = "10px";
+    filterPanel.style.border = "1px solid #ccc";
+    filterPanel.style.borderRadius = "6px";
+    filterPanel.style.background = "#fff";
+    filterPanel.style.boxShadow = "0 2px 8px rgba(0,0,0,.15)";
+    filterPanel.style.display = "none";
+    filterWrap.appendChild(filterPanel);
+
+    let outsideHandler = null;
+    function closeFilterPanel(){
+      filterPanel.style.display = "none";
+      if(outsideHandler){
+        document.removeEventListener("click", outsideHandler, true);
+        outsideHandler = null;
       }
-    });
-    controls.appendChild(filterControl);
+    }
 
-    const clearBtn = document.createElement("button");
-    clearBtn.className = "button";
-    clearBtn.textContent = "Clear";
-    clearBtn.onclick = () => clearAllCategoryFilters(true);
-    controls.appendChild(clearBtn);
+    function refreshFilterPanel(){
+      filterPanel.innerHTML = "";
+
+      if(!data.tags.length){
+        const empty = document.createElement("div");
+        empty.textContent = "No tags available.";
+        empty.style.fontSize = "13px";
+        empty.style.marginBottom = "8px";
+        filterPanel.appendChild(empty);
+      }
+
+      data.tags.forEach(tag => {
+        const row = document.createElement("label");
+        row.style.display = "block";
+        row.style.marginBottom = "6px";
+        const checked = stagedSelectedTags.includes(tag) ? "checked" : "";
+        row.innerHTML = `<input type="checkbox" data-tag="${escapeHTML(tag)}" ${checked}> ${escapeHTML(tag)}`;
+        const input = row.querySelector("input");
+        input.onchange = () => {
+          const i = stagedSelectedTags.indexOf(tag);
+          if(input.checked && i === -1) stagedSelectedTags.push(tag);
+          if(!input.checked && i !== -1) stagedSelectedTags.splice(i, 1);
+        };
+        filterPanel.appendChild(row);
+      });
+
+      const actions = document.createElement("div");
+      actions.style.marginTop = "10px";
+
+      const okBtn = document.createElement("button");
+      okBtn.className = "button primary";
+      okBtn.textContent = "OK";
+      okBtn.onclick = (e) => {
+        e.stopPropagation();
+        closeFilterPanel();
+        setCategoryFilterTags(currentCategory, stagedSelectedTags);
+        render();
+      };
+      actions.appendChild(okBtn);
+      filterPanel.appendChild(actions);
+    }
+
+    filterBtn.onclick = (e) => {
+      e.stopPropagation();
+      const isOpen = filterPanel.style.display === "block";
+      if(isOpen){
+        stagedSelectedTags = appliedSelectedTags.slice();
+        closeFilterPanel();
+        return;
+      }
+      stagedSelectedTags = appliedSelectedTags.slice();
+      refreshFilterPanel();
+      filterPanel.style.display = "block";
+      outsideHandler = (event) => {
+        if(!filterWrap.contains(event.target)){
+          stagedSelectedTags = appliedSelectedTags.slice();
+          closeFilterPanel();
+        }
+      };
+      setTimeout(() => document.addEventListener("click", outsideHandler, true), 0);
+    };
+
+    filterPanel.addEventListener("click", (e) => e.stopPropagation());
+    controls.appendChild(filterWrap);
+
+    if(appliedSelectedTags.length){
+      const summary = document.createElement("span");
+      summary.style.fontSize = "13px";
+      summary.textContent = `Selected tags: ${appliedSelectedTags.join(", ")}`;
+      controls.appendChild(summary);
+    }
 
     appView.appendChild(controls);
 
@@ -2079,33 +2230,59 @@ function renderAdminResources(container){
           <button class="button danger" onclick="deleteResource()">Delete</button>
         </div>
         <div style="margin-top:16px;">
-          <h4 style="margin:0 0 8px 0;">Manage Tags</h4>
-          <div id="adminTagDeleteList" style="max-height:220px; overflow:auto; border:1px solid #ddd; border-radius:6px; padding:8px; margin-bottom:8px;"></div>
-          <button id="deleteTagsBtn" class="button danger" onclick="deleteCheckedTags()">Delete checked tags</button>
-        </div>
+  <button class="button" onclick="adminManageTagsOpen ? closeManageTags() : openManageTags()">Manage tags</button>
+  <div id="adminManageTagsPanel" style="margin-top:8px; ${adminManageTagsOpen ? "" : "display:none;"}">
+    <div id="adminTagDeleteList" style="max-height:220px; overflow:auto; border:1px solid #ddd; border-radius:6px; padding:8px; margin-bottom:8px;"></div>
+    <div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
+      <input id="adminNewTagInput" type="text" placeholder="New tag" style="flex:1;">
+      <button class="button" type="button" id="adminAddTagBtn">Add</button>
+    </div>
+    <button id="deleteTagsBtn" class="button danger" onclick="deleteCheckedTags()">Delete checked tags</button>
+  </div>
+</div>
       </div>
       <div class="admin-box" id="resEditor"></div>
     </div>
   `;
 
-  const tagList = document.getElementById("adminTagDeleteList");
-  if(tagList){
-    if(!data.tags.length){
-      tagList.textContent = "No tags available.";
-    }else{
-      tagList.innerHTML = data.tags.map(tag => {
-        const checked = adminCheckedTags.includes(tag) ? "checked" : "";
-        return `<label style="display:block; margin-bottom:4px;">
-          <input type="checkbox" data-tag="${escapeHTML(tag)}" ${checked}>
-          ${escapeHTML(tag)}
-        </label>`;
-      }).join("");
-      tagList.querySelectorAll("input[type='checkbox']").forEach(input => {
-        input.onchange = () => toggleAdminTagChecked(input.dataset.tag || "", input.checked);
+  if(adminManageTagsOpen){
+    renderAdminTagDeleteList();
+
+    const addBtn = document.getElementById("adminAddTagBtn");
+    const input = document.getElementById("adminNewTagInput");
+    if(addBtn && input){
+      const doAdd = () => {
+        const value = input.value;
+        const result = addGlobalTag(value);
+        if(result && result.added){
+          input.value = "";
+          input.focus();
+        }
+      };
+      addBtn.onclick = doAdd;
+      input.addEventListener("keydown", (e) => {
+        if(e.key === "Enter"){
+          e.preventDefault();
+          doAdd();
+        }
       });
     }
+
+    // Click-away closes the panel and counts as a unit-of-work persist.
+    const panel = document.getElementById("adminManageTagsPanel");
+    const outsideHandler = (e) => {
+      if(panel && !panel.contains(e.target)){
+        document.removeEventListener("click", outsideHandler, true);
+        closeManageTags();
+      }
+    };
+    setTimeout(() => document.addEventListener("click", outsideHandler, true), 0);
+
+    if(panel) panel.addEventListener("click", (e) => e.stopPropagation());
+  }else{
+    updateDeleteCheckedTagsButtonState();
   }
-  updateDeleteCheckedTagsButtonState();
+
 
   const sel = document.getElementById("resSelect");
   const sortToggle = document.getElementById("resSortShowReview");
@@ -2251,6 +2428,11 @@ function toggleAdminTagChecked(tag, checked){
 
 function deleteCheckedTags(){
   commitPendingEditsIfChanged();
+  // Clicking Delete checked tags closes Manage Tags (unit of work).
+  if(adminManageTagsOpen){
+    adminManageTagsOpen = false;
+    adminManageTagsSnapshot = "";
+  }
   const checkedTags = adminCheckedTags.filter(tag => data.tags.includes(tag));
   if(!checkedTags.length) return;
 
@@ -2290,6 +2472,9 @@ function addGlobalTag(newTagRaw){
   data.tags.push(trimmed);
   data.tags.sort((a,b)=>a.localeCompare(b));
   persist();
+  if(adminManageTagsOpen){
+    renderAdminTagDeleteList();
+  }
   return { added:true, tag:trimmed };
 }
 
