@@ -1287,10 +1287,12 @@ let view = "categories";
 let currentCategory = null;
 let adminTab = "categories";
 let adminShowReviewDates = false;
+let adminCheckedTags = [];
 let editing = null;
 let editorSnapshot = "";
 let categoryTagFilters = {}; // categoryId -> [tag, ...]
 let printInitiatedByButton = false;
+const UNDO_STORAGE_KEY = "tsoUndo";
 
 /* ---------- Header ---------- */
 
@@ -1360,6 +1362,57 @@ function setCategoryFilterTags(categoryId, tags){
 function clearAllCategoryFilters(shouldRender = true){
   categoryTagFilters = {};
   if(shouldRender && view === "category") render();
+}
+
+function getUndoSnapshot(){
+  try{
+    const raw = localStorage.getItem(UNDO_STORAGE_KEY);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    if(!parsed || typeof parsed !== "object") return null;
+    if(!parsed.dataSnapshot || typeof parsed.message !== "string") return null;
+    return parsed;
+  }catch(_err){
+    return null;
+  }
+}
+
+function clearUndoSnapshot(){
+  localStorage.removeItem(UNDO_STORAGE_KEY);
+}
+
+function setUndoSnapshot(message){
+  localStorage.setItem(UNDO_STORAGE_KEY, JSON.stringify({
+    dataSnapshot: JSON.parse(JSON.stringify(data)),
+    message: String(message || "")
+  }));
+}
+
+function undoLastDeletion(){
+  const snapshot = getUndoSnapshot();
+  if(!snapshot || !snapshot.dataSnapshot) return;
+  data = snapshot.dataSnapshot;
+  normalizeDataServicesShape(data);
+  normalizeDataTagsShape(data);
+  normalizeDataReviewedOnShape(data);
+  adminCheckedTags = [];
+  clearUndoSnapshot();
+  persist();
+  render();
+}
+
+function pruneDeletedTagsFromFilters(deletedTags){
+  if(!Array.isArray(deletedTags) || !deletedTags.length) return;
+  const deleted = new Set(deletedTags);
+  Object.keys(categoryTagFilters).forEach(categoryId => {
+    const existing = Array.isArray(categoryTagFilters[categoryId]) ? categoryTagFilters[categoryId] : [];
+    const next = existing.filter(tag => !deleted.has(tag));
+    if(next.length){
+      categoryTagFilters[categoryId] = next;
+    }else{
+      delete categoryTagFilters[categoryId];
+    }
+  });
 }
 
 function createChecklistPanel({buttonText, selectedTags, allTags, onToggle, onAddTag, selectedPrefix}){
@@ -1652,18 +1705,23 @@ window.addEventListener("afterprint", () => {
 
 function renderAdmin(){
   const container = document.getElementById("adminView");
+  const undo = getUndoSnapshot();
+  const undoButtonLabel = undo ? `Undo ${undo.message}` : "";
 
   container.innerHTML = `
     <div style="margin-bottom:20px;">
-      <button class="button primary" onclick="exportJSON()">Export resources</button>
+      <button class="button primary" onclick="exportJSON()">Save resources</button>
 
       <input type="file" id="importFile" accept=".json"
         style="display:none"
         onchange="importJSON(event)">
 
-      <button class="button" onclick="document.getElementById('importFile').click()">Import resources</button>
+      <button class="button" onclick="document.getElementById('importFile').click()">Load resources</button>
+      ${undo ? `
+        <button class="button" onclick="undoLastDeletion()">${escapeHTML(undoButtonLabel)}</button>
+        <button class="button" onclick="clearUndoSnapshot(); renderAdmin();">Clear undo</button>
+      ` : ""}      <div style="margin-top:10px;">
 
-      <div style="margin-top:10px;">
         Last Modified: ${data.lastModified || "(none)"}
       </div>
     </div>
@@ -1729,10 +1787,10 @@ function importJSON(event){
 
       data = imported;
       persist();
-      alert("Import complete.");
+      alert("Load complete.");
       render();
     }catch(e){
-      alert("Import failed: " + e.message);
+      alert("Load failed: " + e.message);
     }
   };
   reader.readAsText(file);
@@ -1949,7 +2007,11 @@ function deleteCategory(){
   const cat = data.categories[idx];
   if(!cat) return;
 
-  if(!confirm(`Delete category "${cat.label}"?`)) return;
+  const confirmDelete = confirm(
+    `Are you sure you want to delete the "${cat.label}" category?\n\nThis removes it from the category list and resources will no longer appear under it. You can undo this once from Admin.`
+  );
+  if(!confirmDelete) return;
+  setUndoSnapshot(`deleted category "${cat.label}"`);
 
   // remove category from resources too
   data.resources.forEach(r=>{
@@ -2001,6 +2063,7 @@ function editCategory(idx){
 /* ---------- Admin: Resources ---------- */
 
 function renderAdminResources(container){
+  adminCheckedTags = adminCheckedTags.filter(tag => data.tags.includes(tag));
 
   container.innerHTML += `
     <div class="admin-panel">
@@ -2015,10 +2078,34 @@ function renderAdminResources(container){
           <button class="button" onclick="newResource()">New</button>
           <button class="button danger" onclick="deleteResource()">Delete</button>
         </div>
+        <div style="margin-top:16px;">
+          <h4 style="margin:0 0 8px 0;">Manage Tags</h4>
+          <div id="adminTagDeleteList" style="max-height:220px; overflow:auto; border:1px solid #ddd; border-radius:6px; padding:8px; margin-bottom:8px;"></div>
+          <button id="deleteTagsBtn" class="button danger" onclick="deleteCheckedTags()">Delete checked tags</button>
+        </div>
       </div>
       <div class="admin-box" id="resEditor"></div>
     </div>
   `;
+
+  const tagList = document.getElementById("adminTagDeleteList");
+  if(tagList){
+    if(!data.tags.length){
+      tagList.textContent = "No tags available.";
+    }else{
+      tagList.innerHTML = data.tags.map(tag => {
+        const checked = adminCheckedTags.includes(tag) ? "checked" : "";
+        return `<label style="display:block; margin-bottom:4px;">
+          <input type="checkbox" data-tag="${escapeHTML(tag)}" ${checked}>
+          ${escapeHTML(tag)}
+        </label>`;
+      }).join("");
+      tagList.querySelectorAll("input[type='checkbox']").forEach(input => {
+        input.onchange = () => toggleAdminTagChecked(input.dataset.tag || "", input.checked);
+      });
+    }
+  }
+  updateDeleteCheckedTagsButtonState();
 
   const sel = document.getElementById("resSelect");
   const sortToggle = document.getElementById("resSortShowReview");
@@ -2136,9 +2223,59 @@ function deleteResource(){
   const res = data.resources[idx];
   if(!res) return;
 
-  if(!confirm(`Delete resource "${res.name}"?`)) return;
+  const confirmDelete = confirm(
+    `Are you sure you want to delete the "${res.name}" resource?\n\nThis removes the resource from the list. You can undo this once from Admin.`
+  );
+  if(!confirmDelete) return;
+  setUndoSnapshot(`deleted resource "${res.name}"`);
 
   data.resources.splice(idx,1);
+  persist();
+  renderAdmin();
+}
+
+function updateDeleteCheckedTagsButtonState(){
+  const btn = document.getElementById("deleteTagsBtn");
+  if(!btn) return;
+  btn.disabled = adminCheckedTags.length === 0;
+}
+
+function toggleAdminTagChecked(tag, checked){
+  if(checked){
+    if(!adminCheckedTags.includes(tag)) adminCheckedTags.push(tag);
+  }else{
+    adminCheckedTags = adminCheckedTags.filter(t => t !== tag);
+  }
+  updateDeleteCheckedTagsButtonState();
+}
+
+function deleteCheckedTags(){
+  commitPendingEditsIfChanged();
+  const checkedTags = adminCheckedTags.filter(tag => data.tags.includes(tag));
+  if(!checkedTags.length) return;
+
+  const isSingle = checkedTags.length === 1;
+  const label = checkedTags.join(", ");
+  const question = isSingle
+    ? `Are you sure you want to delete the tag "${checkedTags[0]}"?`
+    : `Are you sure you want to delete these tags: ${label}?`;
+  const detail = "This removes the tag(s) from all resources and from any active filters. You can undo this once from Admin.";
+  if(!confirm(`${question}\n\n${detail}`)) return;
+
+  const undoMessage = isSingle
+    ? `deleted tag "${checkedTags[0]}"`
+    : `deleted tags "${label}"`;
+  setUndoSnapshot(undoMessage);
+
+  const deleted = new Set(checkedTags);
+  data.tags = data.tags.filter(tag => !deleted.has(tag));
+  data.resources.forEach(resource => {
+    if(Array.isArray(resource.tags)){
+      resource.tags = resource.tags.filter(tag => !deleted.has(tag));
+    }
+  });
+  pruneDeletedTagsFromFilters(checkedTags);
+  adminCheckedTags = [];
   persist();
   renderAdmin();
 }
@@ -2227,7 +2364,7 @@ function editResource(idx){
       <input type="hidden" id="res_reviewed_on" value="${escapeHTML(res.reviewedOn || "")}">
     </div><br><br>
 
-    <label>Services (free-form; lines starting with * become bullets)<br>
+    <label>Services (lines starting with * become bullets)<br>
       <textarea id="res_services" class="big">${escapeHTML(res.servicesText || "")}</textarea>
     </label><br><br>
 
@@ -2307,31 +2444,22 @@ function editResource(idx){
   editorSnapshot = snapshotResourceEditor();
 }
 
-/* ---------- Hidden Reset Hotkey ---------- */
+/* ---------- Hidden Favorites Reset Hotkey ---------- */
 /*
-  Ctrl + Alt + Shift + R  => wipe localStorage keys used by this app and reload.
-  Safety: requires typing RESET
+  Ctrl + Alt + Shift + F  => clear Favorites and reload.
+  No confirmation; low stakes.
 */
 window.addEventListener("keydown", (e) => {
-  const isResetCombo =
+  const isFavResetCombo =
     e.ctrlKey && e.altKey && e.shiftKey &&
-    (e.key === "R" || e.key === "r");
+    (e.key === "F" || e.key === "f");
 
-  if (!isResetCombo) return;
+  if (!isFavResetCombo) return;
 
-  // Prevent browser/OS shortcuts from also firing
   e.preventDefault();
   e.stopPropagation();
 
-  const confirmText = prompt(
-    "Type RESET to clear local data (tsoData + favorites) and reload:"
-  );
-
-  if (confirmText !== "RESET") return;
-
-  localStorage.removeItem("tsoData");
   localStorage.removeItem("favorites");
-
   location.reload();
 }, true);
 
