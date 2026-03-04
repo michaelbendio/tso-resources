@@ -2183,6 +2183,7 @@ function render(){
     if(appliedSelectedTags.length){
       const summary = document.createElement("span");
       summary.style.fontSize = "13px";
+      summary.style.whiteSpace = "nowrap";
       summary.textContent = `Selected tags: ${appliedSelectedTags.join(", ")}`;
       controls.appendChild(summary);
     }
