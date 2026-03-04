@@ -5,7 +5,7 @@
 <title>TSO Resources</title>
 
 <style>
-body { font-family: -apple-system, sans-serif; margin:0; padding:0; }
+body { font-family: -apple-system, sans-serif; margin:0; padding:0; font-size:18px; line-height:1.45; }
 .topbar {
   display:flex;
   justify-content:space-between;
@@ -42,7 +42,13 @@ body { font-family: -apple-system, sans-serif; margin:0; padding:0; }
 .star.fav { color:gold; }
 .resource-main { margin-left:24px; }
 .resource-details.collapsed { display:none; }
-.button { padding:6px 10px; margin:4px 0; cursor:pointer; }
+.button { padding:10px 14px; margin:4px 0; cursor:pointer; }
+button,
+input,
+select,
+textarea {
+  font-size: 18px;
+}
 .button.primary { background:#003366; color:white; }
 .button.danger { background:#aa0000; color:white; }
 textarea.big { width:100%; min-height:80px; }
@@ -1185,6 +1191,13 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 <script>
 function nowISO(){ return new Date().toISOString(); }
 function escapeHTML(str){ return (str||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;" }[m])); }
+function generateResourceId(){
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map(b => b.toString(16).padStart(2,"0"))
+    .join("");
+}
 
 function normalizeResourceServices(r){
   if(Array.isArray(r.services)){
@@ -1340,6 +1353,10 @@ let adminShowReviewDates = false;
 let adminCheckedTags = [];
 let adminManageTagsOpen = false;
 let adminManageTagsSnapshot = "";
+let adminResourceEditMode = false;
+let selectedResourceId = "";
+let adminAssignTagsOpen = false;
+let adminAssignTagsDraft = [];
 let adminCategoryOrderEditorOpen = false;
 let adminCategoryOrderDraft = null; // array of { idx, value } in fixed editor row order
 let editing = null;
@@ -1352,7 +1369,7 @@ const UNDO_STORAGE_KEY = "tsoUndo";
 
 function setView(nextView){
   if(view === "admin" && nextView !== "admin"){
-    commitPendingEditsIfChanged();
+    if(!commitPendingEditsIfChanged()) return;
   }
   view = nextView;
   render();
@@ -1504,7 +1521,7 @@ function renderAdminTagDeleteList(){
 }
 
 function openManageTags(){
-  commitPendingEditsIfChanged();
+  if(!commitPendingEditsIfChanged()) return;
   adminManageTagsOpen = true;
   adminManageTagsSnapshot = JSON.stringify(data.tags || []);
   renderAdmin();
@@ -1512,7 +1529,7 @@ function openManageTags(){
 
 function closeManageTags(){
   if(!adminManageTagsOpen) return;
-  commitPendingEditsIfChanged();
+  if(!commitPendingEditsIfChanged()) return;
   adminManageTagsOpen = false;
   const nextSnapshot = JSON.stringify(data.tags || []);
   // Unit of work: if tags changed while open, persist on close.
@@ -1962,7 +1979,7 @@ function exportJSON(){
 }
 
 function importJSON(event){
-  commitPendingEditsIfChanged();
+  if(!commitPendingEditsIfChanged()) return;
 
   const file = event.target.files && event.target.files[0];
   if(!file) return;
@@ -1999,7 +2016,12 @@ function importJSON(event){
 
 function switchAdminTab(nextTab){
   if(adminTab === nextTab) return;
-  commitPendingEditsIfChanged();
+  if(!commitPendingEditsIfChanged()) return;
+  if(nextTab !== "resources"){
+    adminResourceEditMode = false;
+    adminAssignTagsOpen = false;
+    adminAssignTagsDraft = [];
+  }
   adminTab = nextTab;
   renderAdmin();
 }
@@ -2019,7 +2041,6 @@ function categoryEditorDraft(){
 }
 
 function resourceEditorDraft(){
-  const idEl = document.getElementById("res_id");
   const nameEl = document.getElementById("res_name");
   const orderEl = document.getElementById("res_order");
   const phoneEl = document.getElementById("res_phone");
@@ -2028,7 +2049,7 @@ function resourceEditorDraft(){
   const hoursEl = document.getElementById("res_hours");
   const descEl = document.getElementById("res_description");
   const servicesEl = document.getElementById("res_services");
-  if(!idEl || !nameEl || !orderEl || !phoneEl || !addressEl || !websiteEl || !hoursEl || !descEl || !servicesEl) return null;
+  if(!nameEl || !orderEl || !phoneEl || !addressEl || !websiteEl || !hoursEl || !descEl || !servicesEl) return null;
   const reviewedEl = document.getElementById("res_reviewed_on");
   const reviewedOn = reviewedEl ? reviewedEl.value : "";
 
@@ -2038,7 +2059,6 @@ function resourceEditorDraft(){
     .sort((a,b)=>a.localeCompare(b));
 
   return {
-    id: idEl.value.trim(),
     name: nameEl.value.trim(),
     displayOrder: orderEl.value,
     phone: phoneEl.value.trim(),
@@ -2054,6 +2074,31 @@ function resourceEditorDraft(){
       .sort(),
     tags
   };
+}
+
+function getResourceIndexById(resourceId){
+  if(!resourceId) return -1;
+  return data.resources.findIndex(r => r && r.id === resourceId);
+}
+
+function validateResourceName(draft, idx){
+  const name = String(draft && draft.name || "").trim();
+  if(!name){
+    return { valid:false, message:"Name is required." };
+  }
+  const lower = name.toLowerCase();
+  const duplicate = data.resources.some((r, i) => i !== idx && String(r && r.name || "").trim().toLowerCase() === lower);
+  if(duplicate){
+    return { valid:false, message:"Another resource already uses this name." };
+  }
+  return { valid:true, message:"" };
+}
+
+function showResourceNameWarning(message){
+  const warning = document.getElementById("res_name_warning");
+  if(!warning) return;
+  warning.textContent = message || "";
+  warning.style.display = message ? "block" : "none";
 }
 
 function snapshotCategoryEditor(){
@@ -2077,7 +2122,7 @@ function applyCategoryDraft(idx, draft){
 }
 
 function openCategoryOrderEditor(){
-  commitPendingEditsIfChanged();
+  if(!commitPendingEditsIfChanged()) return;
   const rows = data.categories.map((cat, idx) => {
     const rawOrder = cat.displayOrder;
     const numericOrder = rawOrder == null || rawOrder === "" ? null : Number(rawOrder);
@@ -2164,7 +2209,6 @@ function applyCategoryOrderEditor(){
 function applyResourceDraft(idx, draft){
   const res = data.resources[idx];
   if(!res) return;
-  res.id = draft.id || res.id;
   res.name = draft.name || res.name;
   res.displayOrder = draft.displayOrder === "" ? null : Number(draft.displayOrder);
   res.phone = draft.phone;
@@ -2180,29 +2224,41 @@ function applyResourceDraft(idx, draft){
 }
 
 function commitPendingEditsIfChanged(){
-  if(!editing) return;
+  if(!editing) return true;
 
   let nextSnapshot = "";
   if(editing.kind === "category"){
     nextSnapshot = snapshotCategoryEditor();
-    if(!nextSnapshot) return;
+    if(!nextSnapshot) return true;
     if(nextSnapshot !== editorSnapshot){
       applyCategoryDraft(editing.idx, JSON.parse(nextSnapshot));
       persist();
       editorSnapshot = nextSnapshot;
     }
-    return;
+    return true;
   }
 
   if(editing.kind === "resource"){
     nextSnapshot = snapshotResourceEditor();
-    if(!nextSnapshot) return;
+    if(!nextSnapshot) return true;
+    const draft = JSON.parse(nextSnapshot);
+    const validation = validateResourceName(draft, editing.idx);
+    showResourceNameWarning(validation.message);
+    if(!validation.valid){
+      const nameInput = document.getElementById("res_name");
+      if(nameInput) nameInput.focus();
+      return false;
+    }
     if(nextSnapshot !== editorSnapshot){
-      applyResourceDraft(editing.idx, JSON.parse(nextSnapshot));
+      applyResourceDraft(editing.idx, draft);
       persist();
       editorSnapshot = nextSnapshot;
+      const saved = data.resources[editing.idx];
+      if(saved && saved.id) selectedResourceId = saved.id;
     }
+    return true;
   }
+  return true;
 }
 
 /* ---------- Admin: Categories ---------- */
@@ -2248,7 +2304,7 @@ function renderAdminCategories(container){
   });
 
   sel.onchange = () => {
-    commitPendingEditsIfChanged();
+    if(!commitPendingEditsIfChanged()) return;
     editCategory(parseInt(sel.value,10));
   };
 
@@ -2318,7 +2374,7 @@ function renderAdminCategories(container){
 }
 
 function newCategory(){
-  commitPendingEditsIfChanged();
+  if(!commitPendingEditsIfChanged()) return;
   const newIndex = data.categories.length;
 
   data.categories.push({
@@ -2343,7 +2399,7 @@ function newCategory(){
 }
 
 function deleteCategory(){
-  commitPendingEditsIfChanged();
+  if(!commitPendingEditsIfChanged()) return;
   const sel = document.getElementById("catSelect");
   if(!sel || !sel.value) return;
 
@@ -2402,41 +2458,23 @@ function editCategory(idx){
 
 /* ---------- Admin: Resources ---------- */
 
-function renderAdminResources(container){
-  adminCheckedTags = adminCheckedTags.filter(tag => data.tags.includes(tag));
-
-  container.innerHTML += `
-    <div class="admin-panel">
-      <div class="admin-box">
-        <h3>Resources</h3>
-        <label style="display:block; margin-bottom:8px;">
-          <input type="checkbox" id="resSortShowReview">
-          Show review dates
-        </label>
-        <select id="resSelect"></select>
-        <div style="margin-top:8px;">
-          <button class="button" onclick="newResource()">New</button>
-          <button class="button danger" onclick="deleteResource()">Delete</button>
-        </div>
-        <div style="margin-top:16px;">
-  <button class="button" onclick="adminManageTagsOpen ? closeManageTags() : openManageTags()">Manage tags</button>
-  <div id="adminManageTagsPanel" style="margin-top:8px; ${adminManageTagsOpen ? "" : "display:none;"}">
-    <div id="adminTagDeleteList" style="max-height:220px; overflow:auto; border:1px solid #ddd; border-radius:6px; padding:8px; margin-bottom:8px;"></div>
-    <div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
-      <input id="adminNewTagInput" type="text" placeholder="New tag" style="flex:1;">
-      <button class="button" type="button" id="adminAddTagBtn">Add</button>
-    </div>
-    <div style="display:flex; gap:8px; align-items:center;">
-      <button id="deleteTagsBtn" class="button danger" onclick="deleteCheckedTags()">Delete checked tags</button>
-      <button id="doneTagsBtn" class="button" type="button" onclick="closeManageTags()">Done</button>
-    </div>
-  </div>
-</div>
+function renderAdminManageTagsSection(){
+  return `
+    <div id="adminManageTagsPanel" style="margin-top:8px; ${adminManageTagsOpen ? "" : "display:none;"}">
+      <div id="adminTagDeleteList" style="max-height:220px; overflow:auto; border:1px solid #ddd; border-radius:6px; padding:8px; margin-bottom:8px;"></div>
+      <div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
+        <input id="adminNewTagInput" type="text" placeholder="New tag" style="flex:1;">
+        <button class="button" type="button" id="adminAddTagBtn">Add</button>
       </div>
-      <div class="admin-box" id="resEditor"></div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button id="deleteTagsBtn" class="button danger" onclick="deleteCheckedTags()">Delete checked tags</button>
+        <button id="doneTagsBtn" class="button" type="button" onclick="closeManageTags()">Done</button>
+      </div>
     </div>
   `;
+}
 
+function setupAdminManageTagsPanel(){
   if(adminManageTagsOpen){
     renderAdminTagDeleteList();
 
@@ -2444,16 +2482,15 @@ function renderAdminResources(container){
     const input = document.getElementById("adminNewTagInput");
     if(addBtn && input){
       const doAdd = () => {
-        commitPendingEditsIfChanged();
+        if(!commitPendingEditsIfChanged()) return;
         const value = input.value;
         const result = addGlobalTag(value);
         if(result && result.added){
           input.value = "";
           renderAdminTagDeleteList();
-          const sel = document.getElementById("resSelect");
-          if(sel){
-            const idx = parseInt(sel.value, 10);
-            if(Number.isInteger(idx)) editResource(idx);
+          if(adminResourceEditMode && selectedResourceId){
+            const idx = getResourceIndexById(selectedResourceId);
+            if(idx !== -1) editResource(idx);
           }
           input.focus();
         }
@@ -2467,7 +2504,6 @@ function renderAdminResources(container){
       });
     }
 
-    // Click-away closes the panel and counts as a unit-of-work persist.
     const panel = document.getElementById("adminManageTagsPanel");
     const outsideHandler = (e) => {
       if(panel && !panel.contains(e.target)){
@@ -2481,133 +2517,263 @@ function renderAdminResources(container){
   }else{
     updateDeleteCheckedTagsButtonState();
   }
-
-
-  const sel = document.getElementById("resSelect");
-  const sortToggle = document.getElementById("resSortShowReview");
-  if(sortToggle){
-    sortToggle.checked = adminShowReviewDates;
-    sortToggle.onchange = () => {
-      adminShowReviewDates = !!sortToggle.checked;
-      const selectedIdx = editing && editing.kind === "resource"
-        ? editing.idx
-        : parseInt(sel.value, 10);
-      populateResourceSelectOptions(sel, selectedIdx);
-    };
-  }
-
-  populateResourceSelectOptions(sel);
-
-  sel.onchange = ()=> {
-    commitPendingEditsIfChanged();
-    editResource(parseInt(sel.value,10));
-  };
-
-  if(sel.options.length){
-    const selected = parseInt(sel.value, 10);
-    if(Number.isInteger(selected)){
-      editResource(selected);
-    }else{
-      sel.value = sel.options[0].value;
-      editResource(parseInt(sel.value,10));
-    }
-  }else{
-    editing = null;
-    editorSnapshot = "";
-  }
 }
 
-function populateResourceSelectOptions(sel, preferredIdx){
-  if(!sel) return;
-  const prev = Number.isInteger(preferredIdx) ? preferredIdx : parseInt(sel.value, 10);
-  sel.innerHTML = "";
-
-  const reviewedPairs = [];
-  const unreviewedPairs = [];
-  const allPairs = data.resources.map((r, i) => ({ r, i }));
-
-  if(adminShowReviewDates){
-    allPairs.forEach(pair => {
-      if(pair.r.reviewedOn) reviewedPairs.push(pair);
-      else unreviewedPairs.push(pair);
-    });
-    reviewedPairs.sort((a, b) => a.r.reviewedOn.localeCompare(b.r.reviewedOn) || a.r.name.localeCompare(b.r.name));
-    unreviewedPairs.sort((a, b) => a.r.name.localeCompare(b.r.name));
-    [...reviewedPairs, ...unreviewedPairs].forEach(({ r, i }) => {
-      const opt = document.createElement("option");
-      opt.value = String(i);
-      opt.textContent = `${r.name} \u2014 ${r.reviewedOn ? formatReviewedOnForDisplay(r.reviewedOn) : "Not reviewed"}`;
-      sel.appendChild(opt);
-    });
-  }else{
-    allPairs
-      .sort((a, b) => a.r.name.localeCompare(b.r.name))
-      .forEach(({ r, i }) => {
-        const opt = document.createElement("option");
-        opt.value = String(i);
-        opt.textContent = r.name;
-        sel.appendChild(opt);
-      });
+function renderAdminResources(container){
+  adminCheckedTags = adminCheckedTags.filter(tag => data.tags.includes(tag));
+  if(adminResourceEditMode && !selectedResourceId && data.resources[0] && data.resources[0].id){
+    selectedResourceId = data.resources[0].id;
   }
 
-  if(Number.isInteger(prev) && Array.from(sel.options).some(opt => Number(opt.value) === prev)){
-    sel.value = String(prev);
+  if(!adminResourceEditMode){
+    container.innerHTML += `
+      <div class="admin-panel">
+        <div class="admin-box">
+          <h3>Resources</h3>
+          <label style="display:block; margin-bottom:8px;">
+            <input type="checkbox" id="resSortShowReview">
+            Show review dates
+          </label>
+          <select id="resSelect" size="25"></select>
+          <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+            <button class="button" onclick="newResource()">New</button>
+            <button class="button danger" onclick="deleteResource()">Delete</button>
+            <button class="button" onclick="adminManageTagsOpen ? closeManageTags() : openManageTags()">Manage tags</button>
+            <span style="flex:1;"></span>
+            <button class="button primary" onclick="openResourceEditor()">Edit</button>
+          </div>
+          ${renderAdminManageTagsSection()}
+        </div>
+      </div>
+    `;
+
+    const sel = document.getElementById("resSelect");
+    const sortToggle = document.getElementById("resSortShowReview");
+    if(sortToggle){
+      sortToggle.checked = adminShowReviewDates;
+      sortToggle.onchange = () => {
+        adminShowReviewDates = !!sortToggle.checked;
+        populateResourceSelectOptions(sel, selectedResourceId);
+      };
+    }
+
+    populateResourceSelectOptions(sel, selectedResourceId);
+    sel.onchange = () => { selectedResourceId = sel.value || ""; };
+    setupAdminManageTagsPanel();
+
+    editing = null;
+    editorSnapshot = "";
+    return;
+  }
+
+  const idx = getResourceIndexById(selectedResourceId);
+  if(idx === -1){
+    adminResourceEditMode = false;
+    adminAssignTagsOpen = false;
+    adminAssignTagsDraft = [];
+    renderAdmin();
+    return;
+  }
+
+  container.innerHTML += `
+    <div class="admin-panel">
+      <div class="admin-box">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 style="margin:0;">Edit Resource</h3>
+          <button class="button primary" onclick="closeResourceEditor()">Done</button>
+        </div>
+        <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+          <button class="button" onclick="adminManageTagsOpen ? closeManageTags() : openManageTags()">Manage tags</button>
+          <button class="button" onclick="openAssignTagsPanel()">Assign tags</button>
+        </div>
+        <div id="assignTagsPanel" style="margin-top:10px; ${adminAssignTagsOpen ? "" : "display:none;"}">
+          <div style="margin-bottom:8px;">Apply tags to the current resource.</div>
+          <div id="assignTagsList" style="max-height:220px; overflow:auto; border:1px solid #ddd; border-radius:6px; padding:8px; margin-bottom:8px;"></div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="button primary" type="button" id="assignTagsOkBtn">OK</button>
+            <button class="button" type="button" id="assignTagsCancelBtn">Cancel</button>
+          </div>
+        </div>
+        ${renderAdminManageTagsSection()}
+        <div id="resEditor" style="margin-top:12px;"></div>
+      </div>
+    </div>
+  `;
+
+  setupAdminManageTagsPanel();
+  editResource(idx);
+  if(adminAssignTagsOpen) renderAssignTagsChecklist();
+}
+
+function populateResourceSelectOptions(sel, preferredResourceId){
+  if(!sel) return;
+  const prev = preferredResourceId || selectedResourceId || sel.value || "";
+  sel.innerHTML = "";
+
+  data.resources
+    .map((r) => ({ r }))
+    .sort((a, b) => String(a.r.name || "").localeCompare(String(b.r.name || "")))
+    .forEach(({ r }) => {
+      const opt = document.createElement("option");
+      opt.value = String(r.id || "");
+      opt.textContent = adminShowReviewDates
+        ? `${r.name || ""} \u2014 ${r.reviewedOn ? formatReviewedOnForDisplay(r.reviewedOn) : "Not reviewed"}`
+        : (r.name || "");
+      sel.appendChild(opt);
+    });
+
+  if(prev && Array.from(sel.options).some(opt => opt.value === prev)){
+    sel.value = prev;
+    selectedResourceId = prev;
+    return;
+  }
+
+  if(sel.options.length){
+    sel.value = sel.options[0].value;
+    selectedResourceId = sel.value;
+  }else{
+    selectedResourceId = "";
   }
 }
 
 function newResource(){
-  commitPendingEditsIfChanged();
-  const newIndex = data.resources.length;
+  if(!commitPendingEditsIfChanged()) return;
 
-  data.resources.push({
-    id: "new-resource",
-    name: "New Resource",
-    categories: [],
-    tags: [],
-    phone: "",
-    address: "",
-    website: "",
-    hours: "",
+  const resource = {
+    id: generateResourceId(),
+    name: "",
     description: "",
     servicesText: "",
-    reviewedOn: "",
-    verifiedDate: "",
-    verifiedBy: "",
-    displayOrder: null,
-    favorite: false,
-    evaluation: {},
-    lastModified: nowISO()
-  });
+    tags: [],
+    reviewedOn: null
+  };
+  data.resources.push(resource);
 
   persist();
   adminTab = "resources";
+  selectedResourceId = resource.id;
+  adminResourceEditMode = true;
+  adminAssignTagsOpen = false;
+  adminAssignTagsDraft = [];
   renderAdmin();
-
-  const sel = document.getElementById("resSelect");
-  if(sel){
-    sel.value = String(newIndex);
-    editResource(newIndex);
-  }
+  const nameInput = document.getElementById("res_name");
+  if(nameInput) nameInput.focus();
 }
 
 function deleteResource(){
-  commitPendingEditsIfChanged();
-  const sel = document.getElementById("resSelect");
-  if(!sel || !sel.value) return;
+  if(!commitPendingEditsIfChanged()) return;
+  if(!selectedResourceId) return;
 
-  const idx = parseInt(sel.value,10);
+  const sortedIds = data.resources
+    .map(r => String(r.id || ""))
+    .sort((aId, bId) => {
+      const a = data.resources.find(r => String(r.id || "") === aId);
+      const b = data.resources.find(r => String(r.id || "") === bId);
+      return String((a && a.name) || "").localeCompare(String((b && b.name) || ""));
+    });
+  const selectedPos = sortedIds.indexOf(selectedResourceId);
+  const idx = getResourceIndexById(selectedResourceId);
   const res = data.resources[idx];
   if(!res) return;
 
-  const confirmDelete = confirm(
-    `Are you sure you want to delete the "${res.name}" resource?\n\nThis removes the resource from the list. You can undo this once from Admin.`
-  );
+  const confirmDelete = confirm(`Are you sure you want to delete the resource '${res.name}'?`);
   if(!confirmDelete) return;
   setUndoSnapshot(`deleted resource "${res.name}"`);
 
   data.resources.splice(idx,1);
+
+  const remainingIds = data.resources
+    .map(r => String(r.id || ""))
+    .sort((aId, bId) => {
+      const a = data.resources.find(r => String(r.id || "") === aId);
+      const b = data.resources.find(r => String(r.id || "") === bId);
+      return String((a && a.name) || "").localeCompare(String((b && b.name) || ""));
+    });
+  if(!remainingIds.length){
+    selectedResourceId = "";
+    adminResourceEditMode = false;
+  }else{
+    const nextPos = Math.min(Math.max(selectedPos, 0), remainingIds.length - 1);
+    selectedResourceId = remainingIds[nextPos];
+  }
+
   persist();
   renderAdmin();
+}
+
+function openResourceEditor(){
+  if(!selectedResourceId) return;
+  adminResourceEditMode = true;
+  adminAssignTagsOpen = false;
+  adminAssignTagsDraft = [];
+  renderAdmin();
+  const nameInput = document.getElementById("res_name");
+  if(nameInput) nameInput.focus();
+}
+
+function closeResourceEditor(){
+  if(!commitPendingEditsIfChanged()) return;
+  adminResourceEditMode = false;
+  adminAssignTagsOpen = false;
+  adminAssignTagsDraft = [];
+  renderAdmin();
+}
+
+function openAssignTagsPanel(){
+  if(!commitPendingEditsIfChanged()) return;
+  const idx = getResourceIndexById(selectedResourceId);
+  const res = data.resources[idx];
+  if(!res) return;
+  if(!Array.isArray(res.tags)) res.tags = [];
+  adminAssignTagsDraft = [...res.tags];
+  adminAssignTagsOpen = true;
+  renderAdmin();
+}
+
+function closeAssignTagsPanel(){
+  adminAssignTagsOpen = false;
+  adminAssignTagsDraft = [];
+  renderAdmin();
+}
+
+function renderAssignTagsChecklist(){
+  const list = document.getElementById("assignTagsList");
+  const okBtn = document.getElementById("assignTagsOkBtn");
+  const cancelBtn = document.getElementById("assignTagsCancelBtn");
+  if(!list || !okBtn || !cancelBtn) return;
+
+  list.innerHTML = "";
+  if(!data.tags.length){
+    const empty = document.createElement("div");
+    empty.textContent = "No tags available.";
+    list.appendChild(empty);
+  }else{
+    data.tags.forEach(tag => {
+      const row = document.createElement("label");
+      row.style.display = "block";
+      row.style.marginBottom = "6px";
+      const checked = adminAssignTagsDraft.includes(tag) ? "checked" : "";
+      row.innerHTML = `<input type="checkbox" data-tag="${escapeHTML(tag)}" ${checked}> ${escapeHTML(tag)}`;
+      const input = row.querySelector("input");
+      input.onchange = () => {
+        const i = adminAssignTagsDraft.indexOf(tag);
+        if(input.checked && i === -1) adminAssignTagsDraft.push(tag);
+        if(!input.checked && i !== -1) adminAssignTagsDraft.splice(i, 1);
+      };
+      list.appendChild(row);
+    });
+  }
+
+  okBtn.onclick = () => {
+    const idx = getResourceIndexById(selectedResourceId);
+    const res = data.resources[idx];
+    if(!res) return;
+    res.tags = [...new Set(adminAssignTagsDraft)].sort((a,b) => a.localeCompare(b));
+    res.lastModified = nowISO();
+    persist();
+    closeAssignTagsPanel();
+  };
+  cancelBtn.onclick = () => closeAssignTagsPanel();
 }
 
 function updateDeleteCheckedTagsButtonState(){
@@ -2626,7 +2792,7 @@ function toggleAdminTagChecked(tag, checked){
 }
 
 function deleteCheckedTags(){
-  commitPendingEditsIfChanged();
+  if(!commitPendingEditsIfChanged()) return;
   // Clicking Delete checked tags closes Manage Tags (unit of work).
   if(adminManageTagsOpen){
     adminManageTagsOpen = false;
@@ -2681,6 +2847,7 @@ function editResource(idx){
   const res = data.resources[idx];
   const editor = document.getElementById("resEditor");
   if(!res || !editor) return;
+  selectedResourceId = res.id || selectedResourceId;
 
   normalizeResourceServices(res);
   normalizeResourceReviewedOn(res);
@@ -2700,15 +2867,10 @@ function editResource(idx){
     }).join("");
 
   editor.innerHTML = `
-    <h3>Edit Resource</h3>
-
-    <label>ID<br>
-      <input id="res_id" value="${escapeHTML(res.id || "")}">
-    </label><br><br>
-
     <label>Name<br>
       <input id="res_name" value="${escapeHTML(res.name || "")}">
-    </label><br><br>
+    </label>
+    <div id="res_name_warning" style="display:none; color:#aa0000; margin-top:4px;"></div><br><br>
 
     <label>Display order (optional)<br>
       <input id="res_order" type="number" value="${res.displayOrder ?? ""}">
@@ -2812,6 +2974,7 @@ function editResource(idx){
   const reviewCancel = document.getElementById("res_review_cancel");
   const reviewDisplay = document.getElementById("res_reviewed_display");
   const reviewedOnHidden = document.getElementById("res_reviewed_on");
+  const nameEl = document.getElementById("res_name");
   const servicesEl = document.getElementById("res_services");
   const servicesEditBtn = document.getElementById("res_services_edit_btn");
   const servicesPreviewBtn = document.getElementById("res_services_preview_btn");
@@ -2851,11 +3014,25 @@ function editResource(idx){
       reviewedOnHidden.value = reviewInput.value;
       reviewDisplay.textContent = formatReviewedOnForDisplay(reviewInput.value);
       reviewEdit.classList.remove("active");
-      populateResourceSelectOptions(document.getElementById("resSelect"), idx);
+      populateResourceSelectOptions(document.getElementById("resSelect"), selectedResourceId);
     };
     reviewCancel.onclick = () => {
       reviewEdit.classList.remove("active");
     };
+  }
+
+  if(nameEl){
+    const validateAndShow = () => {
+      const draft = resourceEditorDraft();
+      if(!draft){
+        showResourceNameWarning("");
+        return;
+      }
+      const validation = validateResourceName(draft, idx);
+      showResourceNameWarning(validation.message);
+    };
+    nameEl.addEventListener("input", validateAndShow);
+    validateAndShow();
   }
 
   editing = { kind: "resource", idx };
