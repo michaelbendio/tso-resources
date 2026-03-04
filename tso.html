@@ -1421,45 +1421,36 @@ function pruneDeletedTagsFromFilters(deletedTags){
 
 
 function renderAdminTagDeleteList(){
-
-  if(adminManageTagsOpen){
-    renderAdminTagDeleteList();
-
-    const addBtn = document.getElementById("adminAddTagBtn");
-    const input = document.getElementById("adminNewTagInput");
-    if(addBtn && input){
-      const doAdd = () => {
-        const value = input.value;
-        const result = addGlobalTag(value);
-        if(result && result.added){
-          input.value = "";
-          input.focus();
-        }
-      };
-      addBtn.onclick = doAdd;
-      input.addEventListener("keydown", (e) => {
-        if(e.key === "Enter"){
-          e.preventDefault();
-          doAdd();
-        }
-      });
-    }
-
-    // Click-away closes the panel and counts as a unit-of-work persist.
-    const panel = document.getElementById("adminManageTagsPanel");
-    const outsideHandler = (e) => {
-      if(panel && !panel.contains(e.target)){
-        document.removeEventListener("click", outsideHandler, true);
-        closeManageTags();
-      }
-    };
-    setTimeout(() => document.addEventListener("click", outsideHandler, true), 0);
-
-    if(panel) panel.addEventListener("click", (e) => e.stopPropagation());
-  }else{
+  adminCheckedTags = adminCheckedTags.filter(tag => data.tags.includes(tag));
+  const list = document.getElementById("adminTagDeleteList");
+  if(!list){
     updateDeleteCheckedTagsButtonState();
+    return;
   }
 
+  list.innerHTML = "";
+
+  if(!data.tags.length){
+    const empty = document.createElement("div");
+    empty.textContent = "No tags available.";
+    empty.style.fontSize = "13px";
+    list.appendChild(empty);
+    updateDeleteCheckedTagsButtonState();
+    return;
+  }
+
+  data.tags.forEach(tag => {
+    const row = document.createElement("label");
+    row.style.display = "block";
+    row.style.marginBottom = "6px";
+    const checked = adminCheckedTags.includes(tag) ? "checked" : "";
+    row.innerHTML = `<input type="checkbox" data-tag="${escapeHTML(tag)}" ${checked}> ${escapeHTML(tag)}`;
+    const input = row.querySelector("input");
+    input.onchange = () => toggleAdminTagChecked(tag, input.checked);
+    list.appendChild(row);
+  });
+
+  updateDeleteCheckedTagsButtonState();
 }
 
 function openManageTags(){
@@ -2385,7 +2376,10 @@ function renderAdminResources(container){
       <input id="adminNewTagInput" type="text" placeholder="New tag" style="flex:1;">
       <button class="button" type="button" id="adminAddTagBtn">Add</button>
     </div>
-    <button id="deleteTagsBtn" class="button danger" onclick="deleteCheckedTags()">Delete checked tags</button>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button id="deleteTagsBtn" class="button danger" onclick="deleteCheckedTags()">Delete checked tags</button>
+      <button id="doneTagsBtn" class="button" type="button" onclick="closeManageTags()">Done</button>
+    </div>
   </div>
 </div>
       </div>
@@ -2400,10 +2394,17 @@ function renderAdminResources(container){
     const input = document.getElementById("adminNewTagInput");
     if(addBtn && input){
       const doAdd = () => {
+        commitPendingEditsIfChanged();
         const value = input.value;
         const result = addGlobalTag(value);
         if(result && result.added){
           input.value = "";
+          renderAdminTagDeleteList();
+          const sel = document.getElementById("resSelect");
+          if(sel){
+            const idx = parseInt(sel.value, 10);
+            if(Number.isInteger(idx)) editResource(idx);
+          }
           input.focus();
         }
       };
