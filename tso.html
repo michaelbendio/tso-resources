@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>TSO Resources</title>
 
+<!-- ===== APP CSS START ===== -->
 <style>
 body { font-family: -apple-system, sans-serif; margin:0; padding:0; font-size:18px; line-height:1.45; }
 .topbar {
@@ -130,9 +131,17 @@ textarea.services-editor { min-height:320px; resize:vertical; }
   }
 }
 </style>
+<!-- ===== APP CSS END ===== -->
 </head>
 
 <body>
+
+<div id="appErrorBanner" style="display:none; position:fixed; top:0; left:0; right:0; background:#ffd9d9; border-bottom:2px solid #c00; z-index:9999; padding:10px; font-size:16px;">
+  <strong>TSO Resources error</strong>
+  <pre id="appErrorDetails" style="white-space:pre-wrap;"></pre>
+  <button class="button" id="appErrorCopy">Copy</button>
+  <button class="button" id="appErrorDismiss">Dismiss</button>
+</div>
 
 <div class="topbar">
   <div class="title">TSO Resources</div>
@@ -145,6 +154,12 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 
 <div id="appView"></div>
 <div id="adminView" class="hidden"></div>
+
+<div id="selfTestPanel" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#f5f5f5; border-top:2px solid #888; padding:10px; font-size:14px; max-height:250px; overflow:auto;">
+  <strong>TSO Self Tests</strong>
+  <div id="selfTestResults"></div>
+  <button class="button" id="selfTestClose">Close</button>
+</div>
 
 <div id="printModal" class="hidden">
   <div id="printContentWrapper">
@@ -1204,7 +1219,12 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 }
 </script>
 
+<!-- ===== APP JS START ===== -->
 <script>
+// ============================================================
+// UTILITIES
+// ============================================================
+
 function nowISO(){ return new Date().toISOString(); }
 function escapeHTML(str){ return (str||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;" }[m])); }
 function generateResourceId(){
@@ -1214,6 +1234,10 @@ function generateResourceId(){
     .map(b => b.toString(16).padStart(2,"0"))
     .join("");
 }
+
+// ============================================================
+// DATA NORMALIZATION
+// ============================================================
 
 function normalizeResourceServices(r){
   if(Array.isArray(r.services)){
@@ -1436,10 +1460,13 @@ function renderServicesHTML(text){
   return out.join("");
 }
 
-/* ---------- Load Data ---------- */
+// ============================================================
+// STATE
+// ============================================================
 
 const seed = JSON.parse(document.getElementById("seed-data").textContent);
 let data = JSON.parse(localStorage.getItem("tsoData") || "null");
+const DEBUG = new URLSearchParams(location.search).has("debug");
 
 if(!data){
   data = seed;
@@ -1451,6 +1478,8 @@ normalizeDataTagsShape(data);
 normalizeDataReviewedOnShape(data);
 
 let favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
+if(!Array.isArray(favorites)) favorites = [];
+if(DEBUG) assertInvariants("startup");
 let view = "categories";
 let currentCategory = null;
 let adminTab = "categories";
@@ -1470,21 +1499,238 @@ let categoryTagFilters = {}; // categoryId -> [tag, ...]
 let printInitiatedByButton = false;
 const UNDO_STORAGE_KEY = "tsoUndo";
 
-/* ---------- Header ---------- */
+// ============================================================
+// SAFETY HARNESS
+// ============================================================
+
+function showAppError(context, err){
+  const banner = document.getElementById("appErrorBanner");
+  const details = document.getElementById("appErrorDetails");
+  if(!banner || !details) return;
+
+  const message = err && err.message ? String(err.message) : String(err || "Unknown error");
+  const stack = err && err.stack ? String(err.stack) : "";
+  const timestamp = new Date().toISOString();
+  details.textContent = [
+    `Context: ${context}`,
+    `Message: ${message}`,
+    `Timestamp: ${timestamp}`,
+    stack ? `Stack:\n${stack}` : ""
+  ].filter(Boolean).join("\n");
+  banner.style.display = "block";
+}
+
+function safeCall(label, fn){
+  try{
+    return fn();
+  }catch(err){
+    showAppError(label, err);
+    return undefined;
+  }
+}
+
+function assertInvariants(context = "invariant check"){
+  if(!data || !Array.isArray(data.resources)) throw new Error(`${context}: data.resources must be an array`);
+  if(!Array.isArray(data.categories)) throw new Error(`${context}: data.categories must be an array`);
+  if(!Array.isArray(data.tags)) throw new Error(`${context}: data.tags must be an array`);
+  if(!Array.isArray(favorites)) throw new Error(`${context}: favorites must be an array`);
+
+  const ids = new Set();
+  data.resources.forEach((resource, idx) => {
+    const id = String(resource && resource.id || "");
+    if(!id) throw new Error(`${context}: resource at index ${idx} is missing id`);
+    if(ids.has(id)) throw new Error(`${context}: duplicate resource id '${id}'`);
+    ids.add(id);
+
+    if(!Array.isArray(resource.tags)) throw new Error(`${context}: resource '${id}' tags must be an array`);
+    const tagSet = new Set(data.tags || []);
+    resource.tags.forEach(tag => {
+      if(!tagSet.has(tag)) throw new Error(`${context}: resource '${id}' tag '${tag}' is not in data.tags`);
+    });
+
+    if(resource.reviewedOn != null && !isValidMMYY(resource.reviewedOn)){
+      throw new Error(`${context}: resource '${id}' reviewedOn must be MM/YY or null`);
+    }
+  });
+
+  const resourceIds = new Set(data.resources.map(r => String(r && r.id || "")));
+  const badFavorite = favorites.find(id => !resourceIds.has(String(id || "")));
+  if(badFavorite) throw new Error(`${context}: favorite '${badFavorite}' does not reference a valid resource`);
+}
+
+function safeRender(label = "render"){
+  return safeCall(label, () => {
+    if(DEBUG) assertInvariants(`${label} pre`);
+    const result = render();
+    if(DEBUG) assertInvariants(`${label} post`);
+    return result;
+  });
+}
+
+function safeRenderAdmin(label = "renderAdmin"){
+  return safeCall(label, () => {
+    if(DEBUG) assertInvariants(`${label} pre`);
+    const result = renderAdmin();
+    if(DEBUG) assertInvariants(`${label} post`);
+    return result;
+  });
+}
+
+window.addEventListener("error", (event) => {
+  showAppError("window.error", event.error || event.message || event);
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  showAppError("window.unhandledrejection", event.reason || event);
+});
+
+const appErrorCopy = document.getElementById("appErrorCopy");
+if(appErrorCopy){
+  appErrorCopy.onclick = async () => {
+    const details = document.getElementById("appErrorDetails");
+    if(!details || !navigator.clipboard || !navigator.clipboard.writeText) return;
+    try{
+      await navigator.clipboard.writeText(details.textContent || "");
+    }catch(_err){
+      // ignore clipboard failures
+    }
+  };
+}
+
+const appErrorDismiss = document.getElementById("appErrorDismiss");
+if(appErrorDismiss){
+  appErrorDismiss.onclick = () => {
+    const banner = document.getElementById("appErrorBanner");
+    if(banner) banner.style.display = "none";
+  };
+}
+
+// ============================================================
+// SELF TESTS
+// ============================================================
+
+function runSelfTests(){
+  const tests = [];
+
+  tests.push({
+    name: "DATA STRUCTURE",
+    fn: () => {
+      if(!Array.isArray(data.resources)) throw new Error("resources array missing");
+      if(!Array.isArray(data.categories)) throw new Error("categories array missing");
+      const ids = data.resources.map(r => String(r && r.id || ""));
+      if(new Set(ids).size !== ids.length) throw new Error("resource ids are not unique");
+    }
+  });
+
+  tests.push({
+    name: "TAG CONSISTENCY",
+    fn: () => {
+      const tagSet = new Set(data.tags || []);
+      data.resources.forEach(resource => {
+        (resource.tags || []).forEach(tag => {
+          if(!tagSet.has(tag)) throw new Error(`invalid tag '${tag}' on resource '${resource.id}'`);
+        });
+      });
+    }
+  });
+
+  tests.push({
+    name: "REVIEW DATE VALIDATION",
+    fn: () => {
+      data.resources.forEach(resource => {
+        const value = resource.reviewedOn;
+        if(value != null && !isValidMMYY(value)){
+          throw new Error(`invalid reviewedOn '${value}' on resource '${resource.id}'`);
+        }
+      });
+    }
+  });
+
+  tests.push({
+    name: "RESOURCE SORTING",
+    fn: () => {
+      const sorted = data.resources.slice().sort((a, b) => {
+        const aMonth = parseMMYYToMonthIndex(a.reviewedOn);
+        const bMonth = parseMMYYToMonthIndex(b.reviewedOn);
+        const aReviewed = aMonth !== null;
+        const bReviewed = bMonth !== null;
+        if(aReviewed !== bReviewed) return aReviewed ? -1 : 1;
+        if(aReviewed && bReviewed && aMonth !== bMonth) return aMonth - bMonth;
+        return compareResourcesByName(a, b);
+      });
+      for(let i = 1; i < sorted.length; i += 1){
+        const prev = sorted[i - 1];
+        const curr = sorted[i];
+        const prevMonth = parseMMYYToMonthIndex(prev.reviewedOn);
+        const currMonth = parseMMYYToMonthIndex(curr.reviewedOn);
+        if(prevMonth === null && currMonth !== null){
+          throw new Error("unreviewed resource appears before reviewed resource");
+        }
+      }
+    }
+  });
+
+  tests.push({
+    name: "SERVICES RENDERER",
+    fn: () => {
+      const html = renderServicesHTML("One\n\n* bullet\n---\n**bold**");
+      if(typeof html !== "string" || !html.length) throw new Error("renderer returned empty output");
+    }
+  });
+
+  const results = tests.map(test => {
+    try{
+      test.fn();
+      return { ok:true, name:test.name, message:"" };
+    }catch(err){
+      return { ok:false, name:test.name, message:(err && err.message) ? err.message : String(err) };
+    }
+  });
+
+  const panel = document.getElementById("selfTestPanel");
+  const resultsEl = document.getElementById("selfTestResults");
+  if(panel && resultsEl){
+    resultsEl.innerHTML = "";
+    results.forEach(result => {
+      const row = document.createElement("div");
+      row.textContent = result.ok
+        ? `✔ PASS ${result.name}`
+        : `✖ FAIL ${result.name}: ${result.message}`;
+      resultsEl.appendChild(row);
+    });
+    panel.style.display = "block";
+  }
+
+  return results;
+}
+
+const selfTestCloseBtn = document.getElementById("selfTestClose");
+if(selfTestCloseBtn){
+  selfTestCloseBtn.onclick = () => {
+    const panel = document.getElementById("selfTestPanel");
+    if(panel) panel.style.display = "none";
+  };
+}
+
+// ============================================================
+// RENDERING — GENERAL
+// ============================================================
 
 function setView(nextView){
   if(view === "admin" && nextView !== "admin"){
     if(!commitPendingEditsIfChanged()) return;
   }
   view = nextView;
-  render();
+  safeRender();
 }
 
 tabCategories.onclick = ()=>{ setView("categories"); };
 tabFavorites.onclick = ()=>{ setView("favorites"); };
 tabAdmin.onclick = ()=>{ setView("admin"); };
 
-/* ---------- Resource Card ---------- */
+// ============================================================
+// RENDERING — RESOURCES
+// ============================================================
 
 function buildResourceCard(res,{expanded=false,showDescription=false,showStar=true}={}){
   normalizeResourceServices(res);
@@ -1520,7 +1766,9 @@ function buildResourceCard(res,{expanded=false,showDescription=false,showStar=tr
   return card;
 }
 
-/* ---------- Category Tag Filters ---------- */
+// ============================================================
+// RENDERING — CATEGORIES
+// ============================================================
 
 function getCategoryFilterTags(categoryId){
   return Array.isArray(categoryTagFilters[categoryId]) ? categoryTagFilters[categoryId] : [];
@@ -1537,8 +1785,12 @@ function setCategoryFilterTags(categoryId, tags){
 
 function clearAllCategoryFilters(shouldRender = true){
   categoryTagFilters = {};
-  if(shouldRender && view === "category") render();
+  if(shouldRender && view === "category") safeRender();
 }
+
+// ============================================================
+// UNDO SYSTEM
+// ============================================================
 
 function getUndoSnapshot(){
   try{
@@ -1574,7 +1826,7 @@ function undoLastDeletion(){
   adminCheckedTags = [];
   clearUndoSnapshot();
   persist();
-  render();
+  safeRender();
 }
 
 function pruneDeletedTagsFromFilters(deletedTags){
@@ -1629,7 +1881,7 @@ function openManageTags(){
   if(!commitPendingEditsIfChanged()) return;
   adminManageTagsOpen = true;
   adminManageTagsSnapshot = JSON.stringify(data.tags || []);
-  renderAdmin();
+  safeRenderAdmin();
 }
 
 function closeManageTags(){
@@ -1642,7 +1894,7 @@ function closeManageTags(){
     persist();
   }
   adminManageTagsSnapshot = "";
-  renderAdmin();
+  safeRenderAdmin();
 }
 
 function createChecklistPanel({buttonText, selectedTags, allTags, onToggle, onAddTag, selectedPrefix}){
@@ -1793,7 +2045,7 @@ function render(){
     editorSnapshot = "";
   }
 
-  if(view==="admin"){ renderAdmin(); return; }
+  if(view==="admin"){ safeRenderAdmin(); return; }
 
   appView.innerHTML="";
 
@@ -1805,7 +2057,7 @@ function render(){
       const card=document.createElement("div");
       card.className="category-card";
       card.innerHTML=`<strong>${cat.label}</strong>`;
-      card.onclick=()=>{ currentCategory=cat.id; view="category"; render(); };
+      card.onclick=()=>{ currentCategory=cat.id; view="category"; safeRender(); };
       grid.appendChild(card);
     });
 
@@ -1823,7 +2075,7 @@ function render(){
     const back=document.createElement("button");
     back.className = "button";
     back.textContent="← Back";
-    back.onclick=()=>{ view="categories"; render(); };
+    back.onclick=()=>{ view="categories"; safeRender(); };
     controls.appendChild(back);
 
     const appliedSelectedTags = [...getCategoryFilterTags(currentCategory)];
@@ -1899,7 +2151,7 @@ function render(){
         e.stopPropagation();
         closeFilterPanel();
         setCategoryFilterTags(currentCategory, stagedSelectedTags);
-        render();
+        safeRender();
       };
       actions.appendChild(okBtn);
       filterPanel.appendChild(actions);
@@ -1987,7 +2239,7 @@ function toggleFav(id){
   set.has(id)?set.delete(id):set.add(id);
   favorites=[...set];
   localStorage.setItem("favorites",JSON.stringify(favorites));
-  render();
+  safeRender();
 }
 
 /* ---------- Print ---------- */
@@ -2010,14 +2262,20 @@ function doPrint(){
   clearAllCategoryFilters(false);
 }
 
+// ============================================================
+// EVENT HANDLERS
+// ============================================================
+
 window.addEventListener("afterprint", () => {
   if(!printInitiatedByButton) return;
   printInitiatedByButton = false;
   closePrintPreview();
-  render();
+  safeRender();
 });
 
-/* ---------- Admin ---------- */
+// ============================================================
+// ADMIN MODE
+// ============================================================
 
 function renderAdmin(){
   const container = document.getElementById("adminView");
@@ -2035,7 +2293,7 @@ function renderAdmin(){
       <button class="button" onclick="document.getElementById('importFile').click()">Load resources</button>
       ${undo ? `
         <button class="button" onclick="undoLastDeletion()">${escapeHTML(undoButtonLabel)}</button>
-        <button class="button" onclick="clearUndoSnapshot(); renderAdmin();">Clear undo</button>
+        <button class="button" onclick="clearUndoSnapshot(); safeRenderAdmin();">Clear undo</button>
       ` : ""}      <div style="margin-top:10px;">
 
         Last Modified: ${data.lastModified || "(none)"}
@@ -2060,11 +2318,12 @@ function renderAdmin(){
   if(adminTab === "resources") renderAdminResources(container);
 }
 
-/* =========================
-   Persistence + Import/Export
-========================= */
+// ============================================================
+// PERSISTENCE
+// ============================================================
 
 function persist(){
+  if(DEBUG) assertInvariants("persist");
   data.lastModified = nowISO();
   localStorage.setItem("tsoData", JSON.stringify(data));
 }
@@ -2104,7 +2363,7 @@ function importJSON(event){
       data = imported;
       persist();
       alert("Load complete.");
-      render();
+      safeRender();
     }catch(e){
       alert("Load failed: " + e.message);
     }
@@ -2128,7 +2387,7 @@ function switchAdminTab(nextTab){
     adminAssignTagsDraft = [];
   }
   adminTab = nextTab;
-  renderAdmin();
+  safeRenderAdmin();
 }
 
 function categoryEditorDraft(){
@@ -2253,13 +2512,13 @@ function openCategoryOrderEditor(){
   });
   adminCategoryOrderEditorOpen = true;
   adminCategoryOrderDraft = rows.map(row => ({ idx: row.idx, value: row.value }));
-  renderAdmin();
+  safeRenderAdmin();
 }
 
 function closeCategoryOrderEditor(shouldRender = true){
   adminCategoryOrderEditorOpen = false;
   adminCategoryOrderDraft = null;
-  if(shouldRender) renderAdmin();
+  if(shouldRender) safeRenderAdmin();
 }
 
 function applyCategoryOrderEditor(){
@@ -2312,7 +2571,7 @@ function applyCategoryOrderEditor(){
   });
 
   if(changed) persist();
-  renderAdmin();
+  safeRenderAdmin();
 }
 
 function applyResourceDraft(idx, draft){
@@ -2503,7 +2762,7 @@ function newCategory(){
 
   persist();
   adminTab = "categories";
-  renderAdmin();
+  safeRenderAdmin();
 
   const sel = document.getElementById("catSelect");
   if(sel){
@@ -2537,7 +2796,7 @@ function deleteCategory(){
   data.categories.splice(idx,1);
   delete categoryTagFilters[cat.id];
   persist();
-  renderAdmin();
+  safeRenderAdmin();
 }
 
 function editCategory(idx){
@@ -2703,7 +2962,7 @@ function renderAdminResources(container){
     adminResourceEditMode = false;
     adminAssignTagsOpen = false;
     adminAssignTagsDraft = [];
-    renderAdmin();
+    safeRenderAdmin();
     return;
   }
 
@@ -2770,7 +3029,7 @@ function newResource(){
   adminResourceEditMode = true;
   adminAssignTagsOpen = false;
   adminAssignTagsDraft = [];
-  renderAdmin();
+  safeRenderAdmin();
   focusAndSelectResourceName();
 }
 
@@ -2800,7 +3059,7 @@ function deleteResource(){
   }
 
   persist();
-  renderAdmin();
+  safeRenderAdmin();
 }
 
 function openResourceEditor(){
@@ -2808,7 +3067,7 @@ function openResourceEditor(){
   adminResourceEditMode = true;
   adminAssignTagsOpen = false;
   adminAssignTagsDraft = [];
-  renderAdmin();
+  safeRenderAdmin();
   focusAndSelectResourceName();
 }
 
@@ -2824,7 +3083,7 @@ function closeResourceEditor(){
   adminResourceEditMode = false;
   adminAssignTagsOpen = false;
   adminAssignTagsDraft = [];
-  renderAdmin();
+  safeRenderAdmin();
 }
 
 function openAssignTagsPanel(){
@@ -2835,13 +3094,13 @@ function openAssignTagsPanel(){
   if(!Array.isArray(res.tags)) res.tags = [];
   adminAssignTagsDraft = [...res.tags];
   adminAssignTagsOpen = true;
-  renderAdmin();
+  safeRenderAdmin();
 }
 
 function closeAssignTagsPanel(){
   adminAssignTagsOpen = false;
   adminAssignTagsDraft = [];
-  renderAdmin();
+  safeRenderAdmin();
 }
 
 function renderAssignTagsChecklist(){
@@ -2930,7 +3189,7 @@ function deleteCheckedTags(){
   pruneDeletedTagsFromFilters(checkedTags);
   adminCheckedTags = [];
   persist();
-  renderAdmin();
+  safeRenderAdmin();
 }
 
 function addGlobalTag(newTagRaw){
@@ -3166,6 +3425,14 @@ function editResource(idx){
 
 /* ---------- Resource Editor Done Shortcut ---------- */
 window.addEventListener("keydown", (e) => {
+  const isSelfTestShortcut = e.ctrlKey && e.shiftKey && (e.key === "T" || e.key === "t");
+  if(!isSelfTestShortcut) return;
+  e.preventDefault();
+  e.stopPropagation();
+  safeCall("runSelfTests", () => runSelfTests());
+}, true);
+
+window.addEventListener("keydown", (e) => {
   const isDoneShortcut = (e.ctrlKey || e.metaKey) && e.key === "Enter";
   if(!isDoneShortcut) return;
   if(!(view === "admin" && adminTab === "resources" && adminResourceEditMode)) return;
@@ -3195,8 +3462,9 @@ window.addEventListener("keydown", (e) => {
 
 /* ---------- Start ---------- */
 
-render();
+safeRender();
 
 </script>
+<!-- ===== APP JS END ===== -->
 </body>
 </html>
