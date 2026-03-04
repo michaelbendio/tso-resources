@@ -46,6 +46,20 @@ body { font-family: -apple-system, sans-serif; margin:0; padding:0; }
 .button.primary { background:#003366; color:white; }
 .button.danger { background:#aa0000; color:white; }
 textarea.big { width:100%; min-height:80px; }
+textarea.services-editor { min-height:320px; resize:vertical; }
+.services-hint { font-size:12px; color:#555; margin-top:6px; }
+.services-preview-toggle { margin-top:8px; display:flex; gap:8px; }
+.services-preview-box {
+  margin-top:8px;
+  border:1px solid #ddd;
+  border-radius:6px;
+  padding:10px;
+  background:#fff;
+}
+.services-rendered ul { margin:6px 0 6px 20px; }
+.services-rendered .services-line { margin:0; }
+.services-rendered .services-blank { min-height:1.1em; }
+.services-rendered hr { border:0; border-top:1px solid #ccc; margin:10px 0; }
 .admin-panel { display:flex; gap:20px; }
 .admin-box { flex:1; border:1px solid #ddd; padding:12px; }
 .category-grid { display:grid; gap:6px; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); }
@@ -1259,13 +1273,49 @@ function normalizeDataTagsShape(nextData){
   });
 }
 
+function applyServicesBold(escapedText){
+  return escapedText.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+}
+
 function renderServicesHTML(text){
-  return text.split("\n").map(line=>{
-    if(line.trim().startsWith("*")){
-      return `<li>${escapeHTML(line.replace(/^\*\s?/,""))}</li>`;
+  const normalized = String(text || "").replace(/\r\n?/g, "\n");
+  const lines = normalized.split("\n");
+  const out = [];
+  let listItems = [];
+
+  function flushList(){
+    if(!listItems.length) return;
+    out.push(`<ul>${listItems.join("")}</ul>`);
+    listItems = [];
+  }
+
+  lines.forEach(line => {
+    const trimmed = line.trim();
+    const isDivider = trimmed === "---";
+    const isBullet = line.startsWith("* ");
+
+    if(isDivider){
+      flushList();
+      out.push("<hr>");
+      return;
     }
-    return `<div>${escapeHTML(line)}</div>`;
-  }).join("");
+
+    if(isBullet){
+      const bulletText = applyServicesBold(escapeHTML(line.slice(2)));
+      listItems.push(`<li>${bulletText}</li>`);
+      return;
+    }
+
+    flushList();
+    if(line === ""){
+      out.push('<div class="services-line services-blank">&nbsp;</div>');
+      return;
+    }
+    out.push(`<div class="services-line">${applyServicesBold(escapeHTML(line))}</div>`);
+  });
+
+  flushList();
+  return out.join("");
 }
 
 /* ---------- Load Data ---------- */
@@ -1340,7 +1390,7 @@ function buildResourceCard(res,{expanded=false,showDescription=false,showStar=tr
   if(res.phone) html+=`<div><strong>Phone:</strong> <a href="tel:${res.phone}">${res.phone}</a></div>`;
   if(res.address) html+=`<div><strong>Address:</strong> ${escapeHTML(res.address)}</div>`;
   if(res.website) html+=`<div><strong>Website:</strong> <a href="${res.website}" target="_blank">${res.website}</a></div>`;
-  if(res.servicesText) html+=`<div><strong>Services:</strong>${renderServicesHTML(res.servicesText)}</div>`;
+  if(res.servicesText) html+=`<div><strong>Services:</strong><div class="services-rendered">${renderServicesHTML(res.servicesText)}</div></div>`;
 
   details.innerHTML=html;
   main.appendChild(details);
@@ -2698,9 +2748,15 @@ function editResource(idx){
       <input type="hidden" id="res_reviewed_on" value="${escapeHTML(res.reviewedOn || "")}">
     </div><br><br>
 
-    <label>Services (lines starting with * become bullets)<br>
-      <textarea id="res_services" class="big">${escapeHTML(res.servicesText || "")}</textarea>
-    </label><br><br>
+    <label>Services<br>
+      <textarea id="res_services" class="big services-editor">${escapeHTML(res.servicesText || "")}</textarea>
+    </label>
+    <div class="services-hint">Bullets: start line with "* " | Bold: **text** | Divider: ---</div>
+    <div class="services-preview-toggle">
+      <button class="button primary" type="button" id="res_services_edit_btn">Edit</button>
+      <button class="button" type="button" id="res_services_preview_btn">Preview</button>
+    </div>
+    <div id="res_services_preview" class="services-preview-box services-rendered hidden"></div><br><br>
 
     <div>
       <strong>Categories</strong><br>
@@ -2756,6 +2812,34 @@ function editResource(idx){
   const reviewCancel = document.getElementById("res_review_cancel");
   const reviewDisplay = document.getElementById("res_reviewed_display");
   const reviewedOnHidden = document.getElementById("res_reviewed_on");
+  const servicesEl = document.getElementById("res_services");
+  const servicesEditBtn = document.getElementById("res_services_edit_btn");
+  const servicesPreviewBtn = document.getElementById("res_services_preview_btn");
+  const servicesPreviewBox = document.getElementById("res_services_preview");
+
+  function refreshServicesPreview(){
+    if(!servicesEl || !servicesPreviewBox) return;
+    servicesPreviewBox.innerHTML = renderServicesHTML(servicesEl.value);
+  }
+
+  function setServicesEditorMode(mode){
+    if(!servicesEl || !servicesPreviewBox || !servicesEditBtn || !servicesPreviewBtn) return;
+    const previewMode = mode === "preview";
+    servicesEl.classList.toggle("hidden", previewMode);
+    servicesPreviewBox.classList.toggle("hidden", !previewMode);
+    servicesEditBtn.classList.toggle("primary", !previewMode);
+    servicesPreviewBtn.classList.toggle("primary", previewMode);
+    if(previewMode) refreshServicesPreview();
+  }
+
+  if(servicesEditBtn && servicesPreviewBtn){
+    servicesEditBtn.onclick = () => setServicesEditorMode("edit");
+    servicesPreviewBtn.onclick = () => setServicesEditorMode("preview");
+  }
+  if(servicesEl){
+    servicesEl.addEventListener("input", refreshServicesPreview);
+  }
+  setServicesEditorMode("edit");
 
   if(reviewBtn && reviewEdit && reviewInput && reviewSave && reviewCancel && reviewDisplay && reviewedOnHidden){
     reviewBtn.onclick = () => {
