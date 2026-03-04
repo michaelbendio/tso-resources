@@ -73,6 +73,22 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 .reviewed-value { font-weight:600; }
 .review-edit { display:none; margin-top:6px; }
 .review-edit.active { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.resource-browse-wrap { width:min(860px,100%); }
+.resource-listbox { width:100%; box-sizing:border-box; }
+.resource-browse-actions { margin-top:8px; display:flex; gap:8px; align-items:center; width:100%; }
+.resource-browse-actions .spacer { flex:1; }
+.resource-editor-grid {
+  display:grid;
+  gap:10px;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+}
+.resource-editor-grid .span-2 { grid-column:span 2; }
+.resource-editor-grid label input,
+.resource-editor-grid label textarea { width:100%; box-sizing:border-box; }
+#res_name { text-align:left; width:100%; box-sizing:border-box; }
+.reviewed-warning { color:#aa0000; font-size:13px; margin-top:4px; min-height:1.1em; }
+.tag-controls-row { margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.assigned-tags-line { font-size:14px; }
 
 /* Print modal */
 #printModal {
@@ -1211,18 +1227,7 @@ function normalizeResourceServices(r){
 
 function normalizeResourceReviewedOn(r){
   if(!r || typeof r !== "object") return;
-  if(typeof r.reviewedOn !== "string"){
-    r.reviewedOn = "";
-    return;
-  }
-  const trimmed = r.reviewedOn.trim();
-  if(!trimmed){
-    r.reviewedOn = "";
-    return;
-  }
-  // Allow legacy MM/DD/YY or MMDDYY input and convert to ISO for storage.
-  // Rule: 00-69 => 2000-2069, 70-99 => 1970-1999.
-  r.reviewedOn = /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : (parseDisplayToISO(trimmed) || "");
+  r.reviewedOn = coerceReviewedOnToMMYY(r.reviewedOn);
 }
 
 function normalizeDataServicesShape(data){
@@ -1235,23 +1240,123 @@ function normalizeDataReviewedOnShape(nextData){
   nextData.resources.forEach(normalizeResourceReviewedOn);
 }
 
-function formatReviewedOnForDisplay(yyyy_mm_dd){
-  if(!yyyy_mm_dd || !/^\d{4}-\d{2}-\d{2}$/.test(yyyy_mm_dd)) return "not reviewed";
-  const parts = yyyy_mm_dd.split("-");
-  return `${parts[1]}/${parts[2]}/${parts[0].slice(2)}`;
+function formatMMYYFromDate(d){
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${mm}/${yy}`;
 }
 
-function parseDisplayToISO(mm_dd_yy){
-  const raw = String(mm_dd_yy || "").trim();
-  if(!raw) return "";
-  const match = raw.match(/^(\d{1,2})[\/\-]?(\d{1,2})[\/\-]?(\d{2})$/);
-  if(!match) return "";
+function parseMMYYToMonthIndex(mmyy){
+  const match = String(mmyy || "").trim().match(/^(0[1-9]|1[0-2])\/(\d{2})$/);
+  if(!match) return null;
   const month = Number(match[1]);
-  const day = Number(match[2]);
-  const yy = Number(match[3]);
-  if(month < 1 || month > 12 || day < 1 || day > 31) return "";
-  const fullYear = yy <= 69 ? 2000 + yy : 1900 + yy;
-  return `${String(fullYear).padStart(4,"0")}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+  const yy = Number(match[2]);
+  const year = 2000 + yy;
+  return year * 12 + (month - 1);
+}
+
+function isValidMMYY(value){
+  return parseMMYYToMonthIndex(value) !== null;
+}
+
+function formatReviewedOnForDisplay(reviewedOn){
+  return isValidMMYY(reviewedOn) ? String(reviewedOn).trim() : "not reviewed";
+}
+
+function parseLegacyReviewedOnToMMYY(raw){
+  const text = String(raw || "").trim();
+  if(!text) return null;
+
+  const mmyy = text.match(/^(\d{1,2})[\/\-](\d{2})$/);
+  if(mmyy){
+    const month = Number(mmyy[1]);
+    const yy = Number(mmyy[2]);
+    if(month >= 1 && month <= 12) return `${String(month).padStart(2,"0")}/${String(yy).padStart(2,"0")}`;
+  }
+
+  const withYear = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2}|\d{4})$/);
+  if(withYear){
+    const month = Number(withYear[1]);
+    const yearRaw = withYear[3];
+    if(month >= 1 && month <= 12){
+      const yy = yearRaw.length === 4 ? Number(yearRaw.slice(-2)) : Number(yearRaw);
+      return `${String(month).padStart(2,"0")}/${String(yy).padStart(2,"0")}`;
+    }
+  }
+
+  const compact = text.match(/^(\d{2})(\d{2})(\d{2})$/);
+  if(compact){
+    const month = Number(compact[1]);
+    const yy = Number(compact[3]);
+    if(month >= 1 && month <= 12) return `${compact[1]}/${String(yy).padStart(2,"0")}`;
+  }
+
+  if(/^\d{4}-\d{2}-\d{2}$/.test(text)){
+    const isoDate = new Date(`${text}T00:00:00`);
+    if(!Number.isNaN(isoDate.getTime())) return formatMMYYFromDate(isoDate);
+  }
+
+  const parsed = new Date(text);
+  if(!Number.isNaN(parsed.getTime())) return formatMMYYFromDate(parsed);
+  return null;
+}
+
+function coerceReviewedOnToMMYY(value){
+  if(value == null) return null;
+  const text = String(value).trim();
+  if(!text) return null;
+  if(isValidMMYY(text)) return text;
+  const parsed = parseLegacyReviewedOnToMMYY(text);
+  return parsed && isValidMMYY(parsed) ? parsed : null;
+}
+
+function validateReviewedOnInput(value){
+  const text = String(value || "").trim();
+  if(!text) return { valid:true, normalized:null, message:"" };
+  if(!isValidMMYY(text)){
+    return { valid:false, normalized:null, message:"Use MM/YY (MM 01-12)." };
+  }
+  return { valid:true, normalized:text, message:"" };
+}
+
+function compareResourcesByName(a, b){
+  return String((a && a.name) || "").localeCompare(String((b && b.name) || ""), undefined, { sensitivity:"base" });
+}
+
+function getAdminResourceBrowseList(){
+  const resources = data.resources.slice();
+  if(!adminShowReviewDates){
+    return resources.sort(compareResourcesByName);
+  }
+  return resources.sort((a, b) => {
+    const aMonth = parseMMYYToMonthIndex(a.reviewedOn);
+    const bMonth = parseMMYYToMonthIndex(b.reviewedOn);
+    const aReviewed = aMonth !== null;
+    const bReviewed = bMonth !== null;
+    if(aReviewed !== bReviewed) return aReviewed ? -1 : 1;
+    if(aReviewed && bReviewed && aMonth !== bMonth) return aMonth - bMonth;
+    return compareResourcesByName(a, b);
+  });
+}
+
+function buildAdminDeleteConfirmation(kind, name){
+  if(kind === "resource"){
+    return [
+      `Are you sure you want to delete the resource '${name}'?`,
+      "",
+      "This removes it from all categories and Favorites.",
+      "Undo will be available in Admin to restore what you deleted."
+    ].join("\n");
+  }
+  if(kind === "category"){
+    return [
+      `Are you sure you want to delete the category '${name}'?`,
+      "",
+      "Resources are not deleted, but they will no longer appear under this category.",
+      "Undo will be available in Admin to restore what you deleted."
+    ].join("\n");
+  }
+  return "Are you sure?";
 }
 
 function normalizeDataTagsShape(nextData){
@@ -2042,16 +2147,15 @@ function categoryEditorDraft(){
 
 function resourceEditorDraft(){
   const nameEl = document.getElementById("res_name");
-  const orderEl = document.getElementById("res_order");
   const phoneEl = document.getElementById("res_phone");
   const addressEl = document.getElementById("res_address");
   const websiteEl = document.getElementById("res_website");
   const hoursEl = document.getElementById("res_hours");
   const descEl = document.getElementById("res_description");
   const servicesEl = document.getElementById("res_services");
-  if(!nameEl || !orderEl || !phoneEl || !addressEl || !websiteEl || !hoursEl || !descEl || !servicesEl) return null;
+  if(!nameEl || !phoneEl || !addressEl || !websiteEl || !hoursEl || !descEl || !servicesEl) return null;
   const reviewedEl = document.getElementById("res_reviewed_on");
-  const reviewedOn = reviewedEl ? reviewedEl.value : "";
+  const reviewedOn = reviewedEl ? reviewedEl.value.trim() : "";
 
   const tags = Array.from(document.querySelectorAll(".resTag"))
     .filter(cb => cb.checked)
@@ -2060,7 +2164,6 @@ function resourceEditorDraft(){
 
   return {
     name: nameEl.value.trim(),
-    displayOrder: orderEl.value,
     phone: phoneEl.value.trim(),
     address: addressEl.value.trim(),
     website: websiteEl.value.trim(),
@@ -2099,6 +2202,12 @@ function showResourceNameWarning(message){
   if(!warning) return;
   warning.textContent = message || "";
   warning.style.display = message ? "block" : "none";
+}
+
+function showResourceReviewWarning(message){
+  const warning = document.getElementById("res_review_warning");
+  if(!warning) return;
+  warning.textContent = message || "";
 }
 
 function snapshotCategoryEditor(){
@@ -2210,14 +2319,14 @@ function applyResourceDraft(idx, draft){
   const res = data.resources[idx];
   if(!res) return;
   res.name = draft.name || res.name;
-  res.displayOrder = draft.displayOrder === "" ? null : Number(draft.displayOrder);
   res.phone = draft.phone;
   res.address = draft.address;
   res.website = draft.website;
   res.hours = draft.hours;
   res.description = draft.description;
   res.servicesText = draft.servicesText;
-  res.reviewedOn = typeof draft.reviewedOn === "string" ? draft.reviewedOn : "";
+  const reviewValidation = validateReviewedOnInput(draft.reviewedOn);
+  res.reviewedOn = reviewValidation.valid ? reviewValidation.normalized : null;
   res.categories = draft.categories;
   res.tags = draft.tags || [];
   res.lastModified = nowISO();
@@ -2243,10 +2352,17 @@ function commitPendingEditsIfChanged(){
     if(!nextSnapshot) return true;
     const draft = JSON.parse(nextSnapshot);
     const validation = validateResourceName(draft, editing.idx);
+    const reviewValidation = validateReviewedOnInput(draft.reviewedOn);
     showResourceNameWarning(validation.message);
+    showResourceReviewWarning(reviewValidation.message);
     if(!validation.valid){
       const nameInput = document.getElementById("res_name");
       if(nameInput) nameInput.focus();
+      return false;
+    }
+    if(!reviewValidation.valid){
+      const reviewInput = document.getElementById("res_reviewed_on");
+      if(reviewInput) reviewInput.focus();
       return false;
     }
     if(nextSnapshot !== editorSnapshot){
@@ -2407,9 +2523,7 @@ function deleteCategory(){
   const cat = data.categories[idx];
   if(!cat) return;
 
-  const confirmDelete = confirm(
-    `Are you sure you want to delete the "${cat.label}" category?\n\nThis removes it from the category list and resources will no longer appear under it. You can undo this once from Admin.`
-  );
+  const confirmDelete = confirm(buildAdminDeleteConfirmation("category", cat.label || "(unnamed)"));
   if(!confirmDelete) return;
   setUndoSnapshot(`deleted category "${cat.label}"`);
 
@@ -2530,19 +2644,21 @@ function renderAdminResources(container){
       <div class="admin-panel">
         <div class="admin-box">
           <h3>Resources</h3>
-          <label style="display:block; margin-bottom:8px;">
-            <input type="checkbox" id="resSortShowReview">
-            Show review dates
-          </label>
-          <select id="resSelect" size="25"></select>
-          <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
-            <button class="button" onclick="newResource()">New</button>
-            <button class="button danger" onclick="deleteResource()">Delete</button>
-            <button class="button" onclick="adminManageTagsOpen ? closeManageTags() : openManageTags()">Manage tags</button>
-            <span style="flex:1;"></span>
-            <button class="button primary" onclick="openResourceEditor()">Edit</button>
+          <div class="resource-browse-wrap">
+            <label style="display:block; margin-bottom:8px;">
+              <input type="checkbox" id="resSortShowReview">
+              Show review dates
+            </label>
+            <select id="resSelect" class="resource-listbox" size="25"></select>
+            <div class="resource-browse-actions">
+              <button class="button" onclick="newResource()">New</button>
+              <button class="button danger" onclick="deleteResource()">Delete</button>
+              <button class="button" onclick="adminManageTagsOpen ? closeManageTags() : openManageTags()">Manage tags</button>
+              <span class="spacer"></span>
+              <button class="button primary" onclick="openResourceEditor()">Edit</button>
+            </div>
+            ${renderAdminManageTagsSection()}
           </div>
-          ${renderAdminManageTagsSection()}
         </div>
       </div>
     `;
@@ -2559,6 +2675,22 @@ function renderAdminResources(container){
 
     populateResourceSelectOptions(sel, selectedResourceId);
     sel.onchange = () => { selectedResourceId = sel.value || ""; };
+    sel.ondblclick = () => {
+      if(document.activeElement !== sel) return;
+      openResourceEditor();
+    };
+    sel.onkeydown = (e) => {
+      if(document.activeElement !== sel) return;
+      if(e.key === "Enter"){
+        e.preventDefault();
+        openResourceEditor();
+        return;
+      }
+      if(e.key === "Delete"){
+        e.preventDefault();
+        deleteResource();
+      }
+    };
     setupAdminManageTagsPanel();
 
     editing = null;
@@ -2580,29 +2712,15 @@ function renderAdminResources(container){
       <div class="admin-box">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
           <h3 style="margin:0;">Edit Resource</h3>
-          <button class="button primary" onclick="closeResourceEditor()">Done</button>
+          <button id="res_done_btn" class="button primary" onclick="closeResourceEditor()">Done</button>
         </div>
-        <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
-          <button class="button" onclick="adminManageTagsOpen ? closeManageTags() : openManageTags()">Manage tags</button>
-          <button class="button" onclick="openAssignTagsPanel()">Assign tags</button>
-        </div>
-        <div id="assignTagsPanel" style="margin-top:10px; ${adminAssignTagsOpen ? "" : "display:none;"}">
-          <div style="margin-bottom:8px;">Apply tags to the current resource.</div>
-          <div id="assignTagsList" style="max-height:220px; overflow:auto; border:1px solid #ddd; border-radius:6px; padding:8px; margin-bottom:8px;"></div>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <button class="button primary" type="button" id="assignTagsOkBtn">OK</button>
-            <button class="button" type="button" id="assignTagsCancelBtn">Cancel</button>
-          </div>
-        </div>
-        ${renderAdminManageTagsSection()}
         <div id="resEditor" style="margin-top:12px;"></div>
       </div>
     </div>
   `;
 
-  setupAdminManageTagsPanel();
   editResource(idx);
-  if(adminAssignTagsOpen) renderAssignTagsChecklist();
+  setupAdminManageTagsPanel();
 }
 
 function populateResourceSelectOptions(sel, preferredResourceId){
@@ -2610,14 +2728,11 @@ function populateResourceSelectOptions(sel, preferredResourceId){
   const prev = preferredResourceId || selectedResourceId || sel.value || "";
   sel.innerHTML = "";
 
-  data.resources
-    .map((r) => ({ r }))
-    .sort((a, b) => String(a.r.name || "").localeCompare(String(b.r.name || "")))
-    .forEach(({ r }) => {
+  getAdminResourceBrowseList().forEach((r) => {
       const opt = document.createElement("option");
       opt.value = String(r.id || "");
       opt.textContent = adminShowReviewDates
-        ? `${r.name || ""} \u2014 ${r.reviewedOn ? formatReviewedOnForDisplay(r.reviewedOn) : "Not reviewed"}`
+        ? `${r.name || ""} \u2014 ${formatReviewedOnForDisplay(r.reviewedOn)}`
         : (r.name || "");
       sel.appendChild(opt);
     });
@@ -2656,39 +2771,26 @@ function newResource(){
   adminAssignTagsOpen = false;
   adminAssignTagsDraft = [];
   renderAdmin();
-  const nameInput = document.getElementById("res_name");
-  if(nameInput) nameInput.focus();
+  focusAndSelectResourceName();
 }
 
 function deleteResource(){
   if(!commitPendingEditsIfChanged()) return;
   if(!selectedResourceId) return;
 
-  const sortedIds = data.resources
-    .map(r => String(r.id || ""))
-    .sort((aId, bId) => {
-      const a = data.resources.find(r => String(r.id || "") === aId);
-      const b = data.resources.find(r => String(r.id || "") === bId);
-      return String((a && a.name) || "").localeCompare(String((b && b.name) || ""));
-    });
+  const sortedIds = getAdminResourceBrowseList().map(r => String(r.id || ""));
   const selectedPos = sortedIds.indexOf(selectedResourceId);
   const idx = getResourceIndexById(selectedResourceId);
   const res = data.resources[idx];
   if(!res) return;
 
-  const confirmDelete = confirm(`Are you sure you want to delete the resource '${res.name}'?`);
+  const confirmDelete = confirm(buildAdminDeleteConfirmation("resource", res.name || "(unnamed)"));
   if(!confirmDelete) return;
   setUndoSnapshot(`deleted resource "${res.name}"`);
 
   data.resources.splice(idx,1);
 
-  const remainingIds = data.resources
-    .map(r => String(r.id || ""))
-    .sort((aId, bId) => {
-      const a = data.resources.find(r => String(r.id || "") === aId);
-      const b = data.resources.find(r => String(r.id || "") === bId);
-      return String((a && a.name) || "").localeCompare(String((b && b.name) || ""));
-    });
+  const remainingIds = getAdminResourceBrowseList().map(r => String(r.id || ""));
   if(!remainingIds.length){
     selectedResourceId = "";
     adminResourceEditMode = false;
@@ -2707,8 +2809,14 @@ function openResourceEditor(){
   adminAssignTagsOpen = false;
   adminAssignTagsDraft = [];
   renderAdmin();
+  focusAndSelectResourceName();
+}
+
+function focusAndSelectResourceName(){
   const nameInput = document.getElementById("res_name");
-  if(nameInput) nameInput.focus();
+  if(!nameInput) return;
+  nameInput.focus();
+  nameInput.select();
 }
 
 function closeResourceEditor(){
@@ -2739,8 +2847,7 @@ function closeAssignTagsPanel(){
 function renderAssignTagsChecklist(){
   const list = document.getElementById("assignTagsList");
   const okBtn = document.getElementById("assignTagsOkBtn");
-  const cancelBtn = document.getElementById("assignTagsCancelBtn");
-  if(!list || !okBtn || !cancelBtn) return;
+  if(!list || !okBtn) return;
 
   list.innerHTML = "";
   if(!data.tags.length){
@@ -2773,7 +2880,6 @@ function renderAssignTagsChecklist(){
     persist();
     closeAssignTagsPanel();
   };
-  cancelBtn.onclick = () => closeAssignTagsPanel();
 }
 
 function updateDeleteCheckedTagsButtonState(){
@@ -2853,7 +2959,7 @@ function editResource(idx){
   normalizeResourceReviewedOn(res);
   if(!Array.isArray(res.tags)) res.tags = [];
   const reviewedDisplay = formatReviewedOnForDisplay(res.reviewedOn);
-  const todayISO = new Date().toISOString().slice(0,10);
+  const assignedTagsLine = res.tags.length ? res.tags.join(", ") : "(none)";
 
   const catChecks = data.categories
     .slice()
@@ -2870,45 +2976,36 @@ function editResource(idx){
     <label>Name<br>
       <input id="res_name" value="${escapeHTML(res.name || "")}">
     </label>
-    <div id="res_name_warning" style="display:none; color:#aa0000; margin-top:4px;"></div><br><br>
+    <div id="res_name_warning" style="display:none; color:#aa0000; margin-top:4px;"></div>
 
-    <label>Display order (optional)<br>
-      <input id="res_order" type="number" value="${res.displayOrder ?? ""}">
-    </label><br><br>
+    <div class="resource-editor-grid" style="margin-top:10px;">
+      <label>Phone<br>
+        <input id="res_phone" value="${escapeHTML(res.phone || "")}">
+      </label>
+      <label class="span-2">Address<br>
+        <input id="res_address" value="${escapeHTML(res.address || "")}">
+      </label>
 
-    <label>Phone<br>
-      <input id="res_phone" value="${escapeHTML(res.phone || "")}">
-    </label><br><br>
+      <label>Website<br>
+        <input id="res_website" type="url" value="${escapeHTML(res.website || "")}">
+      </label>
+      <label>Hours<br>
+        <input id="res_hours" value="${escapeHTML(res.hours || "")}">
+      </label>
+      <div>
+        <strong>Reviewed on</strong>
+        <div class="reviewed-row" style="margin-top:4px;">
+          <span id="res_reviewed_display" class="reviewed-value">${escapeHTML(reviewedDisplay)}</span>
+          <button class="button" type="button" id="res_review_btn">Review</button>
+        </div>
+        <input id="res_reviewed_on" type="text" placeholder="MM/YY" value="${escapeHTML(res.reviewedOn || "")}" style="width:120px; margin-top:4px;">
+        <div id="res_review_warning" class="reviewed-warning"></div>
+      </div>
+    </div>
 
-    <label>Address<br>
-      <input id="res_address" value="${escapeHTML(res.address || "")}">
-    </label><br><br>
-
-    <label>Website<br>
-      <input id="res_website" type="url" value="${escapeHTML(res.website || "")}">
-    </label><br><br>
-
-    <label>Hours<br>
-      <input id="res_hours" value="${escapeHTML(res.hours || "")}">
-    </label><br><br>
-
-    <label>Description<br>
+    <label style="display:block; margin-top:8px;">Description<br>
       <textarea id="res_description" class="big">${escapeHTML(res.description || "")}</textarea>
-    </label><br><br>
-
-    <div>
-      <strong>Reviewed on</strong><br>
-      <div class="reviewed-row">
-        <span id="res_reviewed_display" class="reviewed-value">${escapeHTML(reviewedDisplay)}</span>
-        <button class="button" type="button" id="res_review_btn">Review</button>
-      </div>
-      <div id="res_review_edit" class="review-edit">
-        <input id="res_review_input" type="date" value="${todayISO}">
-        <button class="button primary" type="button" id="res_review_save">Save</button>
-        <button class="button" type="button" id="res_review_cancel">Cancel</button>
-      </div>
-      <input type="hidden" id="res_reviewed_on" value="${escapeHTML(res.reviewedOn || "")}">
-    </div><br><br>
+    </label><br>
 
     <label>Services<br>
       <textarea id="res_services" class="big services-editor">${escapeHTML(res.servicesText || "")}</textarea>
@@ -2923,12 +3020,24 @@ function editResource(idx){
     <div>
       <strong>Categories</strong><br>
       ${catChecks}
-    </div><br>
+    </div>
 
-    <div id="resTagControl"></div><br>
+    <div class="tag-controls-row">
+      <button class="button" type="button" id="res_manage_tags_btn">Manage tags</button>
+      <button class="button" type="button" id="res_assign_tags_btn">Assign tags</button>
+      <span class="assigned-tags-line">Assigned tags: ${escapeHTML(assignedTagsLine)}</span>
+    </div>
+    <div id="assignTagsPanel" style="margin-top:10px; ${adminAssignTagsOpen ? "" : "display:none;"}">
+      <div style="margin-bottom:8px;">Apply tags to the current resource.</div>
+      <div id="assignTagsList" style="max-height:220px; overflow:auto; border:1px solid #ddd; border-radius:6px; padding:8px; margin-bottom:8px;"></div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="button primary" type="button" id="assignTagsOkBtn">OK</button>
+      </div>
+    </div>
+    ${renderAdminManageTagsSection()}
   `;
 
-  const selectedTags = [...res.tags];
+  const selectedTags = [...res.tags].sort((a,b) => a.localeCompare(b));
   const hiddenTagContainer = document.createElement("div");
   hiddenTagContainer.style.display = "none";
 
@@ -2944,41 +3053,22 @@ function editResource(idx){
     });
   }
 
-  const tagControl = createChecklistPanel({
-    buttonText: "Tags...",
-    selectedTags,
-    allTags: data.tags,
-    selectedPrefix: "Selected tags:",
-    onToggle: (tag, checked) => {
-      const i = selectedTags.indexOf(tag);
-      if(checked && i === -1) selectedTags.push(tag);
-      if(!checked && i !== -1) selectedTags.splice(i, 1);
-      syncHiddenTagInputs();
-    },
-    onAddTag: (value) => {
-      const result = addGlobalTag(value);
-      if(result.added) syncHiddenTagInputs();
-      return result;
-    }
-  });
-
-  document.getElementById("resTagControl").appendChild(tagControl);
   // Hidden checklist source of truth for snapshot/commit.
   syncHiddenTagInputs();
   editor.appendChild(hiddenTagContainer);
 
   const reviewBtn = document.getElementById("res_review_btn");
-  const reviewEdit = document.getElementById("res_review_edit");
-  const reviewInput = document.getElementById("res_review_input");
-  const reviewSave = document.getElementById("res_review_save");
-  const reviewCancel = document.getElementById("res_review_cancel");
+  const reviewInput = document.getElementById("res_reviewed_on");
   const reviewDisplay = document.getElementById("res_reviewed_display");
-  const reviewedOnHidden = document.getElementById("res_reviewed_on");
+  const reviewWarning = document.getElementById("res_review_warning");
   const nameEl = document.getElementById("res_name");
   const servicesEl = document.getElementById("res_services");
   const servicesEditBtn = document.getElementById("res_services_edit_btn");
   const servicesPreviewBtn = document.getElementById("res_services_preview_btn");
   const servicesPreviewBox = document.getElementById("res_services_preview");
+  const doneBtn = document.getElementById("res_done_btn");
+  const manageTagsBtn = document.getElementById("res_manage_tags_btn");
+  const assignTagsBtn = document.getElementById("res_assign_tags_btn");
 
   function refreshServicesPreview(){
     if(!servicesEl || !servicesPreviewBox) return;
@@ -3002,42 +3092,87 @@ function editResource(idx){
   if(servicesEl){
     servicesEl.addEventListener("input", refreshServicesPreview);
   }
-  setServicesEditorMode("edit");
+  setServicesEditorMode("preview");
 
-  if(reviewBtn && reviewEdit && reviewInput && reviewSave && reviewCancel && reviewDisplay && reviewedOnHidden){
+  function updateReviewedDisplayAndWarning(){
+    if(!reviewInput || !reviewDisplay) return true;
+    const validation = validateReviewedOnInput(reviewInput.value);
+    if(reviewWarning) reviewWarning.textContent = validation.message;
+    reviewDisplay.textContent = validation.valid
+      ? formatReviewedOnForDisplay(validation.normalized)
+      : "not reviewed";
+    showResourceReviewWarning(validation.message);
+    return validation.valid;
+  }
+
+  if(reviewBtn && reviewInput){
     reviewBtn.onclick = () => {
-      reviewInput.value = todayISO;
-      reviewEdit.classList.add("active");
+      reviewInput.value = formatMMYYFromDate(new Date());
+      updateReviewedDisplayAndWarning();
+      reviewInput.focus();
+      reviewInput.select();
     };
-    reviewSave.onclick = () => {
-      if(!reviewInput.value) return;
-      reviewedOnHidden.value = reviewInput.value;
-      reviewDisplay.textContent = formatReviewedOnForDisplay(reviewInput.value);
-      reviewEdit.classList.remove("active");
-      populateResourceSelectOptions(document.getElementById("resSelect"), selectedResourceId);
-    };
-    reviewCancel.onclick = () => {
-      reviewEdit.classList.remove("active");
-    };
+    reviewInput.addEventListener("input", updateReviewedDisplayAndWarning);
+  }
+
+  function validateEditorState(){
+    const draft = resourceEditorDraft();
+    if(!draft){
+      showResourceNameWarning("");
+      showResourceReviewWarning("");
+      if(doneBtn) doneBtn.disabled = false;
+      return;
+    }
+    const nameValidation = validateResourceName(draft, idx);
+    const reviewValidation = validateReviewedOnInput(draft.reviewedOn);
+    showResourceNameWarning(nameValidation.message);
+    showResourceReviewWarning(reviewValidation.message);
+    if(doneBtn) doneBtn.disabled = !(nameValidation.valid && reviewValidation.valid);
+  }
+
+  if(manageTagsBtn){
+    manageTagsBtn.onclick = () => adminManageTagsOpen ? closeManageTags() : openManageTags();
+  }
+  if(assignTagsBtn){
+    assignTagsBtn.onclick = () => openAssignTagsPanel();
+  }
+  if(adminAssignTagsOpen){
+    renderAssignTagsChecklist();
+    const assignPanel = document.getElementById("assignTagsPanel");
+    if(assignPanel){
+      assignPanel.addEventListener("click", (e) => e.stopPropagation());
+      const outsideHandler = (e) => {
+        if(assignPanel.contains(e.target)) return;
+        if(assignTagsBtn && assignTagsBtn.contains(e.target)) return;
+        document.removeEventListener("click", outsideHandler, true);
+        closeAssignTagsPanel();
+      };
+      setTimeout(() => document.addEventListener("click", outsideHandler, true), 0);
+    }
   }
 
   if(nameEl){
-    const validateAndShow = () => {
-      const draft = resourceEditorDraft();
-      if(!draft){
-        showResourceNameWarning("");
-        return;
-      }
-      const validation = validateResourceName(draft, idx);
-      showResourceNameWarning(validation.message);
-    };
-    nameEl.addEventListener("input", validateAndShow);
-    validateAndShow();
+    nameEl.addEventListener("input", validateEditorState);
   }
+  if(reviewInput) reviewInput.addEventListener("input", validateEditorState);
+
+  updateReviewedDisplayAndWarning();
+  validateEditorState();
+  focusAndSelectResourceName();
 
   editing = { kind: "resource", idx };
   editorSnapshot = snapshotResourceEditor();
 }
+
+/* ---------- Resource Editor Done Shortcut ---------- */
+window.addEventListener("keydown", (e) => {
+  const isDoneShortcut = (e.ctrlKey || e.metaKey) && e.key === "Enter";
+  if(!isDoneShortcut) return;
+  if(!(view === "admin" && adminTab === "resources" && adminResourceEditMode)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  closeResourceEditor();
+}, true);
 
 /* ---------- Hidden Favorites Reset Hotkey ---------- */
 /*
