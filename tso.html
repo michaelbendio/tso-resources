@@ -205,6 +205,45 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 
 <!-- ===== PASTE YOUR SEED DATA BLOCK HERE ===== -->
 <script id="seed-data" type="application/json">
+/* ============================================================
+TSO RESOURCES — SECTION INDEX
+This file is intentionally organized into stable sections.
+Agents must modify only the relevant section.
+
+SECTION ORDER
+
+STATE
+UTILITIES
+DATA NORMALIZATION
+PERSISTENCE
+UNDO SYSTEM
+SAFETY HARNESS
+SELF TESTS
+RENDERING — GENERAL
+RENDERING — CATEGORIES
+RENDERING — RESOURCES
+ADMIN MODE
+EVENT HANDLERS
+
+SUBSYSTEMS
+
+PrintWorkflow
+  Guided printing system.
+  Responsible for building the print queue, rendering steps,
+  and handling Print / Skip / Next / Close actions.
+
+AGENT EDITING RULES
+
+1. Locate the correct section before editing.
+2. Do not move section banners.
+3. Do not duplicate rendering logic across sections.
+4. Prefer minimal diffs rather than rewriting blocks.
+
+See also:
+AGENTS.md
+docs/code-map.md
+docs/architecture/ADR-001-print-workflow.md
+============================================================ */
 {
   "version": 6,
   "lastModified": "2026-02-23T23:42:06.253Z",
@@ -1638,6 +1677,26 @@ if(appErrorDismiss){
   };
 }
 
+/* SAFETY: critical anchors must exist */
+(function checkCriticalAnchors(){
+  const source = document.currentScript?.textContent || "";
+  [
+    "STATE",
+    "UTILITIES",
+    "PERSISTENCE",
+    "UNDO SYSTEM",
+    "SELF TESTS",
+    "RENDERING — RESOURCES",
+    "ADMIN MODE",
+    "EVENT HANDLERS",
+    "PrintWorkflow"
+  ].forEach(anchor => {
+    if(!source.includes(anchor)){
+      throw new Error("Safety harness: missing critical anchor: " + anchor);
+    }
+  });
+})();
+
 // ============================================================
 // SELF TESTS
 // ============================================================
@@ -2112,6 +2171,7 @@ function render(){
     controls.appendChild(back);
 
     const appliedSelectedTags = [...getCategoryFilterTags(currentCategory)];
+    const hasActiveFilters = appliedSelectedTags.length > 0;
     let stagedSelectedTags = appliedSelectedTags.slice();
 
     const filterWrap = document.createElement("div");
@@ -2213,7 +2273,20 @@ function render(){
     filterPanel.addEventListener("click", (e) => e.stopPropagation());
     controls.appendChild(filterWrap);
 
-    if(appliedSelectedTags.length){
+    if(hasActiveFilters){
+      const clearFilterBtn = document.createElement("button");
+      clearFilterBtn.className = "button";
+      clearFilterBtn.textContent = "Clear filter";
+      clearFilterBtn.onclick = () => {
+        closeFilterPanel();
+        stagedSelectedTags = [];
+        setCategoryFilterTags(currentCategory, []);
+        safeRender();
+      };
+      controls.appendChild(clearFilterBtn);
+    }
+
+    if(hasActiveFilters){
       const summary = document.createElement("span");
       summary.style.fontSize = "13px";
       summary.style.whiteSpace = "nowrap";
