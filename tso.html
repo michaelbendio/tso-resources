@@ -109,6 +109,14 @@ textarea.services-editor { min-height:320px; resize:vertical; }
   width:800px;
 }
 @media print {
+  @page {
+    margin: 0.75in;
+  }
+
+  body {
+    background: white;
+  }
+
   body > *:not(#printModal) {
     display: none !important;
   }
@@ -130,18 +138,27 @@ textarea.services-editor { min-height:320px; resize:vertical; }
     padding: 0;
     margin: 0;
     background: transparent;
-    font-size: 12pt;
+    font-size: 11pt;
+    line-height: 1.3;
   }
 
   #printContentWrapper button {
     display: none !important;
   }
 
-  .print-page-break {
-    display: block;
-    break-before: page;
-    page-break-before: always;
-    height: 0;
+  .resource-card {
+    border: none;
+    padding: 0;
+    margin-bottom: 11pt;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    background: transparent;
+  }
+
+  .resource-card ul {
+    margin-top: 4pt;
+    margin-bottom: 4pt;
+    padding-left: 14pt;
   }
 }
 </style>
@@ -2244,14 +2261,35 @@ function render(){
   }
 
   if(view==="favorites"){
-    const favs=data.resources.filter(r=>favorites.includes(r.id));
+    const { normalFavs, listFavs } = getFavoritePrintGroups();
+    const favs=[...normalFavs, ...listFavs];
     if(!favs.length){ appView.innerHTML="<p>No favorites selected.</p>"; return; }
 
-    const btn=document.createElement("button");
-    btn.textContent="Print Preview";
-    btn.className="button primary";
-    btn.onclick=printFavorites;
-    appView.appendChild(btn);
+    if(normalFavs.length){
+      const btn=document.createElement("button");
+      btn.textContent="Print Preview";
+      btn.className="button primary";
+      btn.onclick=printFavorites;
+      appView.appendChild(btn);
+    }
+
+    if(listFavs.length){
+      const heading=document.createElement("div");
+      heading.textContent="Print Lists";
+      heading.style.fontWeight="bold";
+      heading.style.margin="12px 0 8px";
+      appView.appendChild(heading);
+
+      listFavs.forEach(res=>{
+        const btn=document.createElement("button");
+        btn.textContent=`Print "${res.name}"`;
+        btn.className="button";
+        btn.style.marginRight="8px";
+        btn.style.marginBottom="8px";
+        btn.onclick=()=>printSingleListResource(res.id);
+        appView.appendChild(btn);
+      });
+    }
 
     favs.forEach(res=> appView.appendChild(buildResourceCard(res,{expanded:true})));
   }
@@ -2269,12 +2307,11 @@ function toggleFav(id){
 
 /* ---------- Print ---------- */
 
-function printFavorites(){
-  const favs=data.resources.filter(r=>favorites.includes(r.id));
+function getFavoritePrintGroups(){
   const normalFavs = [];
   const listFavs = [];
 
-  favs.forEach(res => {
+  data.resources.filter(r=>favorites.includes(r.id)).forEach(res => {
     if(Array.isArray(res.tags) && res.tags.includes("This resource is a list")){
       listFavs.push(res);
     }else{
@@ -2282,21 +2319,28 @@ function printFavorites(){
     }
   });
 
+  return { normalFavs, listFavs };
+}
+
+function openPrintPreview(resources){
   printContent.innerHTML="<h2>Suggested Resources</h2>";
-  normalFavs.forEach(res=>{
+  resources.forEach(res=>{
     const card=buildResourceCard(res,{expanded:true,showStar:false});
     printContent.appendChild(card);
   });
-
-  listFavs.forEach(res=>{
-    const breaker=document.createElement("div");
-    breaker.className="print-page-break";
-    printContent.appendChild(breaker);
-    const card=buildResourceCard(res,{expanded:true,showStar:false});
-    printContent.appendChild(card);
-  });
-
   printModal.classList.remove("hidden");
+}
+
+function printFavorites(){
+  const { normalFavs } = getFavoritePrintGroups();
+  openPrintPreview(normalFavs);
+}
+
+function printSingleListResource(resourceId){
+  const { listFavs } = getFavoritePrintGroups();
+  const resource = listFavs.find(res => res.id === resourceId);
+  if(!resource) return;
+  openPrintPreview([resource]);
 }
 
 function closePrintPreview(){ printModal.classList.add("hidden"); }
