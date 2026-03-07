@@ -196,6 +196,9 @@ textarea.services-editor { min-height:320px; resize:vertical; }
   <div id="printContentWrapper">
     <button class="button" onclick="closePrintPreview()">Close</button>
     <button class="button primary" onclick="doPrint()">Print</button>
+    <button class="button" id="printSkipBtn" onclick="skipPrintStep()">Skip</button>
+    <button class="button" id="printNextBtn" onclick="nextPrintStep()">Next</button>
+    <div id="printProgress" style="margin:10px 0 12px; font-size:14px; color:#555;"></div>
     <div id="printContent"></div>
   </div>
 </div>
@@ -1528,6 +1531,8 @@ let editing = null;
 let editorSnapshot = "";
 let categoryTagFilters = {}; // categoryId -> [tag, ...]
 let printInitiatedByButton = false;
+let printQueue = [];
+let printQueueIndex = -1;
 const UNDO_STORAGE_KEY = "tsoUndo";
 
 // ============================================================
@@ -2265,31 +2270,11 @@ function render(){
     const favs=[...normalFavs, ...listFavs];
     if(!favs.length){ appView.innerHTML="<p>No favorites selected.</p>"; return; }
 
-    if(normalFavs.length){
-      const btn=document.createElement("button");
-      btn.textContent="Print Preview";
-      btn.className="button primary";
-      btn.onclick=printFavorites;
-      appView.appendChild(btn);
-    }
-
-    if(listFavs.length){
-      const heading=document.createElement("div");
-      heading.textContent="Print Lists";
-      heading.style.fontWeight="bold";
-      heading.style.margin="12px 0 8px";
-      appView.appendChild(heading);
-
-      listFavs.forEach(res=>{
-        const btn=document.createElement("button");
-        btn.textContent=`Print "${res.name}"`;
-        btn.className="button";
-        btn.style.marginRight="8px";
-        btn.style.marginBottom="8px";
-        btn.onclick=()=>printSingleListResource(res.id);
-        appView.appendChild(btn);
-      });
-    }
+    const btn=document.createElement("button");
+    btn.textContent="Print Favorites Packet";
+    btn.className="button primary";
+    btn.onclick=startFavoritesPacketPrint;
+    appView.appendChild(btn);
 
     favs.forEach(res=> appView.appendChild(buildResourceCard(res,{expanded:true})));
   }
@@ -2307,6 +2292,40 @@ function toggleFav(id){
 
 /* ---------- Print ---------- */
 
+function buildFavoritesPrintQueue(){
+  const { normalFavs, listFavs } = getFavoritePrintGroups();
+  const queue = [];
+  if(normalFavs.length) queue.push({ type:"normalFavorites", label:"Favorites" });
+  listFavs.forEach(res => queue.push({ type:"listResource", id:res.id, label:res.name }));
+  return queue;
+}
+
+function updatePrintQueueUI(){
+  const active = printQueue.length > 0 && printQueueIndex >= 0 && printQueueIndex < printQueue.length;
+  printSkipBtn.classList.toggle("hidden", !active);
+  printNextBtn.classList.toggle("hidden", !active);
+  if(!active){
+    printProgress.textContent = "";
+    return;
+  }
+  const step = printQueue[printQueueIndex];
+  printProgress.textContent = `Printing ${printQueueIndex + 1} of ${printQueue.length}: ${step.label}`;
+}
+
+function startFavoritesPacketPrint(){
+  printQueue = buildFavoritesPrintQueue();
+  if(!printQueue.length) return;
+  printQueueIndex = 0;
+  renderPrintQueueStep();
+}
+
+function renderPrintQueueStep(){
+  const step = printQueue[printQueueIndex];
+  if(!step) return;
+  if(step.type === "normalFavorites") return printFavorites();
+  if(step.type === "listResource") return printSingleListResource(step.id);
+}
+
 function getFavoritePrintGroups(){
   const normalFavs = [];
   const listFavs = [];
@@ -2323,6 +2342,7 @@ function getFavoritePrintGroups(){
 }
 
 function openPrintPreview(resources){
+  updatePrintQueueUI();
   printContent.innerHTML="<h2>Suggested Resources</h2>";
   resources.forEach(res=>{
     const card=buildResourceCard(res,{expanded:true,showStar:false});
@@ -2343,7 +2363,20 @@ function printSingleListResource(resourceId){
   openPrintPreview([resource]);
 }
 
-function closePrintPreview(){ printModal.classList.add("hidden"); }
+function nextPrintStep(){
+  if(printQueueIndex >= printQueue.length - 1) return closePrintPreview();
+  printQueueIndex += 1;
+  renderPrintQueueStep();
+}
+
+function skipPrintStep(){ nextPrintStep(); }
+
+function closePrintPreview(){
+  printQueue = [];
+  printQueueIndex = -1;
+  updatePrintQueueUI();
+  printModal.classList.add("hidden");
+}
 
 function doPrint(){
   printInitiatedByButton = true;
@@ -2358,8 +2391,6 @@ function doPrint(){
 window.addEventListener("afterprint", () => {
   if(!printInitiatedByButton) return;
   printInitiatedByButton = false;
-  closePrintPreview();
-  safeRender();
 });
 
 // ============================================================
