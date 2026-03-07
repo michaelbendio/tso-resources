@@ -109,15 +109,8 @@ textarea.services-editor { min-height:320px; resize:vertical; }
   width:800px;
 }
 @media print {
-  body * {
-    visibility: hidden;
-  }
-
-  #printModal,
-  #printContentWrapper,
-  #printContent,
-  #printContentWrapper * {
-    visibility: visible;
+  body > *:not(#printModal) {
+    display: none !important;
   }
 
   #printModal {
