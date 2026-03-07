@@ -194,7 +194,7 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 
 <div id="printModal" class="hidden">
   <div id="printContentWrapper">
-    <button class="button" onclick="closePrintPreview()">Close</button>
+    <button class="button" id="printCloseBtn" onclick="closePrintPreview()">Close</button>
     <button class="button primary" onclick="doPrint()">Print</button>
     <button class="button" id="printSkipBtn" onclick="skipPrintStep()">Skip</button>
     <button class="button" id="printNextBtn" onclick="nextPrintStep()">Next</button>
@@ -2302,8 +2302,10 @@ function buildFavoritesPrintQueue(){
 
 function updatePrintQueueUI(){
   const active = printQueue.length > 0 && printQueueIndex >= 0 && printQueueIndex < printQueue.length;
+  const isLastStep = active && printQueueIndex === printQueue.length - 1;
+  printCloseBtn.classList.toggle("hidden", active && !isLastStep);
   printSkipBtn.classList.toggle("hidden", !active);
-  printNextBtn.classList.toggle("hidden", !active);
+  printNextBtn.classList.toggle("hidden", !active || isLastStep);
   if(!active){
     printProgress.textContent = "";
     return;
