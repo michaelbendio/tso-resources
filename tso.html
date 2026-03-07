@@ -133,6 +133,8 @@ textarea.services-editor { min-height:320px; resize:vertical; }
   .print-list-resource {
     break-before: page;
     page-break-before: always;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
 </style>
@@ -2279,12 +2281,10 @@ function printFavorites(){
     printContent.appendChild(card);
   });
 
-  listFavs.forEach((res, idx)=>{
-    const wrapper=document.createElement("div");
-    if(normalFavs.length || idx > 0) wrapper.className="print-list-resource";
+  listFavs.forEach(res=>{
     const card=buildResourceCard(res,{expanded:true,showStar:false});
-    wrapper.appendChild(card);
-    printContent.appendChild(wrapper);
+    card.classList.add("print-list-resource");
+    printContent.appendChild(card);
   });
 
   printModal.classList.remove("hidden");
