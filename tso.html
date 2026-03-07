@@ -1530,9 +1530,6 @@ let adminCategoryOrderDraft = null; // array of { idx, value } in fixed editor r
 let editing = null;
 let editorSnapshot = "";
 let categoryTagFilters = {}; // categoryId -> [tag, ...]
-let printInitiatedByButton = false;
-let printQueue = [];
-let printQueueIndex = -1;
 const UNDO_STORAGE_KEY = "tsoUndo";
 
 // ============================================================
@@ -2292,107 +2289,134 @@ function toggleFav(id){
 
 /* ---------- Print ---------- */
 
-function buildFavoritesPrintQueue(){
-  const { normalFavs, listFavs } = getFavoritePrintGroups();
-  const queue = [];
-  if(normalFavs.length) queue.push({ type:"normalFavorites", label:"Favorites" });
-  listFavs.forEach(res => queue.push({ type:"listResource", id:res.id, label:res.name }));
-  return queue;
-}
+const PrintWorkflow = {
+  queue: [],
+  currentIndex: -1,
+  initiatedByButton: false,
 
-function updatePrintQueueUI(){
-  const active = printQueue.length > 0 && printQueueIndex >= 0 && printQueueIndex < printQueue.length;
-  const isLastStep = active && printQueueIndex === printQueue.length - 1;
-  printCloseBtn.classList.toggle("hidden", active && !isLastStep);
-  printSkipBtn.classList.toggle("hidden", !active);
-  printNextBtn.classList.toggle("hidden", !active || isLastStep);
-  if(!active){
-    printProgress.textContent = "";
-    return;
-  }
-  const step = printQueue[printQueueIndex];
-  printProgress.textContent = `Printing ${printQueueIndex + 1} of ${printQueue.length}: ${step.label}`;
-}
+  getFavoriteGroups(){
+    const normalFavs = [];
+    const listFavs = [];
 
-function startFavoritesPacketPrint(){
-  printQueue = buildFavoritesPrintQueue();
-  if(!printQueue.length) return;
-  printQueueIndex = 0;
-  renderPrintQueueStep();
-}
+    data.resources.filter(r=>favorites.includes(r.id)).forEach(res => {
+      if(Array.isArray(res.tags) && res.tags.includes("This resource is a list")){
+        listFavs.push(res);
+      }else{
+        normalFavs.push(res);
+      }
+    });
 
-function renderPrintQueueStep(){
-  const step = printQueue[printQueueIndex];
-  if(!step) return;
-  if(step.type === "normalFavorites") return printFavorites();
-  if(step.type === "listResource") return printSingleListResource(step.id);
-}
+    return { normalFavs, listFavs };
+  },
 
-function getFavoritePrintGroups(){
-  const normalFavs = [];
-  const listFavs = [];
-
-  data.resources.filter(r=>favorites.includes(r.id)).forEach(res => {
-    if(Array.isArray(res.tags) && res.tags.includes("This resource is a list")){
-      listFavs.push(res);
-    }else{
-      normalFavs.push(res);
+  buildQueue(){
+    const { normalFavs, listFavs } = this.getFavoriteGroups();
+    const queue = [];
+    if(normalFavs.length){
+      queue.push({
+        label:"Favorites",
+        render: () => this.renderFavorites()
+      });
     }
-  });
+    listFavs.forEach(res => {
+      queue.push({
+        label:res.name,
+        render: () => this.renderSingleListResource(res.id)
+      });
+    });
+    return queue;
+  },
 
-  return { normalFavs, listFavs };
-}
+  updateUI(){
+    const active = this.queue.length > 0 && this.currentIndex >= 0 && this.currentIndex < this.queue.length;
+    const isLastStep = active && this.currentIndex === this.queue.length - 1;
+    printCloseBtn.classList.toggle("hidden", active && !isLastStep);
+    printSkipBtn.classList.toggle("hidden", !active);
+    printNextBtn.classList.toggle("hidden", !active || isLastStep);
+    if(!active){
+      printProgress.textContent = "";
+      return;
+    }
+    const step = this.queue[this.currentIndex];
+    printProgress.textContent = `Printing ${this.currentIndex + 1} of ${this.queue.length}: ${step.label}`;
+  },
 
-function openPrintPreview(resources){
-  updatePrintQueueUI();
-  printContent.innerHTML="<h2>Suggested Resources</h2>";
-  resources.forEach(res=>{
-    const card=buildResourceCard(res,{expanded:true,showStar:false});
-    printContent.appendChild(card);
-  });
-  printModal.classList.remove("hidden");
-}
+  showStep(){
+    const step = this.queue[this.currentIndex];
+    if(!step || typeof step.render !== "function") return;
+    step.render();
+  },
 
-function printFavorites(){
-  const { normalFavs } = getFavoritePrintGroups();
-  openPrintPreview(normalFavs);
-}
+  openPreview(resources){
+    this.updateUI();
+    printContent.innerHTML="<h2>Suggested Resources</h2>";
+    resources.forEach(res=>{
+      const card=buildResourceCard(res,{expanded:true,showStar:false});
+      printContent.appendChild(card);
+    });
+    printModal.classList.remove("hidden");
+  },
 
-function printSingleListResource(resourceId){
-  const { listFavs } = getFavoritePrintGroups();
-  const resource = listFavs.find(res => res.id === resourceId);
-  if(!resource) return;
-  openPrintPreview([resource]);
-}
+  renderFavorites(){
+    const { normalFavs } = this.getFavoriteGroups();
+    this.openPreview(normalFavs);
+  },
 
-function nextPrintStep(){
-  if(printQueueIndex >= printQueue.length - 1) return closePrintPreview();
-  printQueueIndex += 1;
-  renderPrintQueueStep();
-}
+  renderSingleListResource(resourceId){
+    const { listFavs } = this.getFavoriteGroups();
+    const resource = listFavs.find(res => res.id === resourceId);
+    if(!resource) return;
+    this.openPreview([resource]);
+  },
 
-function skipPrintStep(){ nextPrintStep(); }
+  startFavoritesPacket(){
+    this.queue = this.buildQueue();
+    if(!this.queue.length) return;
+    this.currentIndex = 0;
+    this.showStep();
+  },
 
-function closePrintPreview(){
-  printQueue = [];
-  printQueueIndex = -1;
-  updatePrintQueueUI();
-  printModal.classList.add("hidden");
-}
+  next(){
+    if(this.currentIndex >= this.queue.length - 1) return this.close();
+    this.currentIndex += 1;
+    this.showStep();
+  },
 
-function doPrint(){
-  printInitiatedByButton = true;
-  window.print();
-  clearAllCategoryFilters(false);
-}
+  skip(){
+    this.next();
+  },
+
+  close(){
+    this.queue = [];
+    this.currentIndex = -1;
+    this.updateUI();
+    printModal.classList.add("hidden");
+  },
+
+  doPrint(){
+    this.initiatedByButton = true;
+    window.print();
+    clearAllCategoryFilters(false);
+  },
+
+  handleAfterPrint(){
+    if(!this.initiatedByButton) return;
+    this.initiatedByButton = false;
+  }
+};
+
+function startFavoritesPacketPrint(){ PrintWorkflow.startFavoritesPacket(); }
+function nextPrintStep(){ PrintWorkflow.next(); }
+function skipPrintStep(){ PrintWorkflow.skip(); }
+function closePrintPreview(){ PrintWorkflow.close(); }
+function doPrint(){ PrintWorkflow.doPrint(); }
 
 // ============================================================
 // EVENT HANDLERS
 // ============================================================
 
 window.addEventListener("afterprint", () => {
-  if(!printInitiatedByButton) return;
-  printInitiatedByButton = false;
+  PrintWorkflow.handleAfterPrint();
 });
 
 // ============================================================
