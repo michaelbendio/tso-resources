@@ -123,6 +123,7 @@ textarea.services-editor { min-height:320px; resize:vertical; }
     left: 0;
     top: 0;
     width: 100%;
+    font-size: 12pt;
   }
 
   /* Hide modal buttons when printing */
@@ -130,11 +131,10 @@ textarea.services-editor { min-height:320px; resize:vertical; }
     display: none !important;
   }
 
-  .print-list-resource {
+  .print-page-break {
     break-before: page;
     page-break-before: always;
-    break-inside: avoid;
-    page-break-inside: avoid;
+    height: 0;
   }
 }
 </style>
@@ -2282,8 +2282,10 @@ function printFavorites(){
   });
 
   listFavs.forEach(res=>{
+    const breaker=document.createElement("div");
+    breaker.className="print-page-break";
+    printContent.appendChild(breaker);
     const card=buildResourceCard(res,{expanded:true,showStar:false});
-    card.classList.add("print-list-resource");
     printContent.appendChild(card);
   });
 
