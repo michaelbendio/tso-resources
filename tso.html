@@ -2190,6 +2190,16 @@ function render(){
 
     appView.appendChild(controls);
 
+    const cat = data.categories.find(c => c.id === currentCategory);
+    if(cat){
+      const title = document.createElement("div");
+      title.textContent = cat.label;
+      title.style.fontWeight = "bold";
+      title.style.fontSize = "1.2em";
+      title.style.marginBottom = "12px";
+      appView.appendChild(title);
+    }
+
     const activeTags = getCategoryFilterTags(currentCategory);
     const activeTagSet = new Set(activeTags);
 
