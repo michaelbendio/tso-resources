@@ -129,6 +129,11 @@ textarea.services-editor { min-height:320px; resize:vertical; }
   #printContentWrapper button {
     display: none !important;
   }
+
+  .print-list-resource {
+    break-before: page;
+    page-break-before: always;
+  }
 }
 </style>
 <!-- ===== APP CSS END ===== -->
@@ -2257,11 +2262,31 @@ function toggleFav(id){
 
 function printFavorites(){
   const favs=data.resources.filter(r=>favorites.includes(r.id));
+  const normalFavs = [];
+  const listFavs = [];
+
+  favs.forEach(res => {
+    if(Array.isArray(res.tags) && res.tags.includes("This resource is a list")){
+      listFavs.push(res);
+    }else{
+      normalFavs.push(res);
+    }
+  });
+
   printContent.innerHTML="<h2>Suggested Resources</h2>";
-  favs.forEach(res=>{
+  normalFavs.forEach(res=>{
     const card=buildResourceCard(res,{expanded:true,showStar:false});
     printContent.appendChild(card);
   });
+
+  listFavs.forEach((res, idx)=>{
+    const wrapper=document.createElement("div");
+    if(normalFavs.length || idx > 0) wrapper.className="print-list-resource";
+    const card=buildResourceCard(res,{expanded:true,showStar:false});
+    wrapper.appendChild(card);
+    printContent.appendChild(wrapper);
+  });
+
   printModal.classList.remove("hidden");
 }
 
