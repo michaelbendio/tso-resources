@@ -113,25 +113,39 @@ textarea.services-editor { min-height:320px; resize:vertical; }
     visibility: hidden;
   }
 
+  #printModal,
   #printContentWrapper,
+  #printContent,
   #printContentWrapper * {
     visibility: visible;
   }
 
+  #printModal {
+    position: static;
+    inset: auto;
+    background: transparent;
+    display: block;
+  }
+
   #printContentWrapper {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+    position: static;
+    left: auto;
+    top: auto;
+    width: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    margin: 0;
+    background: transparent;
     font-size: 12pt;
   }
 
-  /* Hide modal buttons when printing */
   #printContentWrapper button {
     display: none !important;
   }
 
   .print-page-break {
+    display: block;
     break-before: page;
     page-break-before: always;
     height: 0;
