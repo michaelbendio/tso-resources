@@ -2336,7 +2336,7 @@ function render(){
   }
 
   if(view==="favorites"){
-    const { normalFavs, listFavs } = getFavoritePrintGroups();
+    const { normalFavs, listFavs } = PrintWorkflow.getFavoriteGroups();
     const favs=[...normalFavs, ...listFavs];
     if(!favs.length){ appView.innerHTML="<p>No favorites selected.</p>"; return; }
 
