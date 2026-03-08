@@ -54,7 +54,7 @@ textarea {
 .button.danger { background:#aa0000; color:white; }
 textarea.big { width:100%; min-height:80px; }
 textarea.services-editor { min-height:320px; resize:vertical; }
-.services-hint { font-size:12px; color:#555; margin-top:6px; }
+.services-hint { font-size:14px; color:#555; margin-top:6px; }
 .services-preview-toggle { margin-top:8px; display:flex; gap:8px; }
 .services-preview-box {
   margin-top:8px;
@@ -2990,6 +2990,11 @@ function newCategory(){
   }
 }
 
+function cancelCategoryEdit(){
+  if(!editing || editing.kind !== "category") return;
+  editCategory(editing.idx);
+}
+
 function deleteCategory(){
   if(!commitPendingEditsIfChanged()) return;
   const sel = document.getElementById("catSelect");
@@ -3031,6 +3036,9 @@ function editCategory(idx){
     <label>Display order (optional)<br>
       <input id="cat_order" type="number" value="${cat.displayOrder ?? ""}">
     </label><br><br>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="button" type="button" onclick="cancelCategoryEdit()">Cancel</button>
+    </div>
   `;
 
   editing = { kind: "category", idx };
@@ -3179,7 +3187,10 @@ function renderAdminResources(container){
       <div class="admin-box">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
           <h3 style="margin:0;">Edit Resource</h3>
-          <button id="res_done_btn" class="button primary" onclick="closeResourceEditor()">Done</button>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="button" type="button" onclick="cancelResourceEditor()">Cancel</button>
+            <button id="res_done_btn" class="button primary" onclick="closeResourceEditor()">Done</button>
+          </div>
         </div>
         <div id="resEditor" style="margin-top:12px;"></div>
       </div>
@@ -3288,6 +3299,13 @@ function focusAndSelectResourceName(){
 
 function closeResourceEditor(){
   if(!commitPendingEditsIfChanged()) return;
+  adminResourceEditMode = false;
+  adminAssignTagsOpen = false;
+  adminAssignTagsDraft = [];
+  safeRenderAdmin();
+}
+
+function cancelResourceEditor(){
   adminResourceEditMode = false;
   adminAssignTagsOpen = false;
   adminAssignTagsDraft = [];
