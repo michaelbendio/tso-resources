@@ -2610,16 +2610,15 @@ function switchAdminTab(nextTab){
 }
 
 function categoryEditorDraft(){
-  const idEl = document.getElementById("cat_id");
   const labelEl = document.getElementById("cat_label");
   const orderEl = document.getElementById("cat_order");
-  const activeEl = document.getElementById("cat_active");
-  if(!idEl || !labelEl || !orderEl || !activeEl) return null;
+  if(!labelEl || !orderEl || !editing || editing.kind !== "category") return null;
+  const cat = data.categories[editing.idx];
+  if(!cat) return null;
   return {
-    id: idEl.value.trim(),
+    id: cat.id || generateResourceId(),
     label: labelEl.value.trim(),
-    displayOrder: orderEl.value,
-    active: !!activeEl.checked
+    displayOrder: orderEl.value
   };
 }
 
@@ -2701,10 +2700,9 @@ function snapshotResourceEditor(){
 function applyCategoryDraft(idx, draft){
   const cat = data.categories[idx];
   if(!cat) return;
-  cat.id = draft.id || cat.id;
+  cat.id = cat.id || draft.id || generateResourceId();
   cat.label = draft.label || cat.label;
   cat.displayOrder = draft.displayOrder === "" ? null : Number(draft.displayOrder);
-  cat.active = draft.active;
   cat.lastModified = nowISO();
 }
 
@@ -2972,7 +2970,7 @@ function newCategory(){
   const newIndex = data.categories.length;
 
   data.categories.push({
-    id: "",
+    id: generateResourceId(),
     label: "",
     active: true,
     lastModified: nowISO(),
@@ -2987,8 +2985,8 @@ function newCategory(){
   if(sel){
     sel.value = String(newIndex);
     editCategory(newIndex);
-    const idInput = document.getElementById("cat_id");
-    if(idInput) idInput.focus();
+    const labelInput = document.getElementById("cat_label");
+    if(labelInput) labelInput.focus();
   }
 }
 
@@ -3026,21 +3024,12 @@ function editCategory(idx){
   editor.innerHTML = `
     <h3>Edit Category</h3>
 
-    <label>ID<br>
-      <input id="cat_id" value="${escapeHTML(cat.id || "")}">
-    </label><br><br>
-
     <label>Label<br>
       <input id="cat_label" value="${escapeHTML(cat.label || "")}">
     </label><br><br>
 
     <label>Display order (optional)<br>
       <input id="cat_order" type="number" value="${cat.displayOrder ?? ""}">
-    </label><br><br>
-
-    <label>
-      <input id="cat_active" type="checkbox" ${cat.active ? "checked" : ""}>
-      Active
     </label><br><br>
   `;
 
