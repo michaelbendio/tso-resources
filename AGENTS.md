@@ -23,6 +23,20 @@ Reliability
 
 Safety harness must remain active.
 
+When migrating or normalizing legacy fields, agents must never overwrite richer existing data with poorer legacy data. Prefer preserving existing fields and only derive from legacy fields when no richer representation already exists.
+
+Normalization functions must be idempotent and non-destructive: running normalization multiple times must not alter existing valid data or rewrite user content.
+
+Self tests should pass after changes.
+
+Verify:
+	•	create resource
+	•	delete + undo
+	•	tag assignment
+	•	services preview/edit toggle
+	•	export/import JSON
+	•	show review dates sorting
+
 Self tests should pass after changes.
 
 Verify:
