@@ -1,2 +1,9 @@
+# macOS Finder junk
 .DS_Store
 *.swp
+# Playwright / test artifacts
+test-results/
+playwright-report/
+
+# Temporary verification files sometimes created by agents
+/tmp/
