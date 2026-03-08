@@ -1314,8 +1314,7 @@ function generateResourceId(){
 
 function normalizeResourceServices(r){
   if(!r || typeof r !== "object") return false;
-  const existingServicesText = typeof r.servicesText === "string" ? r.servicesText : "";
-  if(existingServicesText){
+  if(typeof r.servicesText === "string"){
     delete r.services;
     return false;
   }
@@ -1792,6 +1791,20 @@ function runSelfTests(){
       }
       if("services" in resource){
         throw new Error("legacy services[] was not cleared after preserving servicesText");
+      }
+    }
+  });
+
+  tests.push({
+    name: "EMPTY SERVICES TEXT IS CANONICAL",
+    fn: () => {
+      const resource = { services:["legacy line"], servicesText:"" };
+      normalizeResourceServices(resource);
+      if(resource.servicesText !== ""){
+        throw new Error("empty servicesText was replaced by legacy services[]");
+      }
+      if("services" in resource){
+        throw new Error("legacy services[] was not cleared when servicesText existed");
       }
     }
   });
