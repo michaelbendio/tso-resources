@@ -1313,6 +1313,12 @@ function generateResourceId(){
 // ============================================================
 
 function normalizeResourceServices(r){
+  if(!r || typeof r !== "object") return false;
+  const existingServicesText = typeof r.servicesText === "string" ? r.servicesText : "";
+  if(existingServicesText){
+    delete r.services;
+    return false;
+  }
   if(Array.isArray(r.services)){
     r.servicesText = r.services.join("\n");
     delete r.services;
@@ -1324,7 +1330,13 @@ function normalizeResourceServices(r){
 
 function normalizeResourceReviewedOn(r){
   if(!r || typeof r !== "object") return;
-  r.reviewedOn = coerceReviewedOnToMMYY(r.reviewedOn);
+  const preferred = coerceReviewedOnToMMYY(r.reviewedOn);
+  if(preferred){
+    r.reviewedOn = preferred;
+    return;
+  }
+  const legacy = coerceReviewedOnToMMYY(r.verifiedDate);
+  r.reviewedOn = legacy || null;
 }
 
 function normalizeDataServicesShape(data){
@@ -1767,6 +1779,31 @@ function runSelfTests(){
     fn: () => {
       const html = renderServicesHTML("One\n\n* bullet\n---\n**bold**");
       if(typeof html !== "string" || !html.length) throw new Error("renderer returned empty output");
+    }
+  });
+
+  tests.push({
+    name: "SERVICES TEXT PRESERVATION",
+    fn: () => {
+      const resource = { services:["old line"], servicesText:"**bold**\n* bullet\n---" };
+      normalizeResourceServices(resource);
+      if(resource.servicesText !== "**bold**\n* bullet\n---"){
+        throw new Error("servicesText was overwritten by legacy services[]");
+      }
+      if("services" in resource){
+        throw new Error("legacy services[] was not cleared after preserving servicesText");
+      }
+    }
+  });
+
+  tests.push({
+    name: "LEGACY REVIEW DATE MIGRATION",
+    fn: () => {
+      const resource = { reviewedOn:null, verifiedDate:"2025-02-14" };
+      normalizeResourceReviewedOn(resource);
+      if(resource.reviewedOn !== "02/25"){
+        throw new Error(`expected 02/25 from verifiedDate, got '${resource.reviewedOn}'`);
+      }
     }
   });
 
