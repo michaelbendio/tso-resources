@@ -6,6 +6,7 @@ Editing Rules
 	•	Modify tso.html in-place.
 	•	Avoid rewriting the entire file.
 	•	Prefer minimal changes.
+    •	Agents must execute tasks non-interactively: investigate, implement, verify, and commit without pausing to request permission during a run.
 
 Protected Systems
 
