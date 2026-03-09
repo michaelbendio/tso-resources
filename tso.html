@@ -54,7 +54,7 @@ textarea {
 .button.danger { background:#aa0000; color:white; }
 textarea.big { width:100%; min-height:80px; }
 textarea.services-editor { min-height:320px; resize:vertical; }
-.services-hint { font-size:14px; color:#555; margin-top:6px; }
+.services-hint { font-size:16px; color:#555; margin-top:6px; }
 .services-preview-toggle { margin-top:8px; display:flex; gap:8px; }
 .services-preview-box {
   margin-top:8px;
@@ -79,10 +79,10 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 .admin-panel { display:flex; gap:20px; }
 .admin-box { flex:1; border:1px solid #ddd; padding:12px; }
 .category-grid { display:grid; gap:6px; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); }
-.reviewed-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.reviewed-value { font-weight:600; }
-.review-edit { display:none; margin-top:6px; }
-.review-edit.active { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.verified-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.verified-value { font-weight:600; }
+.verified-edit { display:none; margin-top:6px; }
+.verified-edit.active { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .resource-browse-wrap { width:min(860px,100%); }
 .resource-listbox { width:100%; box-sizing:border-box; }
 .resource-browse-actions { margin-top:8px; display:flex; gap:8px; align-items:center; width:100%; }
@@ -96,9 +96,12 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 .resource-editor-grid label input,
 .resource-editor-grid label textarea { width:100%; box-sizing:border-box; }
 #res_name { text-align:left; width:100%; box-sizing:border-box; }
-.reviewed-warning { color:#aa0000; font-size:13px; margin-top:4px; min-height:1.1em; }
+.verified-warning { color:#aa0000; font-size:13px; margin-top:4px; min-height:1.1em; }
 .tag-controls-row { margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 .assigned-tags-line { font-size:14px; }
+.category-order-input { appearance:textfield; -moz-appearance:textfield; }
+.category-order-input::-webkit-outer-spin-button,
+.category-order-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
 
 /* Print modal */
 #printModal {
@@ -1349,15 +1352,18 @@ function normalizeResourceServices(r){
   return false;
 }
 
-function normalizeResourceReviewedOn(r){
+function normalizeResourceVerifiedOn(r){
   if(!r || typeof r !== "object") return;
-  const preferred = coerceReviewedOnToMMYY(r.reviewedOn);
+  const preferred = coerceVerifiedOnToMMYY(r.verifiedOn);
   if(preferred){
-    r.reviewedOn = preferred;
-    return;
+    r.verifiedOn = preferred;
+  }else{
+    const legacyReviewed = coerceVerifiedOnToMMYY(r.reviewedOn);
+    const legacyVerifiedDate = coerceVerifiedOnToMMYY(r.verifiedDate);
+    r.verifiedOn = legacyReviewed || legacyVerifiedDate || null;
   }
-  const legacy = coerceReviewedOnToMMYY(r.verifiedDate);
-  r.reviewedOn = legacy || null;
+  if("reviewedOn" in r) delete r.reviewedOn;
+  if("verifiedDate" in r) delete r.verifiedDate;
 }
 
 function normalizeDataServicesShape(data){
@@ -1365,9 +1371,9 @@ function normalizeDataServicesShape(data){
   data.resources.forEach(normalizeResourceServices);
 }
 
-function normalizeDataReviewedOnShape(nextData){
+function normalizeDataVerifiedOnShape(nextData){
   if(!nextData || !Array.isArray(nextData.resources)) return;
-  nextData.resources.forEach(normalizeResourceReviewedOn);
+  nextData.resources.forEach(normalizeResourceVerifiedOn);
 }
 
 function formatMMYYFromDate(d){
@@ -1389,11 +1395,11 @@ function isValidMMYY(value){
   return parseMMYYToMonthIndex(value) !== null;
 }
 
-function formatReviewedOnForDisplay(reviewedOn){
-  return isValidMMYY(reviewedOn) ? String(reviewedOn).trim() : "not reviewed";
+function formatVerifiedOnForDisplay(verifiedOn){
+  return isValidMMYY(verifiedOn) ? String(verifiedOn).trim() : "----";
 }
 
-function parseLegacyReviewedOnToMMYY(raw){
+function parseLegacyVerifiedOnToMMYY(raw){
   const text = String(raw || "").trim();
   if(!text) return null;
 
@@ -1431,16 +1437,16 @@ function parseLegacyReviewedOnToMMYY(raw){
   return null;
 }
 
-function coerceReviewedOnToMMYY(value){
+function coerceVerifiedOnToMMYY(value){
   if(value == null) return null;
   const text = String(value).trim();
   if(!text) return null;
   if(isValidMMYY(text)) return text;
-  const parsed = parseLegacyReviewedOnToMMYY(text);
+  const parsed = parseLegacyVerifiedOnToMMYY(text);
   return parsed && isValidMMYY(parsed) ? parsed : null;
 }
 
-function validateReviewedOnInput(value){
+function validateVerifiedOnInput(value){
   const text = String(value || "").trim();
   if(!text) return { valid:true, normalized:null, message:"" };
   if(!isValidMMYY(text)){
@@ -1455,16 +1461,16 @@ function compareResourcesByName(a, b){
 
 function getAdminResourceBrowseList(){
   const resources = data.resources.slice();
-  if(!adminShowReviewDates){
+  if(!adminShowVerifiedDates){
     return resources.sort(compareResourcesByName);
   }
   return resources.sort((a, b) => {
-    const aMonth = parseMMYYToMonthIndex(a.reviewedOn);
-    const bMonth = parseMMYYToMonthIndex(b.reviewedOn);
-    const aReviewed = aMonth !== null;
-    const bReviewed = bMonth !== null;
-    if(aReviewed !== bReviewed) return aReviewed ? -1 : 1;
-    if(aReviewed && bReviewed && aMonth !== bMonth) return aMonth - bMonth;
+    const aMonth = parseMMYYToMonthIndex(a.verifiedOn);
+    const bMonth = parseMMYYToMonthIndex(b.verifiedOn);
+    const aVerified = aMonth !== null;
+    const bVerified = bMonth !== null;
+    if(aVerified !== bVerified) return aVerified ? -1 : 1;
+    if(aVerified && bVerified && aMonth !== bMonth) return aMonth - bMonth;
     return compareResourcesByName(a, b);
   });
 }
@@ -1581,7 +1587,7 @@ if(!data){
 
 normalizeDataServicesShape(data);
 normalizeDataTagsShape(data);
-normalizeDataReviewedOnShape(data);
+normalizeDataVerifiedOnShape(data);
 
 let favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
 if(!Array.isArray(favorites)) favorites = [];
@@ -1589,12 +1595,13 @@ if(DEBUG) assertInvariants("startup");
 let view = "categories";
 let currentCategory = null;
 let adminTab = "categories";
-let adminShowReviewDates = false;
+let adminShowVerifiedDates = false;
 let adminCheckedTags = [];
 let adminManageTagsOpen = false;
 let adminManageTagsSnapshot = "";
 let adminResourceEditMode = false;
 let selectedResourceId = "";
+let selectedCategoryIndex = "";
 let adminAssignTagsOpen = false;
 let adminAssignTagsDraft = [];
 let adminCategoryOrderEditorOpen = false;
@@ -1653,8 +1660,8 @@ function assertInvariants(context = "invariant check"){
       if(!tagSet.has(tag)) throw new Error(`${context}: resource '${id}' tag '${tag}' is not in data.tags`);
     });
 
-    if(resource.reviewedOn != null && !isValidMMYY(resource.reviewedOn)){
-      throw new Error(`${context}: resource '${id}' reviewedOn must be MM/YY or null`);
+    if(resource.verifiedOn != null && !isValidMMYY(resource.verifiedOn)){
+      throw new Error(`${context}: resource '${id}' verifiedOn must be MM/YY or null`);
     }
   });
 
@@ -1760,12 +1767,12 @@ function runSelfTests(){
   });
 
   tests.push({
-    name: "REVIEW DATE VALIDATION",
+    name: "VERIFIED DATE VALIDATION",
     fn: () => {
       data.resources.forEach(resource => {
-        const value = resource.reviewedOn;
+        const value = resource.verifiedOn;
         if(value != null && !isValidMMYY(value)){
-          throw new Error(`invalid reviewedOn '${value}' on resource '${resource.id}'`);
+          throw new Error(`invalid verifiedOn '${value}' on resource '${resource.id}'`);
         }
       });
     }
@@ -1775,21 +1782,21 @@ function runSelfTests(){
     name: "RESOURCE SORTING",
     fn: () => {
       const sorted = data.resources.slice().sort((a, b) => {
-        const aMonth = parseMMYYToMonthIndex(a.reviewedOn);
-        const bMonth = parseMMYYToMonthIndex(b.reviewedOn);
-        const aReviewed = aMonth !== null;
-        const bReviewed = bMonth !== null;
-        if(aReviewed !== bReviewed) return aReviewed ? -1 : 1;
-        if(aReviewed && bReviewed && aMonth !== bMonth) return aMonth - bMonth;
+        const aMonth = parseMMYYToMonthIndex(a.verifiedOn);
+        const bMonth = parseMMYYToMonthIndex(b.verifiedOn);
+        const aVerified = aMonth !== null;
+        const bVerified = bMonth !== null;
+        if(aVerified !== bVerified) return aVerified ? -1 : 1;
+        if(aVerified && bVerified && aMonth !== bMonth) return aMonth - bMonth;
         return compareResourcesByName(a, b);
       });
       for(let i = 1; i < sorted.length; i += 1){
         const prev = sorted[i - 1];
         const curr = sorted[i];
-        const prevMonth = parseMMYYToMonthIndex(prev.reviewedOn);
-        const currMonth = parseMMYYToMonthIndex(curr.reviewedOn);
+        const prevMonth = parseMMYYToMonthIndex(prev.verifiedOn);
+        const currMonth = parseMMYYToMonthIndex(curr.verifiedOn);
         if(prevMonth === null && currMonth !== null){
-          throw new Error("unreviewed resource appears before reviewed resource");
+          throw new Error("unverified resource appears before verified resource");
         }
       }
     }
@@ -1832,12 +1839,28 @@ function runSelfTests(){
   });
 
   tests.push({
-    name: "LEGACY REVIEW DATE MIGRATION",
+    name: "LEGACY VERIFIED DATE MIGRATION",
     fn: () => {
-      const resource = { reviewedOn:null, verifiedDate:"2025-02-14" };
-      normalizeResourceReviewedOn(resource);
-      if(resource.reviewedOn !== "02/25"){
-        throw new Error(`expected 02/25 from verifiedDate, got '${resource.reviewedOn}'`);
+      const resource = { reviewedOn:"03/25", verifiedDate:"2025-02-14" };
+      normalizeResourceVerifiedOn(resource);
+      if(resource.verifiedOn !== "03/25"){
+        throw new Error(`expected 03/25 from reviewedOn, got '${resource.verifiedOn}'`);
+      }
+      if("reviewedOn" in resource){
+        throw new Error("legacy reviewedOn key was not removed after migration");
+      }
+      if("verifiedDate" in resource){
+        throw new Error("legacy verifiedDate key was not removed after migration");
+      }
+      const legacyDateResource = { verifiedOn:null, verifiedDate:"2025-02-14" };
+      normalizeResourceVerifiedOn(legacyDateResource);
+      if(legacyDateResource.verifiedOn !== "02/25"){
+        throw new Error(`expected 02/25 from verifiedDate, got '${legacyDateResource.verifiedOn}'`);
+      }
+      const canonicalResource = { verifiedOn:"04/25", reviewedOn:"03/25" };
+      normalizeResourceVerifiedOn(canonicalResource);
+      if(canonicalResource.verifiedOn !== "04/25"){
+        throw new Error(`expected canonical verifiedOn to win, got '${canonicalResource.verifiedOn}'`);
       }
     }
   });
@@ -1983,10 +2006,10 @@ function setUndoSnapshot(message){
 function undoLastDeletion(){
   const snapshot = getUndoSnapshot();
   if(!snapshot || !snapshot.dataSnapshot) return;
-  data = snapshot.dataSnapshot;
-  normalizeDataServicesShape(data);
-  normalizeDataTagsShape(data);
-  normalizeDataReviewedOnShape(data);
+      data = snapshot.dataSnapshot;
+      normalizeDataServicesShape(data);
+      normalizeDataTagsShape(data);
+      normalizeDataVerifiedOnShape(data);
   adminCheckedTags = [];
   clearUndoSnapshot();
   persist();
@@ -2693,7 +2716,7 @@ function importJSON(event){
         imported.resources.forEach(r => normalizeResourceServices(r));
       }
       normalizeDataTagsShape(imported);
-      normalizeDataReviewedOnShape(imported);
+      normalizeDataVerifiedOnShape(imported);
 
       data = imported;
       persist();
@@ -2747,8 +2770,8 @@ function resourceEditorDraft(){
   const descEl = document.getElementById("res_description");
   const servicesEl = document.getElementById("res_services");
   if(!nameEl || !phoneEl || !addressEl || !websiteEl || !hoursEl || !descEl || !servicesEl) return null;
-  const reviewedEl = document.getElementById("res_reviewed_on");
-  const reviewedOn = reviewedEl ? reviewedEl.value.trim() : "";
+  const verifiedEl = document.getElementById("res_verified_on");
+  const verifiedOn = verifiedEl ? verifiedEl.value.trim() : "";
 
   const tags = Array.from(document.querySelectorAll(".resTag"))
     .filter(cb => cb.checked)
@@ -2763,7 +2786,7 @@ function resourceEditorDraft(){
     hours: hoursEl.value.trim(),
     description: descEl.value,
     servicesText: servicesEl.value,
-    reviewedOn,
+    verifiedOn,
     categories: Array.from(document.querySelectorAll(".resCat"))
       .filter(cb=>cb.checked)
       .map(cb=>cb.value)
@@ -2790,6 +2813,21 @@ function validateResourceName(draft, idx){
   return { valid:true, message:"" };
 }
 
+function validateCategoryDraft(_draft){
+  const orderInput = document.getElementById("cat_order");
+  if(orderInput && !orderInput.checkValidity()){
+    return { valid:false, message:orderInput.validationMessage || "Display order must be a number." };
+  }
+  return { valid:true, message:"" };
+}
+
+function showCategoryEditorWarning(message){
+  const warning = document.getElementById("cat_editor_warning");
+  if(!warning) return;
+  warning.textContent = message || "";
+  warning.style.display = message ? "block" : "none";
+}
+
 function showResourceNameWarning(message){
   const warning = document.getElementById("res_name_warning");
   if(!warning) return;
@@ -2797,8 +2835,8 @@ function showResourceNameWarning(message){
   warning.style.display = message ? "block" : "none";
 }
 
-function showResourceReviewWarning(message){
-  const warning = document.getElementById("res_review_warning");
+function showResourceVerifiedWarning(message){
+  const warning = document.getElementById("res_verified_warning");
   if(!warning) return;
   warning.textContent = message || "";
 }
@@ -2917,8 +2955,10 @@ function applyResourceDraft(idx, draft){
   res.hours = draft.hours;
   res.description = draft.description;
   res.servicesText = draft.servicesText;
-  const reviewValidation = validateReviewedOnInput(draft.reviewedOn);
-  res.reviewedOn = reviewValidation.valid ? reviewValidation.normalized : null;
+  const verifiedValidation = validateVerifiedOnInput(draft.verifiedOn);
+  res.verifiedOn = verifiedValidation.valid ? verifiedValidation.normalized : null;
+  if("reviewedOn" in res) delete res.reviewedOn;
+  if("verifiedDate" in res) delete res.verifiedDate;
   res.categories = draft.categories;
   res.tags = draft.tags || [];
   res.lastModified = nowISO();
@@ -2931,8 +2971,16 @@ function commitPendingEditsIfChanged(){
   if(editing.kind === "category"){
     nextSnapshot = snapshotCategoryEditor();
     if(!nextSnapshot) return true;
+    const draft = JSON.parse(nextSnapshot);
+    const validation = validateCategoryDraft(draft);
+    showCategoryEditorWarning(validation.message);
+    if(!validation.valid){
+      const orderInput = document.getElementById("cat_order");
+      if(orderInput) orderInput.focus();
+      return false;
+    }
     if(nextSnapshot !== editorSnapshot){
-      applyCategoryDraft(editing.idx, JSON.parse(nextSnapshot));
+      applyCategoryDraft(editing.idx, draft);
       persist();
       editorSnapshot = nextSnapshot;
     }
@@ -2944,17 +2992,17 @@ function commitPendingEditsIfChanged(){
     if(!nextSnapshot) return true;
     const draft = JSON.parse(nextSnapshot);
     const validation = validateResourceName(draft, editing.idx);
-    const reviewValidation = validateReviewedOnInput(draft.reviewedOn);
+    const verifiedValidation = validateVerifiedOnInput(draft.verifiedOn);
     showResourceNameWarning(validation.message);
-    showResourceReviewWarning(reviewValidation.message);
+    showResourceVerifiedWarning(verifiedValidation.message);
     if(!validation.valid){
       const nameInput = document.getElementById("res_name");
       if(nameInput) nameInput.focus();
       return false;
     }
-    if(!reviewValidation.valid){
-      const reviewInput = document.getElementById("res_reviewed_on");
-      if(reviewInput) reviewInput.focus();
+    if(!verifiedValidation.valid){
+      const verifiedInput = document.getElementById("res_verified_on");
+      if(verifiedInput) verifiedInput.focus();
       return false;
     }
     if(nextSnapshot !== editorSnapshot){
@@ -3013,15 +3061,21 @@ function renderAdminCategories(container){
 
   sel.onchange = () => {
     if(!commitPendingEditsIfChanged()) return;
+    selectedCategoryIndex = sel.value;
     editCategory(parseInt(sel.value,10));
   };
 
-  if(sel.options.length){
+  if(sel.options.length && Array.from(sel.options).some(opt => opt.value === selectedCategoryIndex)){
+    sel.value = selectedCategoryIndex;
+    editCategory(parseInt(sel.value,10));
+  }else if(sel.options.length){
     sel.value = sel.options[0].value;
+    selectedCategoryIndex = sel.value;
     editCategory(parseInt(sel.value,10));
   }else{
     editing = null;
     editorSnapshot = "";
+    selectedCategoryIndex = "";
   }
 
   if(adminCategoryOrderEditorOpen){
@@ -3050,6 +3104,7 @@ function renderAdminCategories(container){
 
         const input = document.createElement("input");
         input.type = "number";
+        input.className = "category-order-input";
         input.value = rowDraft.value ?? "";
         input.style.width = "130px";
         input.oninput = () => { rowDraft.value = input.value; };
@@ -3095,15 +3150,10 @@ function newCategory(){
 
   persist();
   adminTab = "categories";
+  selectedCategoryIndex = String(newIndex);
   safeRenderAdmin();
-
-  const sel = document.getElementById("catSelect");
-  if(sel){
-    sel.value = String(newIndex);
-    editCategory(newIndex);
-    const labelInput = document.getElementById("cat_label");
-    if(labelInput) labelInput.focus();
-  }
+  const labelInput = document.getElementById("cat_label");
+  if(labelInput) labelInput.focus();
 }
 
 function cancelCategoryEdit(){
@@ -3133,32 +3183,61 @@ function deleteCategory(){
 
   data.categories.splice(idx,1);
   delete categoryTagFilters[cat.id];
+  selectedCategoryIndex = "";
   persist();
   safeRenderAdmin();
+}
+
+function closeCategoryEditor(){
+  if(!commitPendingEditsIfChanged()) return;
+  safeRenderAdmin();
+  const sel = document.getElementById("catSelect");
+  if(sel) sel.focus();
 }
 
 function editCategory(idx){
   const cat = data.categories[idx];
   const editor = document.getElementById("catEditor");
   if(!cat || !editor) return;
+  selectedCategoryIndex = String(idx);
 
   editor.innerHTML = `
     <h3>Edit Category</h3>
 
     <label>Label<br>
       <input id="cat_label" value="${escapeHTML(cat.label || "")}">
-    </label><br><br>
+    </label>
+    <div id="cat_editor_warning" style="display:none; color:#aa0000; margin-top:4px;"></div><br>
 
     <label>Display order (optional)<br>
       <input id="cat_order" type="number" value="${cat.displayOrder ?? ""}">
     </label><br><br>
     <div style="display:flex; gap:8px; align-items:center;">
       <button class="button" type="button" onclick="cancelCategoryEdit()">Cancel</button>
+      <button class="button primary" type="button" id="cat_done_btn" onclick="closeCategoryEditor()">Done</button>
     </div>
   `;
 
   editing = { kind: "category", idx };
   editorSnapshot = snapshotCategoryEditor();
+
+  const labelInput = document.getElementById("cat_label");
+  const orderInput = document.getElementById("cat_order");
+  const doneBtn = document.getElementById("cat_done_btn");
+  function validateCategoryEditorState(){
+    const draft = categoryEditorDraft();
+    if(!draft){
+      showCategoryEditorWarning("");
+      if(doneBtn) doneBtn.disabled = false;
+      return;
+    }
+    const validation = validateCategoryDraft(draft);
+    showCategoryEditorWarning(validation.message);
+    if(doneBtn) doneBtn.disabled = !validation.valid;
+  }
+  if(labelInput) labelInput.addEventListener("input", validateCategoryEditorState);
+  if(orderInput) orderInput.addEventListener("input", validateCategoryEditorState);
+  validateCategoryEditorState();
 }
 
 /* ---------- Admin: Resources ---------- */
@@ -3235,12 +3314,12 @@ function renderAdminResources(container){
       <div class="admin-panel">
         <div class="admin-box">
           <h3>Resources</h3>
-          <div class="resource-browse-wrap">
-            <label style="display:block; margin-bottom:8px;">
-              <input type="checkbox" id="resSortShowReview">
-              Show review dates
-            </label>
-            <select id="resSelect" class="resource-listbox" size="25"></select>
+      <div class="resource-browse-wrap">
+        <label style="display:block; margin-bottom:8px;">
+          <input type="checkbox" id="resSortShowVerified">
+          Show verified dates
+        </label>
+        <select id="resSelect" class="resource-listbox" size="25"></select>
             <div class="resource-browse-actions">
               <button class="button" onclick="newResource()">New</button>
               <button class="button danger" onclick="deleteResource()">Delete</button>
@@ -3255,11 +3334,11 @@ function renderAdminResources(container){
     `;
 
     const sel = document.getElementById("resSelect");
-    const sortToggle = document.getElementById("resSortShowReview");
+    const sortToggle = document.getElementById("resSortShowVerified");
     if(sortToggle){
-      sortToggle.checked = adminShowReviewDates;
+      sortToggle.checked = adminShowVerifiedDates;
       sortToggle.onchange = () => {
-        adminShowReviewDates = !!sortToggle.checked;
+        adminShowVerifiedDates = !!sortToggle.checked;
         populateResourceSelectOptions(sel, selectedResourceId);
       };
     }
@@ -3325,9 +3404,10 @@ function populateResourceSelectOptions(sel, preferredResourceId){
   getAdminResourceBrowseList().forEach((r) => {
       const opt = document.createElement("option");
       opt.value = String(r.id || "");
-      opt.textContent = adminShowReviewDates
-        ? `${r.name || ""} \u2014 ${formatReviewedOnForDisplay(r.reviewedOn)}`
+      const verifiedLabel = isValidMMYY(r.verifiedOn)
+        ? `${r.name || ""} \u2014 ${formatVerifiedOnForDisplay(r.verifiedOn)}`
         : (r.name || "");
+      opt.textContent = adminShowVerifiedDates ? verifiedLabel : (r.name || "");
       sel.appendChild(opt);
     });
 
@@ -3354,7 +3434,7 @@ function newResource(){
     description: "",
     servicesText: "",
     tags: [],
-    reviewedOn: null
+    verifiedOn: null
   };
   data.resources.push(resource);
 
@@ -3557,9 +3637,9 @@ function editResource(idx){
   selectedResourceId = res.id || selectedResourceId;
 
   normalizeResourceServices(res);
-  normalizeResourceReviewedOn(res);
+  normalizeResourceVerifiedOn(res);
   if(!Array.isArray(res.tags)) res.tags = [];
-  const reviewedDisplay = formatReviewedOnForDisplay(res.reviewedOn);
+  const verifiedDisplay = formatVerifiedOnForDisplay(res.verifiedOn);
   const assignedTagsLine = res.tags.length ? res.tags.join(", ") : "(none)";
 
   const catChecks = data.categories
@@ -3594,34 +3674,19 @@ function editResource(idx){
         <input id="res_hours" value="${escapeHTML(res.hours || "")}">
       </label>
       <div>
-        <strong>Reviewed on</strong>
-        <div class="reviewed-row" style="margin-top:4px;">
-          <span id="res_reviewed_display" class="reviewed-value">${escapeHTML(reviewedDisplay)}</span>
-          <button class="button" type="button" id="res_review_btn">Review</button>
+        <strong>Verified</strong>
+        <div class="verified-row" style="margin-top:4px;">
+          <span id="res_verified_display" class="verified-value">${escapeHTML(verifiedDisplay)}</span>
+          <button class="button" type="button" id="res_verified_btn">Update</button>
+          <input id="res_verified_on" type="text" placeholder="MM/YY" value="${escapeHTML(res.verifiedOn || "")}" style="width:120px;">
         </div>
-        <input id="res_reviewed_on" type="text" placeholder="MM/YY" value="${escapeHTML(res.reviewedOn || "")}" style="width:120px; margin-top:4px;">
-        <div id="res_review_warning" class="reviewed-warning"></div>
+        <div id="res_verified_warning" class="verified-warning"></div>
       </div>
     </div>
 
     <label style="display:block; margin-top:8px;">Description<br>
       <textarea id="res_description" class="big">${escapeHTML(res.description || "")}</textarea>
     </label><br>
-
-    <label>Services<br>
-      <textarea id="res_services" class="big services-editor">${escapeHTML(res.servicesText || "")}</textarea>
-    </label>
-    <div class="services-hint">Bullets: start line with "* " | Bold: **text** | Divider: ---</div>
-    <div class="services-preview-toggle">
-      <button class="button primary" type="button" id="res_services_edit_btn">Edit</button>
-      <button class="button" type="button" id="res_services_preview_btn">Preview</button>
-    </div>
-    <div id="res_services_preview" class="services-preview-box services-rendered hidden"></div><br><br>
-
-    <div>
-      <strong>Categories</strong><br>
-      ${catChecks}
-    </div>
 
     <div class="tag-controls-row">
       <button class="button" type="button" id="res_manage_tags_btn">Manage tags</button>
@@ -3636,6 +3701,21 @@ function editResource(idx){
       </div>
     </div>
     ${renderAdminManageTagsSection()}
+
+    <div>
+      <strong>Categories</strong><br>
+      ${catChecks}
+    </div>
+
+    <label style="display:block; margin-top:8px;">Services<br>
+      <textarea id="res_services" class="big services-editor">${escapeHTML(res.servicesText || "")}</textarea>
+    </label>
+    <div class="services-hint">Bullets: start line with "* " | Bold: **text** | Divider: ---</div>
+    <div class="services-preview-toggle">
+      <button class="button primary" type="button" id="res_services_edit_btn">Edit</button>
+      <button class="button" type="button" id="res_services_preview_btn">Preview</button>
+    </div>
+    <div id="res_services_preview" class="services-preview-box services-rendered hidden"></div><br><br>
   `;
 
   const selectedTags = [...res.tags].sort((a,b) => a.localeCompare(b));
@@ -3658,10 +3738,10 @@ function editResource(idx){
   syncHiddenTagInputs();
   editor.appendChild(hiddenTagContainer);
 
-  const reviewBtn = document.getElementById("res_review_btn");
-  const reviewInput = document.getElementById("res_reviewed_on");
-  const reviewDisplay = document.getElementById("res_reviewed_display");
-  const reviewWarning = document.getElementById("res_review_warning");
+  const verifiedBtn = document.getElementById("res_verified_btn");
+  const verifiedInput = document.getElementById("res_verified_on");
+  const verifiedDisplayEl = document.getElementById("res_verified_display");
+  const verifiedWarning = document.getElementById("res_verified_warning");
   const nameEl = document.getElementById("res_name");
   const servicesEl = document.getElementById("res_services");
   const servicesEditBtn = document.getElementById("res_services_edit_btn");
@@ -3695,40 +3775,40 @@ function editResource(idx){
   }
   setServicesEditorMode("preview");
 
-  function updateReviewedDisplayAndWarning(){
-    if(!reviewInput || !reviewDisplay) return true;
-    const validation = validateReviewedOnInput(reviewInput.value);
-    if(reviewWarning) reviewWarning.textContent = validation.message;
-    reviewDisplay.textContent = validation.valid
-      ? formatReviewedOnForDisplay(validation.normalized)
-      : "not reviewed";
-    showResourceReviewWarning(validation.message);
+  function updateVerifiedDisplayAndWarning(){
+    if(!verifiedInput || !verifiedDisplayEl) return true;
+    const validation = validateVerifiedOnInput(verifiedInput.value);
+    if(verifiedWarning) verifiedWarning.textContent = validation.message;
+    verifiedDisplayEl.textContent = validation.valid
+      ? formatVerifiedOnForDisplay(validation.normalized)
+      : "----";
+    showResourceVerifiedWarning(validation.message);
     return validation.valid;
   }
 
-  if(reviewBtn && reviewInput){
-    reviewBtn.onclick = () => {
-      reviewInput.value = formatMMYYFromDate(new Date());
-      updateReviewedDisplayAndWarning();
-      reviewInput.focus();
-      reviewInput.select();
+  if(verifiedBtn && verifiedInput){
+    verifiedBtn.onclick = () => {
+      verifiedInput.value = formatMMYYFromDate(new Date());
+      updateVerifiedDisplayAndWarning();
+      verifiedInput.focus();
+      verifiedInput.select();
     };
-    reviewInput.addEventListener("input", updateReviewedDisplayAndWarning);
+    verifiedInput.addEventListener("input", updateVerifiedDisplayAndWarning);
   }
 
   function validateEditorState(){
     const draft = resourceEditorDraft();
     if(!draft){
       showResourceNameWarning("");
-      showResourceReviewWarning("");
+      showResourceVerifiedWarning("");
       if(doneBtn) doneBtn.disabled = false;
       return;
     }
     const nameValidation = validateResourceName(draft, idx);
-    const reviewValidation = validateReviewedOnInput(draft.reviewedOn);
+    const verifiedValidation = validateVerifiedOnInput(draft.verifiedOn);
     showResourceNameWarning(nameValidation.message);
-    showResourceReviewWarning(reviewValidation.message);
-    if(doneBtn) doneBtn.disabled = !(nameValidation.valid && reviewValidation.valid);
+    showResourceVerifiedWarning(verifiedValidation.message);
+    if(doneBtn) doneBtn.disabled = !(nameValidation.valid && verifiedValidation.valid);
   }
 
   if(manageTagsBtn){
@@ -3755,9 +3835,9 @@ function editResource(idx){
   if(nameEl){
     nameEl.addEventListener("input", validateEditorState);
   }
-  if(reviewInput) reviewInput.addEventListener("input", validateEditorState);
+  if(verifiedInput) verifiedInput.addEventListener("input", validateEditorState);
 
-  updateReviewedDisplayAndWarning();
+  updateVerifiedDisplayAndWarning();
   validateEditorState();
   focusAndSelectResourceName();
 
