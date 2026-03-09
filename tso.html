@@ -67,6 +67,15 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 .services-rendered .services-line { margin:0; }
 .services-rendered .services-blank { min-height:1.1em; }
 .services-rendered hr { border:0; border-top:1px solid #ccc; margin:10px 0; }
+.print-list-flyer {
+  border:1px solid #ddd;
+  border-radius:6px;
+  padding:16px;
+  margin:18px 0 0;
+  background:#fff;
+}
+.print-list-flyer h2 { margin:0 0 12px; }
+.print-list-field { margin:0 0 10px; }
 .admin-panel { display:flex; gap:20px; }
 .admin-box { flex:1; border:1px solid #ddd; padding:12px; }
 .category-grid { display:grid; gap:6px; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); }
@@ -159,6 +168,19 @@ textarea.services-editor { min-height:320px; resize:vertical; }
     margin-top: 4pt;
     margin-bottom: 4pt;
     padding-left: 14pt;
+  }
+
+  .print-list-flyer {
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+  }
+
+  .print-list-flyer-page-break {
+    break-before: page;
+    page-break-before: always;
   }
 }
 </style>
@@ -2391,7 +2413,7 @@ function render(){
     if(!favs.length){ appView.innerHTML="<p>No favorites selected.</p>"; return; }
 
     const btn=document.createElement("button");
-    btn.textContent="Print Favorites Packet";
+    btn.textContent="Print Preview";
     btn.className="button primary";
     btn.onclick=startFavoritesPacketPrint;
     appView.appendChild(btn);
@@ -2417,12 +2439,20 @@ const PrintWorkflow = {
   currentIndex: -1,
   initiatedByButton: false,
 
+  isListResource(res){
+    if(!Array.isArray(res?.tags)) return false;
+    return res.tags.some(tag => {
+      const normalized = String(tag || "").trim().toLowerCase();
+      return normalized === "list" || normalized === "this resource is a list";
+    });
+  },
+
   getFavoriteGroups(){
     const normalFavs = [];
     const listFavs = [];
 
     data.resources.filter(r=>favorites.includes(r.id)).forEach(res => {
-      if(Array.isArray(res.tags) && res.tags.includes("This resource is a list")){
+      if(this.isListResource(res)){
         listFavs.push(res);
       }else{
         normalFavs.push(res);
@@ -2434,20 +2464,17 @@ const PrintWorkflow = {
 
   buildQueue(){
     const { normalFavs, listFavs } = this.getFavoriteGroups();
-    const queue = [];
-    if(normalFavs.length){
-      queue.push({
+    if(!normalFavs.length && !listFavs.length) return [];
+    if(!listFavs.length){
+      return [{
         label:"Favorites",
         render: () => this.renderFavorites()
-      });
+      }];
     }
-    listFavs.forEach(res => {
-      queue.push({
-        label:res.name,
-        render: () => this.renderSingleListResource(res.id)
-      });
-    });
-    return queue;
+    return [{
+      label:"Favorites",
+      render: () => this.renderFavoritesPacket()
+    }];
   },
 
   updateUI(){
@@ -2470,19 +2497,58 @@ const PrintWorkflow = {
     step.render();
   },
 
-  openPreview(resources){
+  openPreviewContent(render){
     this.updateUI();
-    printContent.innerHTML="<h2>Suggested Resources</h2>";
-    resources.forEach(res=>{
-      const card=buildResourceCard(res,{expanded:true,showStar:false});
-      printContent.appendChild(card);
-    });
+    printContent.innerHTML="";
+    if(typeof render === "function") render(printContent);
     printModal.classList.remove("hidden");
+  },
+
+  openPreview(resources){
+    this.openPreviewContent(container => {
+      container.innerHTML="<h2>Suggested Resources</h2>";
+      resources.forEach(res=>{
+        const card=buildResourceCard(res,{expanded:true,showStar:false});
+        container.appendChild(card);
+      });
+    });
   },
 
   renderFavorites(){
     const { normalFavs } = this.getFavoriteGroups();
     this.openPreview(normalFavs);
+  },
+
+  buildListFlyer(resource, shouldPageBreak){
+    const flyer = document.createElement("section");
+    flyer.className = "print-list-flyer" + (shouldPageBreak ? " print-list-flyer-page-break" : "");
+
+    let html = `<h2>${escapeHTML(resource.name || "")}</h2>`;
+    if(resource.phone) html += `<div class="print-list-field"><strong>Phone:</strong> ${escapeHTML(resource.phone)}</div>`;
+    if(resource.address) html += `<div class="print-list-field"><strong>Address:</strong> ${escapeHTML(resource.address)}</div>`;
+    if(resource.website) html += `<div class="print-list-field"><strong>Website:</strong> ${escapeHTML(resource.website)}</div>`;
+    if(resource.servicesText){
+      html += `<div class="print-list-field"><strong>Services:</strong><div class="services-rendered">${renderServicesHTML(resource.servicesText)}</div></div>`;
+    }
+    flyer.innerHTML = html;
+    return flyer;
+  },
+
+  renderFavoritesPacket(){
+    const { normalFavs, listFavs } = this.getFavoriteGroups();
+    this.openPreviewContent(container => {
+      if(normalFavs.length){
+        container.innerHTML = "<h2>Suggested Resources</h2>";
+        normalFavs.forEach(res => {
+          const card = buildResourceCard(res,{expanded:true,showStar:false});
+          container.appendChild(card);
+        });
+      }
+
+      listFavs.forEach((resource, index) => {
+        container.appendChild(this.buildListFlyer(resource, normalFavs.length > 0 || index > 0));
+      });
+    });
   },
 
   renderSingleListResource(resourceId){
