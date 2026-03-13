@@ -2882,7 +2882,10 @@ function renderAdminCategoryResourceList(selectedCategoryId){
     <div style="margin-top:12px;">
       <div style="font-weight:bold; margin-bottom:8px;">Resources in this category</div>
       ${resources.length
-        ? resources.map(resource => `<div>${escapeHTML(resource.name || "")}</div>`).join("")
+        ? resources.map(resource => {
+            const resourceId = JSON.stringify(String(resource.id || ""));
+            return `<div role="button" tabindex="0" onclick="openAdminCategoryResourceById(${resourceId})" onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); openAdminCategoryResourceById(${resourceId}); }">${escapeHTML(resource.name || "")}</div>`;
+          }).join("")
         : `<div>No resources assigned to this category.</div>`}
     </div>
   `;
@@ -2892,6 +2895,17 @@ function refreshAdminCategoryResourceList(){
   const idx = parseInt(selectedCategoryIndex, 10);
   const cat = Number.isInteger(idx) ? data.categories[idx] : null;
   renderAdminCategoryResourceList(cat && cat.id ? cat.id : "");
+}
+
+function openAdminCategoryResourceById(resourceId){
+  if(!commitPendingEditsIfChanged()) return;
+  const nextResourceId = String(resourceId || "");
+  if(!nextResourceId) return;
+  const idx = getResourceIndexById(nextResourceId);
+  if(idx === -1) return;
+  selectedResourceId = nextResourceId;
+  adminTab = "resources";
+  openResourceEditor();
 }
 
 function openCategoryOrderEditor(){
