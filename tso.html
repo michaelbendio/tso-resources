@@ -2404,12 +2404,14 @@ function render(){
     const activeTags = getCategoryFilterTags(currentCategory);
     const activeTagSet = new Set(activeTags);
 
-    const filtered = data.resources.filter(r => {
-      if(!r.categories?.includes(currentCategory)) return false;
-      if(activeTags.length === 0) return true;
-      if(!Array.isArray(r.tags) || r.tags.length === 0) return false;
-      return r.tags.some(t => activeTagSet.has(t));
-    });
+    const filtered = data.resources
+      .filter(r => {
+        if(!r.categories?.includes(currentCategory)) return false;
+        if(activeTags.length === 0) return true;
+        if(!Array.isArray(r.tags) || r.tags.length === 0) return false;
+        return r.tags.some(t => activeTagSet.has(t));
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     if(!filtered.length){
       const empty = document.createElement("p");
@@ -2428,7 +2430,7 @@ function render(){
       };
       appView.appendChild(card);
     });
-  }
+    }
 
   if(view==="favorites"){
     const { normalFavs, listFavs } = PrintWorkflow.getFavoriteGroups();

@@ -1,13 +1,21 @@
 {
   "version": 6,
-  "lastModified": "2026-02-27T18:09:10.774Z",
+  "lastModified": "2026-03-10T05:16:07.657Z",
   "categories": [
+    {
+      "id": "employment",
+      "label": "Employment",
+      "icon": "briefcase",
+      "active": true,
+      "lastModified": "2026-03-09T18:57:09.786Z",
+      "displayOrder": 40
+    },
     {
       "id": "food",
       "label": "Food",
       "icon": "utensils",
       "active": true,
-      "lastModified": "2026-02-27T16:43:59.799Z",
+      "lastModified": "2026-02-24T20:44:14.622Z",
       "displayOrder": 20
     },
     {
@@ -15,7 +23,7 @@
       "label": "Health Care",
       "icon": "med",
       "active": true,
-      "lastModified": "2026-02-27T16:37:04.671Z",
+      "lastModified": "2026-03-09T18:57:09.786Z",
       "displayOrder": 50
     },
     {
@@ -23,7 +31,7 @@
       "label": "Housing",
       "icon": "home",
       "active": true,
-      "lastModified": "2026-02-27T16:43:24.551Z",
+      "lastModified": "2026-03-09T19:00:54.910Z",
       "displayOrder": 10
     },
     {
@@ -31,130 +39,114 @@
       "label": "ID",
       "icon": "person",
       "active": true,
-      "lastModified": "2026-02-23T23:13:18.416Z",
-      "displayOrder": 60
+      "lastModified": "2026-03-09T19:03:21.708Z",
+      "displayOrder": 90
     },
     {
       "id": "mental",
       "label": "Mental Health",
       "icon": "head",
       "active": true,
-      "lastModified": "2026-02-17T21:39:10.268Z",
-      "displayOrder": 70
+      "lastModified": "2026-03-09T19:03:21.708Z",
+      "displayOrder": 110
     },
     {
       "id": "substance",
-      "label": "Addiction",
+      "label": "Substance Abuse",
       "icon": "pill",
       "active": true,
-      "lastModified": "2026-02-27T16:35:04.078Z",
-      "displayOrder": 80
+      "lastModified": "2026-03-09T19:03:21.708Z",
+      "displayOrder": 120
     },
     {
       "id": "transportation",
       "label": "Transportation",
       "icon": "bus",
       "active": true,
-      "lastModified": "",
-      "displayOrder": 90
+      "lastModified": "2026-03-09T19:03:21.708Z",
+      "displayOrder": 130
     },
     {
       "id": "Seniors",
       "label": "Seniors",
       "icon": "",
       "active": true,
-      "lastModified": "2026-02-19T18:09:30.392Z",
-      "displayOrder": 100
+      "lastModified": "2026-03-09T19:03:21.708Z",
+      "displayOrder": 140
     },
     {
-      "id": "temp_work",
-      "label": "Temp Work",
+      "id": "education",
+      "label": "Education",
       "icon": "",
       "active": true,
-      "lastModified": "2026-02-27T16:44:48.560Z",
+      "lastModified": "2026-03-09T19:03:21.708Z",
+      "displayOrder": 70
+    },
+    {
+      "id": "clothing",
+      "label": "Clothing",
+      "icon": "",
+      "active": true,
+      "lastModified": "2026-03-09T19:03:21.708Z",
+      "displayOrder": 60
+    },
+    {
+      "id": "self-sufficiency",
+      "label": "Self-sufficiency",
+      "icon": "",
+      "active": true,
+      "lastModified": "2026-03-09T18:59:14.021Z",
+      "displayOrder": 150
+    },
+    {
+      "id": "f339647a306e5583669c65642a1f37ba",
+      "label": "Temp agencies",
+      "active": true,
+      "lastModified": "2026-03-09T18:57:09.786Z",
       "displayOrder": 30
     },
     {
-      "id": "employment",
-      "label": "Employment",
-      "icon": "",
+      "id": "799a623fdfecc8a5bde852b1972313bd",
+      "label": "Legal",
       "active": true,
-      "lastModified": "2026-02-27T16:45:21.192Z",
-      "displayOrder": 40
+      "lastModified": "2026-03-09T19:03:21.708Z",
+      "displayOrder": 80
     }
   ],
   "resources": [
     {
-      "id": "988-suicide-crisis-lifeline-utah",
-      "name": "988 Suicide & Crisis Lifeline (Utah)",
-      "categories": [
-        "mental"
-      ],
-      "website": "https://988.utah.gov/",
-      "phone": "988",
-      "address": "Call or text 988",
-      "description": "24/7 free, confidential emotional and mental health support.",
-      "services": [],
-      "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
-      "verifiedBy": "",
-      "evaluation": {
-        "servesJusticeInvolved": null,
-        "requiresID": null,
-        "appointmentRequired": null,
-        "typicalWait": "",
-        "transportationBarrier": "",
-        "dignityRating": null,
-        "reliabilityRating": null,
-        "notes": "",
-        "lastEvaluatedDate": "",
-        "evaluatedBy": ""
-      },
-      "displayOrder": null
-    },
-    {
       "id": "casfb",
       "name": "Community Action Services And Food Bank - Provo",
       "categories": [
+        "food",
         "housing",
-        "food"
+        "id"
       ],
       "phone": "801-373-8200",
       "address": "815 S Freedom Blvd, Provo, UT",
-      "website": "",
+      "website": "https://www.communityactionprovo.org",
       "hours": "",
       "description": "A non-profit organization that provides emergency assistance and long-term support to help families in poverty become self-reliant through programs and counseling.",
-      "services": [
-        "Emergency assistance",
-        "Food pantry",
-        "Rent & rent deposit payment assistance (as available)",
-        "Utility service payment assistance (as available)",
-        "Personal finance counseling",
-        "Driver license fee payment (as available)",
-        "Clothing vouchers (as available)",
-        "Bus fare (as available)"
-      ],
-      "verifiedDate": "",
-      "lastModified": "2026-02-13T07:05:50Z",
+      "lastModified": "2026-02-23T23:42:06.253Z",
       "verifiedBy": "",
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Help getting an ID; verify homelessness (waives ID fee and residency requiremnts), then apply in person at Drivers License Division office)\nFood pantry\nRent & rent deposit payment assistance (as available)\nUtility service payment assistance (as available)\nPersonal finance counseling\nDriver license fee payment (as available)\nClothing vouchers (as available)\nBus fare (as available)",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "deseret-industries-provo",
       "name": "Deseret Industries (Provo)",
       "categories": [
-        "clothing",
-        "employment"
+        "employment",
+        "clothing"
       ],
       "website": "https://www.deseretindustries.org/locations/provo-ut",
       "phone": "801-373-7920",
       "address": "1415 N State St, Provo, UT 84604",
       "description": "Thrift store and job training opportunities.",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-24T19:13:51.968Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -168,7 +160,10 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Nonprofit thrift store\nTraining and job readiness\nFurther education\nRemove employment barriers\nExplore career options\nSupport during job search",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "dws-vocational-rehabilitation-provo-office",
@@ -180,10 +175,8 @@
       "phone": "801-806-0955",
       "address": "150 E Center St Suite 3300, Provo, UT 84606",
       "description": "Vocational rehabilitation services (disability employment support).",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T20:29:27.437Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -197,22 +190,24 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Employment--help with resume, workshops, paying for education or training, apprenticeships\nVeteran and Military employment services--education, training, career path, transition\nRefugee resettlement, employment, resources\nDisabled services, blind, deaf, eligility, vocational rehabilititation",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "easterseals-goodwill-senior-employment-program-scsep",
       "name": "Easterseals-Goodwill Senior Employment Program (SCSEP)",
       "categories": [
-        "employment"
+        "employment",
+        "mental"
       ],
       "website": "http://www.esgw.org/scsep/",
       "phone": "1-800-771-2153",
       "address": "Utah (serves multiple counties; see website)",
       "description": "Paid on-the-job training for qualifying older adults.",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T20:33:58.569Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -226,7 +221,10 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Early intervention for disabled children under three\nOn-the-job employment services for low-income adults over 55.",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "family-promise-salt-lake",
@@ -238,10 +236,8 @@
       "phone": "801-961-8622",
       "address": "814 W 800 S, Salt Lake City, UT 84104",
       "description": "Emergency shelter and support for families with children experiencing homelessness.",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T20:36:00.409Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -255,16 +251,19 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Provide safe family emergency shelter and basic needs for families with children.",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "facc",
       "name": "Food and Care Coalition",
       "categories": [
-        "clothing",
         "food",
         "health",
         "housing",
+        "id",
         "mental",
         "Seniors"
       ],
@@ -273,21 +272,12 @@
       "website": "https://foodandcare.org",
       "hours": "M–Sa 8:30am – 5:30pm",
       "description": "Provides services for individuals who are homeless, including prepared hot meals, bathing facilities, haircuts, laundry, dental, case management, emergency shelter, and transitional housing. Also has onsite partners providing mental health and medical services.",
-      "services": [
-        "Prepared hot meals",
-        "Public showers/baths",
-        "Laundry facilities",
-        "Haircuts / grooming supplies",
-        "Dental services (as available)",
-        "Case management",
-        "Emergency shelter",
-        "Transitional housing",
-        "Temporary mailing address (as available)"
-      ],
-      "verifiedDate": "",
-      "lastModified": "2026-02-19T20:14:08.007Z",
+      "lastModified": "2026-02-23T22:43:07.146Z",
       "verifiedBy": "",
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Help getting an ID; verify homelessness (waives ID fee and residency requiremnts), then apply in person at Drivers License Division office)\nprepared hot meals\npublic showers/baths\nlaundry facilities\nhaircuts / grooming supplies\ndental services (as available)\ncase management\nemergency shelter\ntransitional housing\ntemporary mailing address (as available)",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "housing-authority-of-utah-county",
@@ -298,11 +288,9 @@
       "website": "https://housinguc.org/",
       "phone": "801-373-8333",
       "address": "485 N Freedom Blvd, Provo, UT 84601",
-      "description": "Affordable housing programs including Section 8 and related services.",
-      "services": [],
+      "description": "Affordable housing programs",
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T20:42:19.294Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -316,7 +304,10 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Portal for waiting lists for housing for 55+, 62+, family housing, Spring Lake Apartments and Willow Cove.",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "mountainlands-community-health-center-provo-family-health-ce",
@@ -328,10 +319,8 @@
       "phone": "801-429-2000",
       "address": "589 S State St, Provo, UT 84606",
       "description": "Sliding-fee primary care clinic and related services.",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T20:44:58.073Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -345,7 +334,10 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Provide low-income, uninsured and under-insured persons with high-quality health care.\nMedical\nMental Health\nDental\nPharmacy",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "odyssey-house-of-utah",
@@ -358,10 +350,8 @@
       "phone": "",
       "address": "Salt Lake City, UT (multiple programs)",
       "description": "Substance use disorder and mental health treatment programs.",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T20:51:34.667Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -375,7 +365,10 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Largest and most comprehensive addiction program in Utah. Free for low-income Salt Lake residents.",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "provo-city-housing-authority",
@@ -387,10 +380,8 @@
       "phone": "801-900-5676",
       "address": "688 W 100 N, Provo, UT 84601",
       "description": "Public housing and housing assistance for Provo residents.",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T21:00:39.291Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -404,22 +395,24 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Help with Dept. of Housing and Urban Development programs: Public Housing and Housing Choice Voucher program for the city of Provo\nSupportive Housing\nLIHTC (Low-Income Housing Tax Credit) housing\nSenior housing (six Provo locations)\nFamily Self Sufficiency program",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "proxima-careers",
       "name": "Proxima Careers",
       "categories": [
-        "employment"
+        "employment",
+        "health"
       ],
       "website": "https://proximacareers.org/",
       "phone": "",
       "address": "Utah (program-based; see website)",
       "description": "Supports pathways into healthcare certification/degree programs and job readiness.",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T21:07:08.523Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -433,52 +426,25 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Career assessment\nCertification/degree from a school of your choice. They cover the majority or full costs.",
+      "tags": [],
+      "verifiedOn": null
     },
     {
-      "id": "social-security-administration-provo-office",
-      "name": "Social Security Administration - Provo Office",
-      "categories": [
-        "id"
-      ],
-      "website": "https://www.ssa.gov/locator/",
-      "phone": "866-366-9549",
-      "address": "88 W 100 N, Provo, UT 84601",
-      "description": "Social Security card services and related SSA support (hours vary).",
-      "services": [],
-      "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
-      "verifiedBy": "",
-      "evaluation": {
-        "servesJusticeInvolved": null,
-        "requiresID": null,
-        "appointmentRequired": null,
-        "typicalWait": "",
-        "transportationBarrier": "",
-        "dignityRating": null,
-        "reliabilityRating": null,
-        "notes": "",
-        "lastEvaluatedDate": "",
-        "evaluatedBy": ""
-      },
-      "displayOrder": null
-    },
-    {
-      "id": "st-vincent-de-paul-dining-hall-bishop-weigand-resource-cente",
+      "id": "Catholic Community Services",
       "name": "St. Vincent de Paul Dining Hall & Bishop Weigand Resource Center (CCS Utah)",
       "categories": [
-        "clothing",
-        "food"
+        "employment",
+        "food",
+        "housing"
       ],
       "website": "https://www.ccsutah.org/programs/st-vincent-de-paul-dining-hall",
       "phone": "801-363-7710",
       "address": "437 W 200 S, Salt Lake City, UT 84101",
       "description": "Meals and basic needs services (Salt Lake City).",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T21:15:58.991Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -492,61 +458,28 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Bishop Weigand Resource Center (shelter)\nSt. Vincent de Paul Dining Hall\nSt. Vincent's Kitchen Academy (fourteen week culinary arts training)\nRefugee services: foster care for unaccompanied minors, resettlement",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "tabitha",
-      "name": "Tabitha's Way - Pleasant Grove",
+      "name": "Tabitha's Way",
       "categories": [
-        "food",
-        "clothing"
-      ],
-      "phone": "801-692-1881",
-      "address": "675 W Garden Dr #100, Pleasant Grove, UT",
-      "website": "",
-      "hours": "",
-      "description": "A non-profit organization that provides a food pantry and hygiene items to those in need in the community.",
-      "services": [
-        "Food pantry",
-        "Hygiene items",
-        "Diapers (as available)",
-        "Baby food (as available)",
-        "Thanksgiving baskets (seasonal)"
-      ],
-      "verifiedDate": "",
-      "lastModified": "2026-02-13T07:05:50Z",
-      "verifiedBy": "",
-      "displayOrder": null
-    },
-    {
-      "id": "tabitha-s-way-local-food-pantry-pleasant-grove",
-      "name": "Tabitha's Way Local Food Pantry (Pleasant Grove)",
-      "categories": [
-        "clothing",
         "food"
       ],
-      "website": "https://tabithasway.org/",
-      "phone": "801-692-1881",
-      "address": "675 W Garden Dr #100, Pleasant Grove, UT 84062",
-      "description": "Local food pantry serving North Utah County.",
-      "services": [],
-      "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "phone": "Pleasant Grove: 801-692-1881, Spanish Fork: 801-709-8573, Saratoga Springs: 801-692-1881, ext 301",
+      "address": "675 W Garden Dr #100, Pleasant Grove; 50 E 100. North, Spanish Fork, 1439 N Commerce Dr, Saratoga Springs",
+      "website": "tabithasway.org",
+      "hours": "",
+      "description": "A non-profit organization that provides a food pantry and hygiene items to those in need in the community.",
+      "lastModified": "2026-02-23T21:23:26.638Z",
       "verifiedBy": "",
-      "evaluation": {
-        "servesJusticeInvolved": null,
-        "requiresID": null,
-        "appointmentRequired": null,
-        "typicalWait": "",
-        "transportationBarrier": "",
-        "dignityRating": null,
-        "reliabilityRating": null,
-        "notes": "",
-        "lastEvaluatedDate": "",
-        "evaluatedBy": ""
-      },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Requirements: picture ID, proof of address (for example a piece of mail)\nFood pantry--two week supply of food twice a month\nHygiene items\nDiapers (as available)\nBaby food (as available)\nThanksgiving baskets (seasonal)",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "the-road-home",
@@ -558,10 +491,8 @@
       "phone": "801-456-5900",
       "address": "242 Paramount Ave, Salt Lake City, UT 84115 (Gail Miller Resource Center)",
       "description": "Shelter and housing services (Salt Lake County); statewide referral relevance.",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T21:29:01.318Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -575,53 +506,30 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Homeless services line: 801-990-9999\nFINCH housing--family emergency shelter with private furnished rooms for families with children\nPamela Atkinson Resource Center (shelter)\nGail Miller Resource Center (shelter)\nConnie Crosby Family Resource Center",
+      "tags": [],
+      "verifiedOn": null
     },
     {
-      "id": "the-salvation-army-provo-service-center",
-      "name": "The Salvation Army Provo Service Center",
+      "id": "united-way-of-utah-county",
+      "name": "United Way of Utah County",
       "categories": [
-        "clothing",
+        "employment",
         "food",
-        "housing"
+        "health",
+        "housing",
+        "mental",
+        "substance",
+        "transportation",
+        "Seniors"
       ],
-      "website": "https://provo.salvationarmy.org/provo_service_center/",
-      "phone": "1-800-SAL-ARMY",
-      "address": "3549 N University Ave Suite 100, Provo, UT 84604",
-      "description": "Local service center connecting individuals to basic needs supports.",
-      "services": [],
-      "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
-      "verifiedBy": "",
-      "evaluation": {
-        "servesJusticeInvolved": null,
-        "requiresID": null,
-        "appointmentRequired": null,
-        "typicalWait": "",
-        "transportationBarrier": "",
-        "dignityRating": null,
-        "reliabilityRating": null,
-        "notes": "",
-        "lastEvaluatedDate": "",
-        "evaluatedBy": ""
-      },
-      "displayOrder": null
-    },
-    {
-      "id": "united-way-of-utah-county-paratransit",
-      "name": "United Way of Utah County - Paratransit",
-      "categories": [
-        "transportation"
-      ],
-      "website": "https://unitedwayuc.org/paratransit/",
+      "website": "https://app.utah211.org",
       "phone": "801-471-0601",
       "address": "Utah County",
-      "description": "Volunteer-driver paratransit service coordinated by United Way of Utah County.",
-      "services": [],
+      "description": "A wide range of listings of resources",
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-24T18:09:14.468Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -635,7 +543,10 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "directory of a wide range of resources in Utah County.",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "uta-paratransit",
@@ -647,10 +558,8 @@
       "phone": "801-287-7433",
       "address": "Utah (paratransit)",
       "description": "Paratransit scheduling and information line.",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T21:56:22.246Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -664,7 +573,10 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Transportation for people with physical, cognitive or visual disabilities who are functionally unable to independently use the UTA fixed route bus service.",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "uta-reduced-fare-farepay-card",
@@ -676,10 +588,8 @@
       "phone": "801-743-3882",
       "address": "Apply online or at UTA customer service locations",
       "description": "Reduced fare program for qualifying riders (seniors, youth, disability, income-qualified).",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T21:52:03.044Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -693,23 +603,25 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "$1.00 one-way fares for qualifying seniors, youth, disabled, low-income",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "utah-community-action",
       "name": "Utah Community Action",
       "categories": [
         "employment",
+        "food",
         "housing"
       ],
       "website": "https://utahca.org/",
       "phone": "801-359-2444",
       "address": "Utah (multiple locations)",
       "description": "Programs including homelessness prevention and workforce supports.",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T22:04:24.544Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -723,36 +635,10 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
-    },
-    {
-      "id": "utah-county-health-department-birth-death-certificates-provo",
-      "name": "Utah County Health Department - Birth & Death Certificates (Provo)",
-      "categories": [
-        "id"
-      ],
-      "website": "https://health.utahcounty.gov/birth-death-certificates/",
-      "phone": "801-851-7005",
-      "address": "151 S University Ave Suite 1100, Provo, UT 84601",
-      "description": "Order birth and death certificates through Utah County Health Department.",
-      "services": [],
-      "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
-      "verifiedBy": "",
-      "evaluation": {
-        "servesJusticeInvolved": null,
-        "requiresID": null,
-        "appointmentRequired": null,
-        "typicalWait": "",
-        "transportationBarrier": "",
-        "dignityRating": null,
-        "reliabilityRating": null,
-        "notes": "",
-        "lastEvaluatedDate": "",
-        "evaluatedBy": ""
-      },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "emergency rental assistance\neviction mediation \ncriminal record expungement\nutility assistance\nhome weatherization\nnutrition education\nHead Start preschool\nWorkforce Development (Offering classes, certifications, and services at no cost, the Workforce Development program assists in obtaining employment, increasing wage-earning potential, and improving resume and interviewing skills.)",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "utah-crisis-line-huntsman-mental-health-institute",
@@ -761,13 +647,11 @@
         "mental"
       ],
       "website": "https://healthcare.utah.edu/hmhi/programs/crisis-diversion",
-      "phone": "801-587-3000",
+      "phone": "988 (National Suicide Prevention hotline), 800-273-TALK (Utah Crisis Line)",
       "address": "Utah (24/7 crisis line)",
-      "description": "24/7 crisis support and diversion resources.",
-      "services": [],
+      "description": "Mental health crisis line",
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-24T18:20:30.576Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -781,7 +665,10 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Available 24 hours a day, 7 days a week, 365 days a year at no cost to you, our certified crisis workers provide:\ncompassionate and non-judgmental emotional support.\nsuicide prevention, information, and referrals.\nfollow-up services.\npsycho-education about mental health issues.\neducation on how to support loved ones with mental health issues.\ntherapeutic assistance to individuals in emotional distress or psychiatric crisis.\ncoordination and dispatch response to individuals in the community as needed via the Mobile Crisis Outreach Team (MCOT) and/or first responders in coordination with other local mental health authorities.\nThe Utah Crisis Line collaborates with all 13 local mental health authorities across the state to ensure the best services are provided based on your location and needs. The goal of our services is to empower families and individuals with the tools and resources to receive the care that they need.",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "utah-department-of-workforce-services-provo-employment-cente",
@@ -793,10 +680,8 @@
       "phone": "801-342-2600",
       "address": "1550 N 200 W, Provo, UT 84604",
       "description": "Job search help, employment counseling, and related workforce services.",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T22:13:10.625Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -810,7 +695,10 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Employment--help with resume, workshops, paying for education or training, apprenticeships\nVeteran and Military employment services--education, training, career path, transition\nRefugee resettlement, employment, resources\nDisabled services, blind, deaf, eligility, vocational rehabilititation",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "utah-dhhs-opidemic-free-naloxone",
@@ -822,10 +710,8 @@
       "phone": "",
       "address": "Utah (statewide)",
       "description": "State resource page for free naloxone locations and information.",
-      "services": [],
       "favorite": false,
       "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -839,123 +725,10 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
-    },
-    {
-      "id": "utah-driver-license-division-orem",
-      "name": "Utah Driver License Division (Orem)",
-      "categories": [
-        "id"
-      ],
-      "website": "https://dld.utah.gov/office-locations/",
-      "phone": "801-965-4437",
-      "address": "759 N 1370 W, Orem, UT 84057",
-      "description": "Driver license and state ID services (appointments and documents required).",
-      "services": [],
-      "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
-      "verifiedBy": "",
-      "evaluation": {
-        "servesJusticeInvolved": null,
-        "requiresID": null,
-        "appointmentRequired": null,
-        "typicalWait": "",
-        "transportationBarrier": "",
-        "dignityRating": null,
-        "reliabilityRating": null,
-        "notes": "",
-        "lastEvaluatedDate": "",
-        "evaluatedBy": ""
-      },
-      "displayOrder": null
-    },
-    {
-      "id": "utah-food-bank",
-      "name": "Utah Food Bank",
-      "categories": [
-        "food"
-      ],
-      "website": "https://www.utahfoodbank.org/",
-      "phone": "801-978-2452",
-      "address": "3150 S 900 W, South Salt Lake, UT 84119",
-      "description": "Statewide food bank with partner pantries and mobile pantry resources.",
-      "services": [],
-      "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
-      "verifiedBy": "",
-      "evaluation": {
-        "servesJusticeInvolved": null,
-        "requiresID": null,
-        "appointmentRequired": null,
-        "typicalWait": "",
-        "transportationBarrier": "",
-        "dignityRating": null,
-        "reliabilityRating": null,
-        "notes": "",
-        "lastEvaluatedDate": "",
-        "evaluatedBy": ""
-      },
-      "displayOrder": null
-    },
-    {
-      "id": "utah-naloxone",
-      "name": "Utah Naloxone",
-      "categories": [
-        "substance"
-      ],
-      "website": "https://www.utahnaloxone.org/",
-      "phone": "",
-      "address": "Utah (statewide naloxone education/access)",
-      "description": "Naloxone awareness, training, and access resources.",
-      "services": [],
-      "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
-      "verifiedBy": "",
-      "evaluation": {
-        "servesJusticeInvolved": null,
-        "requiresID": null,
-        "appointmentRequired": null,
-        "typicalWait": "",
-        "transportationBarrier": "",
-        "dignityRating": null,
-        "reliabilityRating": null,
-        "notes": "",
-        "lastEvaluatedDate": "",
-        "evaluatedBy": ""
-      },
-      "displayOrder": null
-    },
-    {
-      "id": "utah-office-of-vital-records-and-statistics",
-      "name": "Utah Office of Vital Records and Statistics",
-      "categories": [
-        "id"
-      ],
-      "website": "https://vitalrecords.utah.gov/",
-      "phone": "801-538-6105",
-      "address": "Salt Lake City, UT (state office; mail/online; local health depts for walk-in)",
-      "description": "State office for vital records (birth/death/marriage/divorce) ordering and info.",
-      "services": [],
-      "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
-      "verifiedBy": "",
-      "evaluation": {
-        "servesJusticeInvolved": null,
-        "requiresID": null,
-        "appointmentRequired": null,
-        "typicalWait": "",
-        "transportationBarrier": "",
-        "dignityRating": null,
-        "reliabilityRating": null,
-        "notes": "",
-        "lastEvaluatedDate": "",
-        "evaluatedBy": ""
-      },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "utah-transit-authority-uta-contact",
@@ -967,10 +740,8 @@
       "phone": "801-743-3882",
       "address": "Utah (fixed-route transit statewide)",
       "description": "Public transit information and customer service for UTA services.",
-      "services": [],
       "favorite": false,
       "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -984,22 +755,25 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "",
+      "tags": [],
+      "verifiedOn": null
     },
     {
-      "id": "volunteers-of-america-utah-youth-resource-center",
-      "name": "Volunteers of America, Utah - Youth Resource Center",
+      "id": "volunteers-of-america-utah",
+      "name": "Volunteers of America, Utah",
       "categories": [
-        "housing"
+        "health",
+        "housing",
+        "mental"
       ],
-      "website": "https://www.voaut.org/get-help/youth-homeless-services",
-      "phone": "",
-      "address": "888 S 400 W, Salt Lake City, UT 84101",
-      "description": "Drop-in resource center and emergency shelter for youth ages 15–22.",
-      "services": [],
+      "website": "https://www.voaut.org/",
+      "phone": "801-363-9414, youth resource center: 801-364-0744, ext 707",
+      "address": "1875 S Redwood Rd., Salt Lake CIty, youth resource center at 888 S 400 W, Salt Lake City",
+      "description": "Homeless resources\nDrop-in resource center and emergency shelter for youth ages 15–22.",
       "favorite": false,
-      "lastModified": "2026-02-13T18:21:23Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T22:34:41.377Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -1013,7 +787,10 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "homeless support: shelters, meals, basic needs, education, employment, legal aid, housing, physical and mental health care\naddiction detox\nYouth Resource Center for ages 15-22 who are homeless or at risk of homelessness; wide range of help: shelter, meals, showers, laundry, dental, medical",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "wasatch-behavioral-health-utah-county",
@@ -1028,10 +805,8 @@
       "phone": "801-373-4760",
       "address": "750 N Freedom Blvd, Provo, UT 84601",
       "description": "Community mental health authority for Utah County.",
-      "services": [],
       "favorite": false,
-      "lastModified": "2026-02-19T20:15:20.498Z",
-      "verifiedDate": "",
+      "lastModified": "2026-02-23T22:24:37.571Z",
       "verifiedBy": "",
       "evaluation": {
         "servesJusticeInvolved": null,
@@ -1045,7 +820,10 @@
         "lastEvaluatedDate": "",
         "evaluatedBy": ""
       },
-      "displayOrder": null
+      "displayOrder": null,
+      "servicesText": "Outpatient mental health\npsychological assessment\nmedical services\ncrisis residential support (stay for up to a week)\ncrisis residential service for children and youth 10-17 (runaways, runaway risks, serious parent-child conflicts.)",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "boulders",
@@ -1054,15 +832,14 @@
         "housing",
         "Seniors"
       ],
-      "services": [
-        "The Boulders Apartments offers one, two and three bedroom apartments at an affordable price, with picturesque views of the Utah mountains. Enjoy plenty of on-site outdoor amenities including the pool, basketball court and spacious picnic area. ",
-        "We are also located close to shopping, dining and entertainment near downtown Provo. "
-      ],
       "lastModified": "2026-02-19T18:42:02.807Z",
       "phone": "(385) 230-6692",
       "website": "boulders-apts.com",
       "address": "750 S 650 W, Provo",
-      "description": ""
+      "description": "",
+      "servicesText": "The Boulders Apartments offers one, two and three bedroom apartments at an affordable price, with picturesque views of the Utah mountains. Enjoy plenty of on-site outdoor amenities including the pool, basketball court and spacious picnic area. \nWe are also located close to shopping, dining and entertainment near downtown Provo. ",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "BioLife",
@@ -1070,12 +847,14 @@
       "categories": [
         "employment"
       ],
-      "services": [],
-      "lastModified": "2026-02-19T20:49:27.811Z",
+      "lastModified": "2026-02-23T22:17:31.912Z",
       "phone": "385-881-0353",
       "website": "biolifeplasma.com/locations/utah/orem",
       "address": "168 E University Parkway, Orem",
-      "description": "Requires permanent local address, $80? for the first donation"
+      "description": "Requires permanent local address, $80? for the first donation",
+      "servicesText": "Plasma donation center",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "people_ready",
@@ -1083,16 +862,18 @@
       "categories": [
         "employment"
       ],
-      "services": [],
-      "lastModified": "2026-02-19T21:21:24.709Z",
+      "lastModified": "2026-02-23T22:19:58.793Z",
       "phone": "801.561.0881",
       "website": "https://www.peopleready.com/location/provo-ut-1201/",
       "address": "175 S. Freedom Blvd. Provo ",
-      "description": "PeopleReady supports a wide range of industries, including construction, manufacturing and logistics, retail and hospitality. Pays daily."
+      "description": "PeopleReady supports a wide range of industries, including construction, manufacturing and logistics, retail and hospitality. Pays daily.",
+      "servicesText": "Gig work through JobStack app.",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "grifols_plasma",
-      "name": "Grifols Plasma",
+      "name": "Talecris Plasma",
       "phone": "801-377-1243",
       "website": "grifols.com",
       "address": "651 Columbia Lane, Provo",
@@ -1101,13 +882,14 @@
       "categories": [
         "employment"
       ],
-      "services": [],
-      "verifiedDate": "",
       "verifiedBy": "",
       "displayOrder": null,
       "evaluation": {},
       "favorite": false,
-      "lastModified": "2026-02-19T21:27:41.888Z"
+      "lastModified": "2026-02-23T22:16:45.356Z",
+      "servicesText": "Plasma donation center",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "baconwork",
@@ -1116,17 +898,19 @@
       "website": "baconwork.com",
       "address": "",
       "hours": "",
-      "description": "It’s an iPhone or Android app (search for bacon work) — Warehouse, events, catering, general labor",
+      "description": "Temporary work--warehouse, events, catering, general labor",
       "categories": [
-        "employment"
+        "employment",
+        "f339647a306e5583669c65642a1f37ba"
       ],
-      "services": [],
-      "verifiedDate": "",
       "verifiedBy": "",
       "displayOrder": null,
       "evaluation": {},
       "favorite": false,
-      "lastModified": "2026-02-19T21:36:53.368Z"
+      "lastModified": "2026-03-09T19:19:38.810Z",
+      "servicesText": "an iPhone or Android app (search for bacon work) — Warehouse, events, catering, general labor",
+      "tags": [],
+      "verifiedOn": null
     },
     {
       "id": "bingham_clinic",
@@ -1135,24 +919,565 @@
       "website": "binghamfamilycllinic.org",
       "address": "987 S. Geneva Road, Suite 141",
       "hours": "",
-      "description": "Free Healthcare for the uninsured, household income less that 300% of poverty level, Utah County residents",
+      "description": "Free Healthcare for the uninsured (not even Medicaid), household income less that 300% of poverty level, Utah County residents. Ability (currently) to communicate in 23 languages. Accepts walk‑in appointments and is expanding to accept online appointments.",
       "categories": [
-        "health"
+        "education",
+        "health",
+        "mental"
       ],
-      "services": [
-        "Acute Care",
-        "Primary Care",
-        "Specialty Care",
-        "Educational Classes"
-      ],
-      "verifiedDate": "",
       "verifiedBy": "",
       "displayOrder": null,
       "evaluation": {},
       "favorite": false,
-      "lastModified": "2026-02-22T08:44:38.037Z"
+      "lastModified": "2026-03-09T21:41:49.441Z",
+      "servicesText": "* Acute Care\n* Primary Care\n* Specialty Care\n* Dental\n* Mental health\n* On-site pharmacy\n* Lab\n* Educational Classes",
+      "tags": [],
+      "verifiedOn": "02/26"
+    },
+    {
+      "id": "driver_license-division",
+      "name": "Driver License Division (ID for homeless persons)",
+      "phone": "801-965-4437 for all offices",
+      "website": "https://dld.utah.gov/homeless-fee-waiver/",
+      "address": "1503 S 40 E, suite 250, Provo or 759 N 1370 W, Orem or 2277 W 700 S, suite 1, Springville",
+      "hours": "",
+      "description": "Driver License Offices for homeless ID",
+      "categories": [
+        "id"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-02-24T17:59:09.075Z",
+      "servicesText": "homeless ID--go to Community Action Services or Food & Care Coalition to get a verification of homelessness (waives fee), make an appointment with the Driver License Division Office, then apply in person.",
+      "tags": [],
+      "verifiedOn": null
+    },
+    {
+      "id": "justice_in_aging",
+      "name": "Justice in Aging",
+      "phone": "",
+      "website": "https://justiceinaging.org/resource-library/",
+      "address": "",
+      "hours": "",
+      "description": "Descriptions of federal programs for senior citizens.",
+      "categories": [
+        "Seniors"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-02-24T18:27:24.249Z",
+      "servicesText": "",
+      "tags": [],
+      "verifiedOn": null
+    },
+    {
+      "id": "GED",
+      "name": "GED/HS Diploma",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Local educational resources for adults",
+      "categories": [
+        "education",
+        "employment"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-03-09T19:50:36.451Z",
+      "servicesText": "**Provo City School District Adult Education**\nHigh School Diploma: Call 801-374-4840 to earn a credit-based high school diploma through courses at Provo Adult Education.\nGED – Utah High School Completion Diploma: Call 801-374-4840 for GED preparation. The GED test is taken at a UVU testing center.\nCost: $36 per test (4 tests: English, Math, Science, Social Studies).\nLimited vouchers available for those who attend at least 12 hours of class.\nDepartment of Workforce Services (DWFS) may offer resources to pay for the GED exam.\n---\n**Alpine Adult Education** (adulted.alpineschools.org)\nAddress: 778 Bamberger Dr., American Fork, UT 84003\nPhone: 801-610-8188 (Text: 385-269-0809)\nGED Prep (Ages 16+):\nCall to set up an appointment.\nRegister in person with a valid Utah ID.\nTake an assessment test.\nMeet with a teacher/counselor to plan GED goals.\nVouchers available for test fees. Classes are free.\nHigh School Diploma:\nComplete online courses for remaining credits.\n$50 for one-year access to East Shore Online High School.\n---\n**Department of Workforce Services** (jobs.utah.gov)\nResources for GED/HS Diploma:\nFinancial assistance for GED study, tutoring, and testing.\nCash incentives for youth (ages 14–24) who complete GED or HS diploma.\nApply online or in person at a local employment center.\nMeet with an employment counselor to determine eligibility.\nOffices in Provo, Spanish Fork, and Lehi (call 801-526-0950 for all Utah County offices).\nOffices open 8 am–5 pm, Monday–Friday.",
+      "tags": [
+        "Ex-offender"
+      ],
+      "verifiedOn": "02/26"
+    },
+    {
+      "id": "scholarships_for_single_parents",
+      "name": "Scholarships for Single Parents",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Foundations or colleges with scholarships for single moms or single parents with dependent children.",
+      "categories": [
+        "education"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-03-10T05:14:50.502Z",
+      "servicesText": "**\"Live Your Dream Foundation\"**\n$500 - $3,000 scholarships for single mothers with a dependent at home, applicable to the university, college, or technical school of your choice.\nApplication, deadline to apply, and eligibility requirements can be found at:\nhttp://www.liveyourdreamfoundation.org/apply\nApplication Deadline for Fall 2026: April 10, 2026\n---\n**\"Stella H. Oaks Foundation\"**\nScholarships for single mothers.\nApplication, deadline to apply, and eligibility requirements can be found at:\nhttp://www.stellahoaks.org/scholarship\nApplication Deadline for Summer 2026 Semester: March 14, 2026\nApplication Deadline for Fall 2026 Semester: July 1, 2026\n---\n**\"Ensign College\"**\nScholarships for Ensign College students who are single parents with a dependent child in the home.\nFree Application for Federal Student Aid (FAFSA) is required for domestic students.\nApplication, deadline to apply, and eligibility requirements can be found at:\nmailto:scholarships@ensign.edu\nOr by calling 801-524-8111\nNote: All websites share additional resources for single moms.",
+      "tags": [
+        "Children",
+        "This resource is a list",
+        "Women"
+      ],
+      "verifiedOn": null
+    },
+    {
+      "id": "career_education",
+      "name": "Career Education",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Training and apprenticeship resources",
+      "categories": [
+        "education"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-03-10T05:11:29.044Z",
+      "servicesText": "Path to Pro (pathtopro.com) \nWould you like training for a career in the trades? Home Depot offers a free, self-paced virtual training platform for learning a trade. Some of the career trades offered are drywall, paint, plumbing, electrical, welding, and others. \nGo to their website pathtopro.com and register online. \nProxima Careers (proximacareers.org) \nInterested in a healthcare pathway? Proxima helps support and get you started in a Certified Nursing Assistant, Medical Assistant, Pharmacy Tech, or Emergency Medical Technician training program at no cost to you. \nEligibility: \nBe 16+ years old \nAble to work in the USA \nAble to work 36+ hours after program completion at one of our employer partners \nFacing barriers to healthcare education \nSee website (proximacareers.org) to sign up or for more information. Openings are limited. \nProvo City School District Adult Education \nAdult Basic Education: (801-374-4840) Adult classes designed to build basic skills in English and Math. \nAdult English Language Learning: (801-374-4904) If English is not a person's first language, the adult English classes provide English instruction. Call first as there is a wait list. Currently, the English classes are given at 750 West 200 North, Provo, until June 2026 when the building will be torn down. \nAlpine Adult Education (adulted.alpineschools.org) \n778 Bamberger Dr., American Fork, UT 84003 \n801-610-8188 (for text only 385-269-0809) \nEnglish Language Learners (ELL) for all levels: \nTo register or get more information, call 801-227-8782. There is a $20 fee plus $10-30 book fees depending on the level. Nursery and/or preschool may be available to those who qualify. Classes in Orem (call 801-227-8782), Eagle Mountain (call 801-610-8897), or Saratoga Springs (call 801-901-0855) for more information or see their website adulted.alpineschools.org. \nCaptain Your Story - My Story Matters \nTools to change yourself and become the person you want to be. If you face: \nFear of the unknown regarding your future. \nGuilt and self-blame for perceived failures. \nFrustration and helplessness in accessing appropriate resources and working with the system. \nAnxiety about the impact of employment on family dynamics and relationships. \nStigma and judgement from social groups, adding to your isolation. \nEmotional exhaustion from constant worry and stress. \nCaptain Your Story teaches core values and life skills. The practices and strategies are research-based. Learning is in person with an instructor, self-guided workbook. You will also be working with a mentor. \nFor more information: \n801-477-7071 \nMystorymatters.org \nmailto:Office@mystorymatters.org \nScholarships available. \nProject Read, Math, and Digital Skills (ProjectReadUtah.org) \nProject Read: Provides small group instruction as well as one-on-one tutoring to help individuals improve their ability to read and write, fill out job applications, create a budget, financial literacy and banking skills, health literacy, workforce prep, civics education. \nProject Math: Everyday math skills. \nProject Digital Skills: Essential computer and software skills, including Windows/Mac OS, Word, Excel, PowerPoint, Google Docs, social media, career search skills, and technology in daily life. \nQualifications: \nAt least 16 years old. \nHave basic English skills. \nRead and write below a high school level. \nProvide proof of Utah residency. \nCommit to 6 instructional hours a week. \nComplete required testing. \nPay associated program fees ($20/year and $20 for use of materials. The $20 materials fee is refundable at the end of the course if all materials are returned). \nScholarships available. \nSubmission form online. Call 801-448-7323 if you need help filling out. \nProject Read Office in Provo Library: \n550 North University Ave. Room #215, Provo, UT 84601 \n801-448-7323 \nHours: Tuesday - Thursday 10 am - 7 pm. \nFriday 10 am - 4 pm. \nMountainland Technical College (mtec.edu) \nOffering classes in: \nHealthcare (EMT, Dental Asst., Medical Asst., Pharmacy Tech, and more) \nServices (Cosmetology, Culinary Arts, Nail Tech and more) \nTrades (Automotive, Diesel, Welding, Commercial Driver's License, etc) \nTechnology (Information Tech, Web Programming, etc.) \nApprenticeships (Electrical, HVACR Tech, Plumbing) \n\"Information Sessions\" in person or virtual. Covers financial information, registration info, program details, scholarship info etc. Sign up on their website, opening page \"View Session Dates\". \nCampuses in Lehi, Orem, Provo, Spanish Fork, Payson. \nFor more information, fill out the form online under \"contact\" or call 801-753-6282. Or register and attend an \"Information Session\" as mentioned above. \nDepartment of Workforce Services (jobs.utah.gov) \nIf you are seeking an occupational license or professional certification DWFS may be able to help with the following resources: \nPaying for tuition, books, and required supplies. \nPaying required testing and licensing fees. \nConnecting with and paying for tutoring services, personalized coaching and financial support including applying for financial aid and navigating post-secondary education. \nCash incentives for youth for completion of program. \nApprenticeship opportunities: DWFS may be able to help find and research apprenticeship programs as well as provide funding for classroom training and required supplies. \nCompleting a College Degree: Paying for tuition, books and required supplies as well as resources listed above. \nPaid internship opportunities to explore careers and gain workplace skills. Career assessment. \nHow to apply: \nGo to jobs.utah.gov/career. Select the service or support you are interested in. \nClick \"How to Apply\" and then \"Apply Now\" to apply online. \nIf you do not have a Utah ID account, you will need to create one. \nOr visit the nearest DWFS Employment Center. \nTo receive funding you must meet eligibility requirements which vary based on program. \nCall 801-526-0950 (for all Utah County offices) for more information or go online to jobs.utah.gov. \nOffices open 8 am-5pm Monday-Friday in: \n1550 North 200 West (Provo 84604) \n1185 N. Canyon Creek Parkway (Spanish Fork 84660) \n557 West State St. (Lehi 84043 ",
+      "tags": [
+        "This resource is a list"
+      ],
+      "verifiedOn": null
+    },
+    {
+      "id": "adult_education",
+      "name": "Adult Education",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Resources for Career and Advanced Learning",
+      "categories": [
+        "clothing",
+        "education",
+        "employment",
+        "food",
+        "health",
+        "housing",
+        "self-sufficiency"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-03-09T20:11:40.188Z",
+      "servicesText": "---\n**Path to Pro** (pathtopro.com)\nWould you like training for a career in the trades? Home Depot is offering a free, self‑paced virtual training platform for learning a trade. Some of the career trades offered are drywall, paint, plumbing, electrical, welding and others. Go to their website pathtopro.com and register online.\n---\n**Proxima Careers** (proximacareers.org)\nInterested in a healthcare pathway? Proxima helps support and get you started in a Certified Nursing Assistant, Medical Assistant, Pharmacy Tech, or Emergency Medical Technician training program at no cost to you.\nEligibility:\n* Be 16+ years old\n* Able to work in the USA\n* Able to work 36+ hours after program completion at one of our employer partners\n* Facing barriers to healthcare education\nSee website to sign up. Openings are limited.\nLocations mentioned:\nSpanish Fork 84660\n557 West State St. (Lehi 84043)\n---\n**Mountainland Technical College** (mtec.edu)\nOffering classes in:\n* Healthcare (EMT, Dental Asst., Medical Asst., Pharmacy Tech, and more)\n* Services (Cosmetology, Culinary Arts, Nail Tech and more)\n* Trades (Automotive, Diesel, Welding, CDL, etc.)\n* Technology (Information Tech, Web Programming, etc.)\n* Apprenticeships (Electrical, HVACR, Plumbing)\n“In‑person or virtual” Information Sessions cover financial info, registration, program details, scholarships, etc. Sign up on their website (opening page → “View Session Dates”).\nCampuses: Lehi, Orem, Provo, Spanish Fork, Payson.\nFor more information:\nFill out the online contact form\nCall 801‑753‑6282\nOr attend an Information Session\n---\n**Department of Workforce Services – DWS** (jobs.utah.gov)\nIf you are seeking an occupational license or professional certification, DWS may help with:\n* Tuition, books, and supplies\n* Testing and licensing fees\n* Tutoring services\n* Personalized coaching\n* Financial aid navigation\n* Cash incentives for youth\n* Apprenticeship funding (classroom training + supplies)\n* Degree completion support\n* Paid internships\n* Career assessment\nHow to apply:\nGo to jobs.utah.gov/career\nSelect the service/support\nClick How to Apply → Apply Now\nCreate a Utah ID if needed\nOr visit a local DWS office\nEligibility depends on the program.\nPhone: 801‑526‑0950\nUtah County offices:\n1550 North 200 West (Provo 84604)\n1185 N. Canyon Creek Parkway (Spanish Fork 84660)\n557 West State St. (Lehi 84043)\nHours: Mon–Fri, 8am–5pm\n---\n**Job Corps** (enroll.jobcorps.gov)\nJob Corps is the largest free residential education and job‑training program for young adults (ages 16–24) who are disadvantaged, low income, disabled, homeless, etc.\nCenters house 120–240 students, except Clearfield (~1,000).\nZero tolerance for drugs/alcohol.\nCenter assigned based on chosen trade.\nApplication:\nApply at enroll.jobcorps.gov\nApplication goes to an admissions counselor based on ZIP code\nProcessing time: ~2 months\nExpedited for applicants without housing\nCourt‑related requirements must be complete (if applicable)\nDocumentation (if applicable):\n* Transcripts/Diploma\n* Immunization Record\n* Background check\n* ID/Birth Certificate/Social Security Card\n* Medicaid/Insurance card\n* Mental health diagnosis/IEP\n* Income (past 6 months): SNAP, SSI/SSDI, Medicaid, free/reduced lunch\nIncluded:\n* Furnished dorms\n* Work clothing\n* Basic medical care\n* Living allowance ($45–$70 every 2 weeks after 6 months)\n* Books and supplies\nFree Training:\n* High school diploma\n* Driver’s education\n* Personal career development\n* Fundamental employment skills\n* Tutoring: English, Math, Reading\nClasses offered: Carpentry, welding, electrical, forestry, firefighting, automotive, plumbing, medical, dental, and more.\nFor questions: 801‑479‑9806",
+      "tags": [
+        "This resource is a list"
+      ],
+      "verifiedOn": "01/26"
+    },
+    {
+      "id": "employment_agencies",
+      "name": "Employment Agencies",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Unified listing of employment agencies",
+      "categories": [
+        "employment",
+        "f339647a306e5583669c65642a1f37ba"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-03-09T20:11:15.547Z",
+      "servicesText": "---\n**LG Resources** (LGresources.com)\n363 N. University Ave. Suite 101, Provo, UT 84601\n801-900-4726 (text to 385-501-7701)\nMainly temp to hire positions, occasional temp for a few days\nJobs: General labor (cleanup at construction sites, warehouse, light industrial, janitorial, landscaping, clerical, welders, HVAC, electrical)\nMust have 1 year of experience and resume\nComplete application online, contact the office for an interview between 9-4\nBackground checks and drug screens required. In some cases, medical marijuana use is OK—bring your card to the interview. Exiting incarceration may be OK depending on the offense and how recently they were jailed.\n---\n**Apex Staffing** (apexjobs.net)\n1160 S. State St. Suite 220, Orem, UT 84097\nConstruction and industrial jobs\nApplications accepted Monday–Friday 9 am–2 pm\nFT, PT, short and long term temporary staffing as well as temp to hire staffing\nFriendly to those exiting corrections\n---\n**Ascend Staffing** (ascendstaffing.com)\n1651 N. State St., Orem, UT 84057\n801-374-8000\nRequire GED or HS diploma\nAble to work in US\nExcellent communication skills\nBackground check\nFT, PT paid weekly\nLight industrial and skilled trades 1\n---\n**Elwood Staffing** (Elwoodstaffing.com)\n4 offices offering positions in general labor, construction, warehouse production and shipping, manufacturing, and skilled labor jobs (carpentry, welding, etc.)\nMost jobs require no experience (skilled labor jobs prefer experience and a resume)\nAll offices open 9–5, M–F. Complete an online account and applications before job search\nAlmost every job requires a background check (generally “second chance” friendly) and drug screen. Medical marijuana users will not qualify due to THC in the test\nJobs may be short in duration or temp to hire\nEligibility Requirements:\nMust have transportation (many places not serviced by UTA)\nWarehouse jobs are usually shift work—ability to work all shifts\nMany require steel toe boots, ability to lift 50 lbs or more, and clothing appropriate for outdoor work\nOffices:\nElwood Skill Staff: 1256 S. State St. #104, Orem, UT 84057, 801-426-4948 (skilled trades)\nElwood Staffing: 1256 S. State St. #101, Orem, UT 84057, 801-225-1010 (warehouse, production, shipping in Provo/Orem)\nElwood Staffing – American Fork: 72 South 360 East, American Fork, UT 84003, 801-492-1525 (production/warehouse jobs in Lindon and north Utah County)\nElwood Staffing – Spanish Fork: 61 East 1000 North, Spanish Fork, UT 84660, 801-798-0052 (warehouse/production jobs in Springville and south Utah County) 1\n---\n**Utah Construction Personnel** (UCPStaffing.com)\n590 N. State St., Orem, UT 84057\n801-227-7171\nConstruction and general labor jobs. Must be drug free. Veteran friendly\n---\n**Nexeo Staffing** (Nexeostaffing.com)\n1417 S. State St., Orem, UT 84057\n801-841-4000\nFT, PT, Temporary: warehouse, customer service, accounting, admin, clerical, construction, welding. Many jobs want a resume. Nexeo will help you prepare one if needed\nGenerally paid weekly\nBackground check and drug screen if required by client\nAdditional Utah locations—see website\n---\n**Kelly Services** (Kellyservices.us)\n2255 N. University Parkway Suite 7, Provo, UT 84604\n801-373-1616\nSubstitute teachers, light industrial, electronic assembly, professional\nBackground checks and drug screens as required by employer\nFT, PT, Temporary\n---\n**Indeed.com**\nCreate an account online to see your job recommendations\nFilter by pay, job type, experience level, education, etc.",
+      "tags": [
+        "Ex-offender",
+        "This resource is a list"
+      ],
+      "verifiedOn": "01/26"
+    },
+    {
+      "id": "job_search",
+      "name": "Job Search",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Job search apps",
+      "categories": [
+        "f339647a306e5583669c65642a1f37ba"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-03-10T05:13:08.861Z",
+      "servicesText": "---\n**People Ready** (PeopleReady.com)\nLocation: 175 S. Freedom Blvd. Provo, UT 84601\nPhone: 801-561-0881\nEmail: mailto:1432-br@peopleready.com\nType: Temporary employment agency for general labor, construction, hospitality, retail, manufacturing, warehouse/distribution, housekeeping/janitorial, disaster restoration, and more.\nFeatures:\nBuild your own schedule.\nMany jobs offer next-day pay.\nPayment via direct deposit, check, or pay card.\nRequirements:\nSmartphone to download the “Jobstack” app (for applying and job notifications).\nTwo forms of ID (e.g., non-expired picture ID, Social Security card, jail release papers, birth certificate).\nMay need steel toe shoes and long pants for most jobs.\n---\n**Bacon** (Baconwork.com)\nType: On-demand work—pick up shifts when you want using the “Baconwork OnDemand” app.\nFeatures:\nView shift details (company, time, pay, type of work).\nFlexible, temporary work (event staffing, catering, warehouse, general labor, etc.).\nNo specific skill required—just willingness to work hard.\nYou control your schedule.\nAfter each shift, you’re rated (1–5 stars); payment follows rating.\n---\n**GigSmart** Get Gigs App (Gigsmart.com)\nType: On-demand temporary or residential project work; full and part-time jobs.\nHow it works:\nDownload the app and create a work profile.\nBrowse and apply for positions based on your interests and experience.\nAccept shifts that suit you.\nEarnings are transferred automatically after timesheet approval.\n---\n**Department of Workforce Services** (jobs.utah.gov)\nApp: “Utah Jobs” mobile app.\nFeatures:\nSet up an account entirely on the app.\nSearch jobs easily.\nTarget jobs by area and keywords.\nAdd jobs to favorites or remove those you’re not interested in.\n---\n**Rover App** (Rover.com)\nType: Become a pet sitter (dogs and cats only).\nFeatures:\nSet your own schedule and prices.\nGet paid two days after a completed service.\nMust pass a background check.\nHow to get started:\nDownload the “Rover” app.\nChoose services (pet boarding, house sitting, dog walking, drop-in visits, doggy daycare, dog training).\nSet rates, availability, and pet preferences.\nCreate your profile (experience, etc.).\nRequest testimonials from past clients.\nComplete a safety quiz and background check.",
+      "tags": [
+        "This resource is a list"
+      ],
+      "verifiedOn": "01/26"
+    },
+    {
+      "id": "lds_employment",
+      "name": "LDS Employment",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Placement and training",
+      "categories": [
+        "employment"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-03-10T03:23:53.737Z",
+      "servicesText": "---\n**LDS Employment Services**\n---\n**American Fork Location**\n437 East 500 South\nAmerican Fork, UT\n801-756-6079\nHours:\nMonday: 10:00 am - 4:00 pm\nTuesday: 10:00 am - 4:00 pm\nWednesday: 10:00 am - 4:00 pm\nThursday: 10:00 am - 4:00 pm\n---\n**Provo Location**\n702 Columbia Lane\nProvo, UT\n801-818-6161\nHours:\nMonday: 10:30 am - 3:30 pm\nTuesday: 10:30 am - 3:30 pm\nWednesday: 10:30 am - 3:30 pm\nThursday: 10:30 am - 3:30 pm\n---\n**Saratoga Springs Location**\n104 West Medical Drive\nSaratoga Springs, UT\n801-528-1383\nHours:\nMonday: 10:00 am - 4:00 pm\nTuesday: 10:00 am - 4:00 pm\nWednesday: 1:00 pm - 6:00 pm\nThursday: 10:00 am - 4:00 pm\n---\n**Springville Location**\n1672 West 700 South\nSpringville, UT\n801-491-7379\nHours:\nMonday: 10:00 am - 3:00 pm\nTuesday: 10:00 am - 3:00 pm\nWednesday: 2:00 pm - 7:00 pm\nThursday: 10:00 am - 3:00 pm",
+      "tags": [],
+      "verifiedOn": "02/26"
+    },
+    {
+      "id": "food_pantries",
+      "name": "Utah County Food Pantries and Food Banks",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Groceries and meals",
+      "categories": [
+        "food"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-02-24T19:55:15.789Z",
+      "servicesText": "AMERICAN FORK / PLEASANT GROVE\nCalvary Mountain View Church Pantry\nMondays 7:30–9:30 PM\n340 E State Street, American Fork, UT 84003\n801-756-1446\nhttps://www.calvarymv.com/cmv-action-plan/\nTabitha's Way Pleasant Grove Pantry\nTues, Wed, Thurs 11 AM–2 PM; Wed 5–8 PM; 1st & 3rd Saturdays 9 AM–1 PM\n675 W Garden Drive #100, Pleasant Grove, UT 84062\n801-692-1881\nhttps://tabithasway.org/\nLEHI / SARATOGA SPRINGS / EAGLE MOUNTAIN\nAlpine Bible Church Pantry\nTuesdays, 6–7:30 PM (Check calendar for open dates)\n310 E State Street, Lehi, UT 84043\n801-341-8789\nhttps://www.alpinebible.com/serve/food-pantry/\nTabitha's Way Saratoga Springs Pantry\nTues–Fri 11:30 AM–2:30 PM; Wed 5–8 PM\n1439 N Commerce Drive #010, Saratoga Springs, UT 84045\n801-692-1881 EXT 301\nhttps://tabithasway.org/\nRedemption Hill Church – Shiloh Pantry\n(Call or check website for dates/times)\n9517 Mount Airey Drive, Eagle Mountain, UT 84005\n385-394-2006\nhttps://rhutah.church/food-pantry/\nPROVO\nCommunity Action Services and Food Bank\nMon–Fri 9 AM–4 PM\n815 S Freedom Blvd STE 100, Provo, UT 84601\n801-373-8200\nhttps://www.communityactionprovo.org/food/\nUnhoused: food every 3 days; Housed: every 2 weeks\nIglesia Emanuel Pantry\nWednesdays 5:30–6:30 PM (Parking lot opens at 4:30 PM)\n1078 South 250 East, Provo, UT 84601\n801-722-8345\nhttps://www.facebook.com/iglesiaemanuelfoodpantry/\nThe Genesis Project\nSundays 9:00 AM–12:00 PM\n875 S 170 E, Provo, UT 84606\n801-755-7051\nOpen to everyone, focus on unhoused\nSPANISH FORK\nTabitha's Way Spanish Fork Pantry\nTues–Fri 11 AM–2 PM; Tues 6–8 PM; 2nd & 4th Saturdays 10 AM–12 PM\n50 East 100 North, Spanish Fork, UT 84660\n801-709-8573\nhttps://tabithasway.org/\nMEALS AT FOOD & CARE COALITION (299 E 900 S, Provo, UT)\nMonday–Friday: Breakfast 8:30–9:30 AM, Lunch 12–1 PM, Dinner 4:30–5:30 PM\nSaturday: Breakfast 8:30–9:30 AM, Lunch 12–1 PM, Dinner 4:30–5:30 PM\nSunday: Lunch 12–1 PM\n2026 MOBILE PANTRY FOR UTAH COUNTY\nBENJAMIN: Fridays 6:30–8:30 AM, 1138 West 100 South, Spanish Fork, UT\nEUREKA: Wednesdays 12–1 PM, 70 E Main Street, Eureka, UT\nGOSHEN: Wednesdays 10–11 AM, 79 South Center Street, Goshen, UT\nLEHI Peaks: Thursdays 8:30–9:30 AM, 1149 North 300 West, Lehi, UT\nOREM Sharon Park: Mondays 8–9 AM, 85 East 700 North, Orem, UT\nPAYSON Tabitha's Way: Fridays 7:45–8:45 AM, 608 W 1400 S, Payson, UT\n(Specific dates for each location are listed in the document.)\nADDITIONAL RESOURCES\nSNAP (Supplemental Nutrition Assistance Program):\nApply at: https://mydoorway.utah.gov/food-assistance-snap/\nExpedited for homeless applicants\nWIC (Women, Infants & Children):\nApply at: https://wic.utah.gov/4744\nFor eligible women, infants, and children up to age 5",
+      "tags": [],
+      "verifiedOn": null
+    },
+    {
+      "id": "bishops_storehouses",
+      "name": "Bishops Storehouse Locations",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Addresses and hours of Bishops Storehouses",
+      "categories": [
+        "clothing",
+        "food"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-03-10T05:11:13.068Z",
+      "servicesText": "---\n**Bishop's Storehouse Locations**\n---\nFor all locations – call ahead for specific instructions before sending an individual to the storehouse\n---\n**Lindon Location** – No appointment necessary\nAddress: 940 W. Center Street, Lindon, UT\nPhone: 801-785-0995\nHours:\nMonday: 10:00 am – 4:30 pm\nTuesday: 10:00 am – 6:30 pm\nWednesday: 10:00 am – 4:30 pm\nThursday: 10:00 am – 6:30 pm\nSaturday: 9:00 am – 12:00 pm\n---\n**Saratoga Springs Location** – No appointment necessary\nAddress: 142 W. Medical Drive, Saratoga Springs, UT\nPhone: 801-436-8205\nHours:\nTuesday: 10:00 am – 6:00 pm\nThursday: 10:00 am – 6:00 pm\nSaturday: 10:00 am – 2:00 pm\n---\n**Springville Location** – Appointment is required\nAddress: 1672 W. 700 S., Springville, UT\nPhone: 801-491-7221\nHours:\nCalls are accepted starting at 10:00 am on the days they are open\nMonday: 11:40 am – 3:40 pm\nTuesday: 11:40 am – 3:40 pm\nWednesday: 11:40 am – 5:40 pm\nThursday: 11:40 am – 3:40 pm",
+      "tags": [
+        "This resource is a list"
+      ],
+      "verifiedOn": "02/26"
+    },
+    {
+      "id": "domestic_violence_shelters",
+      "name": "Domestic Violence Shelters",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Utah violence and abuse shelters",
+      "categories": [
+        "housing"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-03-10T03:33:16.584Z",
+      "servicesText": "---\n**Domestic Violence Shelters in Utah**\n---\n**Community Abuse Prevention Services Agency** (CAPSA)\nLocation: Logan\nService Area: Cache and Rich Counties\nPhone: (435) 753-2500 (24hr)\nWebsite: capsa.org\nServices: Emergency shelter, 24-hour crisis line, case management, transitional housing, counseling & support groups, transportation, children's services, food, personal care items, advocacy, referral programs.\n---\n**New Hope Crisis Center**\nLocation: Brigham City\nService Area: Box Elder County\nPhone: (435) 723-5600 or 1-877-732-5600 (24hr)\nWebsite: newhopecrisiscenter.org\nServices: Same as above.\n---\n**YCC Family Crisis Center**\nLocation: Ogden\nService Area: Weber and Morgan County\nPhone: (801) 394-9456 (24/7), (801) 394-6552 (Rape Crisis), 1-844-762-8483 (Stronghearts Native Helpline)\nWebsite: yccogden.org\nServices: Same as above.\n---\n**Safe Harbor Crisis Center**\nLocation: Davis County\nService Area: Davis County\nPhone: (801) 444-9161 (24hr)\nWebsite: safeharborhope.org\nServices: Same as above.\n---\n**YWCA Utah** (for women, men, and children)\nLocation: Salt Lake City\nService Area: Salt Lake County\nPhone: (801) 537-8600 (24hr)\nWebsite: ywcautah.org\nServices: Same as above.\n---\n**Peace House**\nLocation: Park City\nService Area: Summit and Wasatch Counties\nPhone: (435) 647-9161 (24hr)\nWebsite: peacehouse.org\nServices: Same as above.\n---\n**South Valley Services** (SVS)\nLocation: West Jordan\nService Area: Salt Lake and Utah Counties\nPhone: (801) 255-1095 (24hr)\nWebsite: svsutah.org\nServices: Same as above.\n---\n**Pathways Domestic Violence Shelter & Survivor Advocacy Center**\nLocation: 7 South Main St, Suite 305, Tooele (Mon-Thurs 8am-5pm)\nService Area: Tooele County\nPhone: (435) 231-3557 (24hr)\nWebsite: svsutah.org/get-help-now/pathways-svs/\nServices: Same as above.\n---\n**The Refuge Utah**\nLocation: Provo\nService Area: Utah and Juab Counties\nPhone: (801) 377-5500 (DV Crisis 24hr), (801) 356-2511 (Sexual Assault Services 24hr)\nWebsite: therefugeutah.org\nServices: Same as above.\n---\n**Friends Against Family Violence**\nLocation: Vernal and Roosevelt\nService Area: Uintah, Duchesne, and Daggett Counties\nPhone: (435) 781-2264 (24hr)\nWebsite: fafv.org\nServices: Same as above.\n---\n**Colleen Quigley Women's Crisis Center**\nLocation: Price\nService Area: Carbon and Emery Counties\nPhone: (435) 637-6589 (24hr)\nServices: Same as above.\n---\n**New Horizons Crisis Center**\nLocation: Richfield\nService Area: Sevier, Millard, Piute, San Pete, and Wayne Counties\nPhone: (435) 896-9294 or 1-800-343-6302 (24hr)\nWebsite: centralutahcrisisintervention.org\nServices: Same as above.\n---\n**Seekhaven**\nLocation: Moab\nService Area: Grand County\nPhone: (435) 259-2229 (24hr)\nWebsite: seekhaven.org\nServices: Same as above.\n---\n**Canyon Creek Women's Crisis Center**\nLocation: Cedar City\nService Area: Iron, Beaver, and Garfield Counties\nPhone: (435) 233-5732 (24hr)\nWebsite: canyoncreekservices.org\nServices: Same as above.\n---\n**Dove Center**\nLocation: St. George\nService Area: Washington and Kane Counties\nPhone: (435) 628-0458 (24hr)\nWebsite: dovecenter.org\nServices: Same as above.\n---\n**Gentle Ironhawk Shelter**\nLocation: Blanding\nService Area: San Juan County\nPhone: (435) 678-0777 (24/7 Intake)\nWebsite: wearenavajo.com/the-gentle-iron-hawk-shelter/\nServices: Same as above.\n---\n**Restoring Ancestral Winds**\nService Area: Utah and the Great Basin\nPhone: 1-833-NTV-HEAL (1-833-688-4325)\nWebsite: restoringawcoalition.org\nServices: Safety planning, crisis intervention, education, advocacy, technical assistance, peer support, culturally responsive support services for domestic violence and sexual assault victims in Native communities.",
+      "tags": [
+        "Children",
+        "This resource is a list",
+        "Women"
+      ],
+      "verifiedOn": "02/26"
+    },
+    {
+      "id": "shelters",
+      "name": "Homeless shelters",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Utah homeless shelters",
+      "categories": [
+        "housing"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-03-10T05:12:50.045Z",
+      "servicesText": "---\n**DAYTIME**\n---\n**St. Vincent De Paul Dining Hall and Weigand Resource Center Day Shelter**\n437 W. 200 S., Salt Lake City\n(801) 363-7710\nOpen 7 AM–7 PM daily (closed on holidays)\nServices: case management, storage, hygiene, showers, laundry, computer lab, clothing\nMeals (for those at/below 185% federal poverty line):\nMon–Fri: Lunch 11:30 AM–12:30 PM, Dinner 5–6 PM\nSat: Brunch 10–11 AM, Dinner 5–6 PM\nSun: Dinner 5–6 PM\n---\n**FOR WOMEN**\n---\n**Geraldine E. King Women's Resource Center** (18+ years)\n131 E. 700 S., Salt Lake City\n(801) 990-9999 (Homeless Connections Hotline for Intake)\nGo in person 7–9:30 AM to get on bed list; most vulnerable prioritized\nOpen 24/7, 365 days/year\nServices: meals, clothing, hygiene, showers, laundry, outreach team (Mon–Fri 9 AM–5 PM: 801-503-4116 or 385-421-8455)\nMeals: Breakfast 8–9 AM, Lunch 1–2 PM, Dinner 5:30–6:30 PM\n**Rescue Mission of Salt Lake Women's Center** (women and children)\n1165 S State Street, Salt Lake City\n(801) 521-5925\nOpen 365 days/year\nServices: emergency shelter, food, hygiene, clothing, work therapy, life skills, addiction recovery\n---\n**FOR YOUTH**\n---\n**Youth Resource Center – Volunteers of America** (ages 15–22)\n888 S. 400 W., Salt Lake City\n(801) 364-0744 ext. 707\nOpen 24/7; intake during drop-in hours 8:30 AM–6 PM\nServices: 3 meals/day, pantry food, showers, laundry, life-skills, housing/employment case management, dental/medical/mental health\nEmergency shelter: 7:30 PM–8:30 AM (30 beds)\n---\n**Youth Futures** (ages 12–18)\nOgden: 2760 Adams Ave., Ogden\nCedar City: 100 W. 133 S., Cedar City\nSt. George: 340 E. Tabernacle, St. George\nCall: 801-528-1214\nOpen 24/7; case management 6 AM–8 PM\nServices: overnight shelter, food, clothing, hygiene, laundry, computer, case management\n---\n**FOR MEN**\n---\n**Pamela Atkinson Men's Resource Center (single men 18+)**\n3380 S. 1000 W., South Salt Lake\n(801) 359-4142 or UCA Bed Intake Line 801-990-9999\nOpen 24/7; 300-bed shelter\nServices: 3 meals/day, showers, blankets, clothing, laundry, mail, crisis services\nRescue Mission of Salt Lake Men's Center\n463 S 400 W, Salt Lake City\n(801) 355-1302\nOpen 365 days/year\nServices: shelter, hygiene, meals, clothing, family food boxes, addiction recovery\n---\n**FOR FAMILIES**\n---\nConnie Crosby Family Resource Center (families with children)\n529 W. 9th Avenue, Midvale\n(801) 569-1201\nOpen 24/7; serves up to 300 people nightly\nServices: case management, community resources, mail\n---\n**FOR ALL**\n---\n**Lantern House** (men, women, families)\n269 W. 33rd Street, Ogden\n(801) 621-5036\nCheck-in: 6 PM–12 AM daily\nServices: shelter, transportation, mental health/addiction support, vocational support, document/ID recovery, hygiene, food boxes, clothing, 3 meals/day (Breakfast 6:30–8 AM, Lunch 12–1 PM, Dinner 5:30–7 PM), pets welcome\nIron County Care and Share (men, women, families)\n244 W. 900 N., Cedar City\n(435) 586-5142\nMeals: Breakfast 7 AM, Sack lunch, Dinner 6 PM\nServices: laundry, showers, call for shelter availability, case management if staying >3 days\n---\n**Switchpoint Tooele Community Resource Center** (men, women, families)\n251 N. 1st St. Bldg C, Tooele\n(435) 228-5151\nOpen 24/7; case management, computer, showers, food pantry, Harris Community Village (44-bed shelter, 7 family rooms, community kitchen, 66 housing units), 24/7 childcare (coming soon)\n**Switchpoint St George Community Resource Center**\n948 N. 1300 W., St. George\n",
+      "tags": [
+        "This resource is a list"
+      ],
+      "verifiedOn": "02/26"
+    },
+    {
+      "id": "extended_stay",
+      "name": "Extended Stay Hotels",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Hotels with weekly and monthly rates",
+      "categories": [
+        "housing",
+        "substance"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-03-10T04:17:21.754Z",
+      "servicesText": "---\n**Extended Stay Hotels – Utah County**\n---\n**Provo / Orem Area**\n---\n**Extended Stay America Select Suites** – Provo – American Fork\nAddress: 57 North 900 West, American Fork, UT 84003\nPhone: +1 801-492-1600\nWebsite: https://www.extendedstayamerica.com/hotels/ut/salt-lake-city/american-fork?V2=true\nWeekly rates: ~$500–$800\nMonthly rates: ~$1,700–$2,800\n---\n**TownePlace Suites by Marriott** Provo Orem\nAddress: 873 N 1200 W, Orem, UT 84057\nPhone: +1 801-225-4477\nWebsite: https://www.marriott.com/en-us/hotels/slcto-towneplace-suites-provo-orem/overview/\nWeekly rates: ~$700–$1,200\nMonthly rates: ~$2,500–$4,500\n---\n**L & L Motel**\nAddress: 963 N State St, Orem, UT 84057\nPhone: +1 801-225-3784\nWebsite: Currently unavailable\nWeekly rates: ~$400–$700\nMonthly rates: ~$1,500–$2,500\n---\n**Little Suites Provo Extended Stay**\nAddress: 1380 S University Ave, Provo, UT 84601\nPhone: +1 801-374-6800\nWebsite: http://www.littlesuitesprovo.com\nWeekly rates: ~$400–$700\nMonthly rates: ~$1,500–$2,500\n---\n**Lehi Area**\n---\n**Comfort Inn Lehi** – Thanksgiving Point Area\nAddress: 125 S 850 E, Lehi, UT 84043\nPhone: +1 801-766-8800\nWebsite: https://www.choicehotels.com/utah/lehi/comfort-inn-hotels/ut116?mc=llgoxxpx\nWeekly rates: ~$600–$900\nMonthly rates: ~$2,100–$3,500\n---\n**Home2 Suites by Hilton** Lehi/Thanksgiving Point\nAddress: 3051 W Club House Dr, Lehi, UT 84043\nPhone: +1 801-753-5430\nWebsite: https://www.hilton.com/en/hotels/slctpht-home2-suites-lehi-thanksgiving-point/\nWeekly rates: ~$800–$1,400\nMonthly rates: ~$2,800–$5,200\n---\n**Motel 6** Lehi – Thanksgiving Point\nAddress: 210 S 1200 E, Lehi, UT 84043\nPhone: (801) 768-2668\nWebsite: https://www.motel6.com/en/home/motels.ut.lehi.9448.html\nWeekly: Rates available upon request; Motel 6 offers discounted weekly and group rates.\nAmenities: Free Wi-Fi, pet-friendly, coin laundry, truck parking, and modern rooms\n---\n**Spanish Fork Area**\n---\n**Hampton Inn & Suites** Spanish Fork Provo\nAddress: 462 E Commerce Way, Spanish Fork, UT 84660\nPhone: +1 385-248-0550\nWebsite: https://www.hilton.com/en/hotels/pvusfhx-hampton-suites-spanish-fork-provo/\nWeekly rates: ~$800–$1,300\nMonthly rates: ~$2,800–$4,800\n---\n**Quality Inn** Spanish Fork North\nAddress: 632 E Kirby Ln, Spanish Fork, UT 84660\nPhone: +1 801-798-9400\nWebsite: https://quality-inn-spanish-fork.h-rez.com/\nWeekly rates: ~$500–$800\nMonthly rates: ~$1,800–$2,800\n---\n**Bluffdale Area**\n**WoodSpring Suites**\nAddress: 1478 West 14000 South, Bluffdale, UT 84065\nPhone: +1 385-243-1064\nWebsite: https://www.woodspring.com/extended-stay-hotels/locations/utah/bluffdale/woodspring-suites-bluffdale-salt-lake-city\nWeekly Rates: Generally lower than daily rates (average saving of 34% per night)\nMonthly Rates: For stays of 28 nights or more, average discount of 44% per night compared to daily rates; further savings possible by pre-paying for the first 28 nights\n---\n**General Pricing Tips**\nNegotiate your rate: Many hotel staff can offer better deals for extended stays than what’s publicly advertised.\nBooking third-party vs. direct: Check both hotel websites and third-party sites (like kayak.com or expedia.com) for the best daily rates, then call the hotel directly to see if they can offer a special long-term rate.",
+      "tags": [
+        "This resource is a list"
+      ],
+      "verifiedOn": "02/26"
+    },
+    {
+      "id": "rooms_for_rent",
+      "name": "Rooms for rent",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Rooms for rent websites",
+      "categories": [
+        "housing"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-02-24T20:08:26.631Z",
+      "servicesText": "Note: These sites can also be used to search for apartments for rent.\nApartments.com\n(Search by city. Click on All Filters and check \"Rooms for rent\")\nFacebook.com\n(Go to Marketplace. Select \"Property Rentals\" Category.\nTurn on filter option: \"Private Room Only\" and search for desired location)\nRoomies.com\n(In the \"Start Your Search\" field, enter Utah County, UT. Filter by Room or Roomies)\nSpareroom.com\n(Go to SpareRoomUS, Search by city or zip code. Apply appropriate filters)\nForrent.com\n(Filter by \"Rooms for Rent\")\nHotpads.com\n(Click on All filters for area of interest and select \"Rooms for rent\" under the rental types section. Click on houses, All filters, Rooms for rent)\nClassifieds.ksl.com\n(Click on \"For Rent\". Search \"rooms for Rent\")\nRealtor.com/rentals/\n(Search city. Filter property type \"any\")\nRedfin.com\n(Select City and click Rent. Decrease the rent amount to show $450 to find shared room options. Increase the amount to $800 to see private rooms available.)\nRentler.com\n(Under Property Type, select \"Single Room\" or \"Sublease and Student Contract\")\nTrulia.com/rent/\n(Search by city. Select filters \"Any Price\" and enter maximum amount of $450 to find shared rooms or $800 to find private rooms available. Select \"All rental types\" then \"room\")\nCitru.com\n(Search by location. Filter for \"Room\" and \"Price\")\nRoomster.com\n(Search by \"Location\", \"Room\", or \"Entire House\")\nZillow.com\n(Search by city. Filter for \"Rent\", \"Price Range\")",
+      "tags": [],
+      "verifiedOn": null
+    },
+    {
+      "id": "maternity",
+      "name": "Maternity resources",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Financial assistance and prenatal care",
+      "categories": [
+        "health"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-03-10T04:50:41.272Z",
+      "servicesText": "---\n**Resources for Women who are Pregnant**\n---\n**Emergency Medicaid** (For Delivery Costs)\nUtah offers Emergency Medicaid for non-citizens (including undocumented immigrants) who meet income requirements.\nCoverage: This covers labor and delivery charges for the mother.\nEligibility: Must be a Utah resident, have low/zero income, and meet the financial criteria for regular Medicaid.\nApplication: The mother can apply one month before the expected delivery date.\nBaby's Coverage: An infant born to a mother on Emergency Medicaid is eligible for full Medicaid for their first year.\n---\n**Hospital Charity Care & Financial Assistance**\n---\n**Non-profit hospitals in Utah (such as Intermountain Health and CommonSpirit Health (Holy** ** Cross Health) are legally required to have financial assistance policies.**\nUtah Valley Hospital in Provo, American Fork Hospital, Orem Community Hospital, and Holy Cross Hospital- Mountain Point in Lehi are non-profit hospitals.\nAction: Contact the hospital's billing department immediately to apply for \"charity care\" or \"financial assistance\".\nEligibility: Generally based on income. Families with zero income likely qualify for 100% forgiveness of the bill.\nProcess: They will need to fill out an application, likely providing a letter explaining their current financial status.\nUninsured Discount: If they do not qualify for Medicaid, hospitals often offer automatic discounts for uninsured patients.\n---\n**\"Baby Your Baby\"** (For Prenatal Care)\nBaby Your Baby (BYB) is a Utah program that provides temporary Medicaid for low-income pregnant women.\nWhile BYB primarily covers outpatient prenatal care, the application process acts as a bridge to other, more comprehensive coverage.\nAction: Call the Baby Your Baby hotline at 1-800-826-9662.",
+      "tags": [
+        "This resource is a list",
+        "Women"
+      ],
+      "verifiedOn": "02/26"
+    },
+    {
+      "id": "phone_and_internet",
+      "name": "Phone and internet service",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "Low-cost phone and internet providers",
+      "categories": [
+        "employment"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-03-10T04:55:55.371Z",
+      "servicesText": "---\n**Phone and Internet Service**\n---\n**Lifeline Phone and Internet Service**\nA Federal program that provides discounted telephone service or discounted internet service through contracted service providers to low-income individuals and families.\nLifeline pays up to $9.25 towards a monthly phone, internet, or bundled service bill, or up to $34.25 per month for Tribal households.\nYou may be eligible to get Lifeline if:\nYour income is 135% or less of the federal poverty guidelines, or\nYou participate in a government assistance program such as SNAP, Medicaid, SSI, Federal public housing assistance, National School Lunch Program, or a Tribal specific program.\nHow to sign up:\nSign up at https://www.lifelinesupport.org.\nAfter you qualify, choose a phone or internet company near you and sign up for service with them.\nYou can also sign up via mail (see lifelinesupport.org), or with a participating wireless provider.\n---\n**Phone companies working with Lifeline:**\n(Some offer free service, free phones, or low-cost plans. Check online first to see if you are eligible or do the qualification process directly with one of the wireless companies.)\n* Airtalk Wireless (https://airtalkwireless.com/my-state/Utah)\n* Assurance Wireless (https://assurancewireless.com) 1-888-321-5880\n* Tru Connect (https://truconnect.com) 1-800-430-0443\n* EnTouch Wireless (https://apply4lifeline.Entouchwireless.com) 1-888-594-0579\n* Life Wireless (https://lifewireless.com) 1-888-543-3620\n* Safelink Wireless (https://safelinkwireless.com)\n* Stand Up Wireless (https://standupwireless.com) 1-800-234-9473\n---\n**Low-cost Internet Providers**\nAs low as $15/month. Based on Lifeline eligibility rules (see above). Check for availability in your area online. Applications online.\n* Xfinity \"Internet Essentials\" (https://xfinity.com/learn/internet-service/internet-essentials)\n* AT&T \"Access\" (https://att.com/access)\n* Spectrum \"Internet Assist\" (https://spectrum.com/internet/spectrum-internet-assist)\n* T-Mobile: \"Project 10 Million\" – Free Internet Access for eligible K-12 Students\nBenefits: Free mobile hotspot and Free 200GB of internet per year for 5 years.\nEligibility: K-12 students enrolled in one of the following: SNAP, Medicaid, National School Lunch Program, or Food Distribution Program on Indian Reservation.\nTo apply: Visit https://t-mobile.com/brand/project-10-million\nMust have proof of participation in one of the government programs listed above.",
+      "tags": [
+        "This resource is a list"
+      ],
+      "verifiedOn": "02/26"
+    },
+    {
+      "id": "salvation_army",
+      "name": "Salvation Army",
+      "phone": "801-609-3388",
+      "website": "",
+      "address": "3549 N University, ste 100, Provo",
+      "hours": "",
+      "description": "Assistance",
+      "categories": [
+        "food",
+        "health",
+        "housing",
+        "transportation",
+        "clothing"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-02-24T21:12:33.859Z",
+      "servicesText": "auto repairs\ntransportation\nclothing\ndental\nfood\nfuneral costs\ngas\nlodging\nrent/utilities\nschool supplies\nsummer camp\nmedical care",
+      "tags": [],
+      "verifiedOn": null
+    },
+    {
+      "id": "ican",
+      "name": "ICAN",
+      "phone": "",
+      "website": "",
+      "address": "",
+      "hours": "",
+      "description": "",
+      "categories": [],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-02-24T21:14:13.131Z",
+      "servicesText": "",
+      "tags": [],
+      "verifiedOn": null
+    },
+    {
+      "id": "provo_housing_self_sufficiency",
+      "name": "Provo Housing self-sufficiency",
+      "phone": "801-900-5676",
+      "website": "provohousing.org/programs/family-self-sufficiency-fss",
+      "address": "",
+      "hours": "",
+      "description": "Free program to help Voucher Program or Section 8 recipients become self-sufficient. Financial incentive. ",
+      "categories": [
+        "housing"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-02-24T21:23:20.010Z",
+      "servicesText": "Set intermediate and long-term goals toward self-sufficiency. Escrow for working, completing goals. Complete goals and meet requirements to release escrow.",
+      "tags": [],
+      "verifiedOn": null
+    },
+    {
+      "id": "my_story_matters",
+      "name": "My Story Matters",
+      "phone": "801-477-7071",
+      "website": "mystorymatttes.org",
+      "address": "",
+      "hours": "",
+      "description": "A CATALYST FOR LASTING TRANSFORMATION\nGET UNSTUCK AND CONFIDENT IN AN UNCERTAIN WORLD",
+      "categories": [
+        "education",
+        "self-sufficiency"
+      ],
+      "verifiedBy": "",
+      "displayOrder": null,
+      "evaluation": {},
+      "favorite": false,
+      "lastModified": "2026-02-24T21:28:51.762Z",
+      "servicesText": "Our curriculum for adults builds resilience and confidence. As you apply these principles, you become goal-oriented members of society who value your relationships. Through this curriculum, you are equipped with the foundational tools you need to be empowered to captain your story and create a future you can be proud of. Whatever lies in store for the next chapter of your story, these tools will give you the confidence to create it with intention.",
+      "tags": [],
+      "verifiedOn": null
+    },
+    {
+      "id": "d605d828dfff07ba9c0772495b14194b",
+      "name": "Elevate Utah (formerly Centro Hispano)",
+      "description": "A community resource",
+      "servicesText": "---\n**Programs**\n---\n**Community Resource Department**\nOffers translation services for documents such as birth certificates and college transcripts, notary services, legal education, and assistance with divorce and guardianship filings.\n---\n**Job and Skills Training Department**\nProvides training in:\n* Electrician certification\n* HVAC repair certification\n* Basic programming\n* Construction skills\n---\n**Health Promotion Team**\n---\nOffers classes for teens and parents on:\n* Tobacco use\n* Sex education\n* Rape prevention education\nAlso has two community health workers collaborating with the Utah Department of Health & Human Services to provide education and information on:\n* COVID‑19\n* Resources\n* Vaccines\n---\n**Immigration Services**\n---\nThrough Alliance Community Services, Elevate Utah provides assistance navigating the immigration system, offering reliable and comprehensive support through the process.",
+      "tags": [],
+      "verifiedOn": "02/26",
+      "phone": "(801) 655-0258",
+      "address": "650 W 100 N, Provo",
+      "website": "elevateutah.org",
+      "hours": "M-F 9-5",
+      "categories": [
+        "799a623fdfecc8a5bde852b1972313bd",
+        "education",
+        "employment"
+      ],
+      "lastModified": "2026-03-10T04:25:43.371Z"
+    },
+    {
+      "id": "8b65439aee3cb0142226d392d90fb329",
+      "name": "Job Corps (Spanish)",
+      "description": "Servicios proporcionados por Job Corps",
+      "servicesText": "---\n**Job Corps**\n---\n¿Cuál es el próximo paso?\nDescúbralo en Job Corps.\n---\n**SUS CARRERAS COMIENZAN AQUÍ**\nAquí obtendrá un FUTURO MEJOR. Aquí obtendrá la CONFIANZA que no sabía que tenía. Aquí obtendrá la EDUCACIÓN Y ADQUIRIRÁ LAS HABILIDADES necesarias para ser exitoso. Esta es la COMUNIDAD que estuvo buscando. Aquí es DONDE COMIENZA SU CARRERA.\n**¿Sabía usted?**\n* Más de 120 centros Job Corps\n* Más de 100 programas de capacitación profesional en 10 industrias\n* MÁS DE 3 MILLONES de graduados en 59 años\n**¿La mejor parte?**\nEs completamente GRATUITO.\n\n**Esto es Job Corps.**\nPrograma educativo y de capacitación residencial para jóvenes de bajos ingresos (16–24 años). Incluye:\n* Capacitación profesional\n* Educación\n* Vivienda\n* Comidas\n* Atención médica básica\n* Asignación para gastos generales\n* Suministros/materiales\n* Licencia de conducir\n* Diploma de secundaria\n---\n**¿Cómo funciona?**\n---\n1. Inscripción abierta — comience cuando quiera\n2. Adquiera habilidades, experiencia y credenciales\n3. Obtenga su diploma o tome clases universitarias\n4. Viva en el campus y únase a un grupo estudiantil\n5. Conéctese con empleadores después de graduarse\n\nJob Corps tiene política de ***tolerancia cero** para drogas, alcohol y violencia. El proceso de solicitud requiere documentación y puede llevar tiempo.\n---\n**¿Quiénes pueden asistir?**\nDebe:\n* Cumplir requisitos de bajos ingresos\n* Tener entre 16 y 24 años\n* Ser ciudadano, residente legal o autorizado para trabajar\n* Estar dispuesto a mejorar su educación y habilidades\n\nIncluye testimonio de estudiante (Tivia).\n---\n**Capacitación práctica en 10 industrias**\n* Manufactura avanzada\n* Reparación de automóviles y maquinaria\n* Construcción\n* Finanzas y negocios\n* Atención médica\n* Seguridad nacional\n* Hotelería\n* Tecnologías de la información\n* Recursos renovables\n* Transporte\n\nMás de 100 programas disponibles.\nPre‑apprenticeships también disponibles.\n---\n**Capacitación avanzada**\nJob Corps ofrece programas avanzados en centros seleccionados, incluyendo:\n* Clearfield (Utah)\n* Earle C. Clements (Kentucky)\nInstructores ayudan a explorar opciones y requisitos.\n---\n**Vida en el recinto universitario**\nIncluye:\n* 3 comidas al día\n* Atención médica\n* Materiales de capacitación\n* Clubes y liderazgo\n* Apoyo comunitario\n\nOfrecen opciones no residenciales.\n**Explorar centros:** jobcorps.gov/explore\n**YouTube:** youtube.com/doljobcorps\n\n**Y2Y Youth 2 Youth Campaign**\nEnfoque en violencia, drogas y salud mental.\n---\n**Su fórmula para el éxito**\n1. Acomódese\n2. Comience a aprender\n3. Capacitación práctica\n4. Prepárese para el éxito\n5. Graduación\n---\n**¿Qué pasa después de Job Corps?**\nRecibirá apoyo en:\n* Búsqueda laboral\n* Vivienda y transporte\n* Currículum\n* Habilidades de entrevista\n\nJob Corps conecta con empleadores y capacita para industrias que están contratando.\nIncluye testimonio de Kasandra.\n---\n**No existe mejor momento para centrarse en su futuro**\nMás de 120 centros en EE. UU. y Puerto Rico.\nEl consejero de admisiones ayuda a completar la solicitud y elegir centro.\nIncluye mapa nacional de centros Job Corps.\n---\n**Información final**\nJob Corps es un programa del Departamento de Trabajo de EE. UU.\nNúmero TDD/TTY: (877) 889‑5627\njobcorps.gov | 800‑733‑JOBS (5627)",
+      "tags": [],
+      "verifiedOn": null,
+      "phone": "(800) 733-5627",
+      "address": "",
+      "website": "jobcorps.gov",
+      "hours": "",
+      "categories": [
+        "clothing",
+        "education",
+        "employment",
+        "food",
+        "health",
+        "housing",
+        "self-sufficiency"
+      ],
+      "lastModified": "2026-03-10T04:44:32.188Z"
+    },
+    {
+      "id": "f20620d86e7752550f0af2da85e4015e",
+      "name": "Utilities Assistance",
+      "description": "Agencies that can help",
+      "servicesText": "---\n**Community Action Services**\n---\nProvides limited utility assistance for individuals and families.\nAppointments preferred, but walk‑ins accepted\nMust bring 6‑month utility payment history\nCall first to check funding availability\nAddress:\n815 S. Freedom Blvd.\nProvo, UT 84604\nPhone: 801‑373‑8200\nOffice Hours:\nMonday: 9:00 AM – 3:00 PM\nWednesday: 9:00 AM – 7:00 PM\nFriday: 9:00 AM – 3:00 PM\n---\n**Mountainland AOG HEAT Program**\n---\nWebsite: magutah.org/heat\nAddress:\n478 S. Geneva Rd.\nVineyard, UT 84059\nPhone: 801‑229‑3855\nThe HEAT Program helps income‑qualified households (≤150% poverty level) with energy costs.\nEligible households may receive one‑time assistance per year\nCrisis Program available for households with a shut‑off notice, if crisis criteria are met\nApplications: online at magutah.org/heat\nQuestions: heat@magutah.gov\nProgram runs Oct 1 – Sept 30 each year\nApplication processing time: 4–6 weeks\nOffice Hours:\nMonday–Thursday: 8:00 AM – 5:00 PM\nFriday: 9:00 AM – 2:00 PM",
+      "tags": [
+        "This resource is a list"
+      ],
+      "verifiedOn": null,
+      "phone": "",
+      "address": "",
+      "website": "",
+      "hours": "",
+      "categories": [
+        "housing"
+      ],
+      "lastModified": "2026-03-10T05:00:59.532Z"
+    },
+    {
+      "id": "f195310abf63ab6171c4c3f1c71b0991",
+      "name": "Rocky Mountain University -- Counseling",
+      "description": "Numerous mental health counseling clinics",
+      "servicesText": "Serving all ages\n* Anxiety\n* Depression\n* Addictions\n* Self esteem\n* Coping skills\n* Couples counseling\n* Career decisions\n* ADHD\n* Trauma\n* LGBTQ+\n* Neurodivergence\n* Adolescence\n* Grief/Bereavement\n* Postpartum\n* Parent/Child & Blended\n---\n**Payment Options**\n* Health Insurance\n* Medicare and Medicaid\n* Commercial Insurances\n* Self‑Pay (sliding scale fee available)\n* Ecclesiastical Support",
+      "tags": [
+        "This resource is a list"
+      ],
+      "verifiedOn": null,
+      "phone": "(801) 900-3656",
+      "address": "",
+      "website": "",
+      "hours": "",
+      "categories": [
+        "mental"
+      ],
+      "lastModified": "2026-03-10T05:09:30.252Z"
     }
+  ],
+  "tags": [
+    "Children",
+    "Ex-offender",
+    "This resource is a list",
+    "Women"
   ]
 }
-
-
