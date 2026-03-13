@@ -2862,6 +2862,38 @@ function applyCategoryDraft(idx, draft){
   cat.lastModified = nowISO();
 }
 
+function renderAdminCategoryResourceList(selectedCategoryId){
+  const container = document.getElementById("adminCategoryResourceList");
+  if(!container) return;
+
+  const hasSelectedCategory = !!selectedCategoryId && data.categories.some(cat => cat && cat.id === selectedCategoryId);
+  if(!hasSelectedCategory){
+    container.innerHTML = "";
+    container.style.display = "none";
+    return;
+  }
+
+  const resources = data.resources
+    .filter(r => r.categories?.includes(selectedCategoryId))
+    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+  container.style.display = "block";
+  container.innerHTML = `
+    <div style="margin-top:12px;">
+      <div style="font-weight:bold; margin-bottom:8px;">Resources in this category</div>
+      ${resources.length
+        ? resources.map(resource => `<div>${escapeHTML(resource.name || "")}</div>`).join("")
+        : `<div>No resources assigned to this category.</div>`}
+    </div>
+  `;
+}
+
+function refreshAdminCategoryResourceList(){
+  const idx = parseInt(selectedCategoryIndex, 10);
+  const cat = Number.isInteger(idx) ? data.categories[idx] : null;
+  renderAdminCategoryResourceList(cat && cat.id ? cat.id : "");
+}
+
 function openCategoryOrderEditor(){
   if(!commitPendingEditsIfChanged()) return;
   const rows = data.categories.map((cat, idx) => {
@@ -2964,6 +2996,7 @@ function applyResourceDraft(idx, draft){
   res.categories = draft.categories;
   res.tags = draft.tags || [];
   res.lastModified = nowISO();
+  refreshAdminCategoryResourceList();
 }
 
 function commitPendingEditsIfChanged(){
@@ -3033,6 +3066,7 @@ function renderAdminCategories(container){
           <button class="button danger" onclick="deleteCategory()">Delete</button>
           <button class="button" onclick="openCategoryOrderEditor()">Edit display order...</button>
         </div>
+        <div id="adminCategoryResourceList" style="display:none;"></div>
         <div id="categoryOrderOverlay" style="${adminCategoryOrderEditorOpen ? "position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:40; display:flex; align-items:center; justify-content:center;" : "display:none;"}">
           <div id="categoryOrderPanel" style="background:#fff; border-radius:8px; border:1px solid #ccc; width:min(640px,90vw); max-height:80vh; overflow:auto; padding:12px;">
             <h4 style="margin:0 0 10px 0;">Edit display order</h4>
@@ -3078,6 +3112,7 @@ function renderAdminCategories(container){
     editing = null;
     editorSnapshot = "";
     selectedCategoryIndex = "";
+    renderAdminCategoryResourceList("");
   }
 
   if(adminCategoryOrderEditorOpen){
@@ -3199,6 +3234,7 @@ function closeCategoryEditor(){
 
 function editCategory(idx){
   const cat = data.categories[idx];
+  renderAdminCategoryResourceList(cat && cat.id ? cat.id : "");
   const editor = document.getElementById("catEditor");
   if(!cat || !editor) return;
   selectedCategoryIndex = String(idx);
