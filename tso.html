@@ -2892,14 +2892,33 @@ function renderAdminCategoryResourceList(selectedCategoryId){
   container.innerHTML = `
     <div style="margin-top:12px;">
       <div style="font-weight:bold; margin-bottom:8px;">Resources in this category</div>
-      ${resources.length
-        ? resources.map(resource => {
-            const resourceId = JSON.stringify(String(resource.id || ""));
-            return `<div role="button" tabindex="0" onclick="openAdminCategoryResourceById(${resourceId})" onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); openAdminCategoryResourceById(${resourceId}); }">${escapeHTML(resource.name || "")}</div>`;
-          }).join("")
-        : `<div>No resources assigned to this category.</div>`}
+      <div id="adminCategoryResourceItems"></div>
     </div>
   `;
+
+  const list = document.getElementById("adminCategoryResourceItems");
+  if(!list) return;
+
+  if(!resources.length){
+    list.textContent = "No resources assigned to this category.";
+    return;
+  }
+
+  resources.forEach(resource => {
+    const row = document.createElement("div");
+    const resourceId = String(resource.id || "");
+    row.setAttribute("role", "button");
+    row.tabIndex = 0;
+    row.textContent = resource.name || "";
+    row.addEventListener("click", () => openAdminCategoryResourceById(resourceId));
+    row.addEventListener("keydown", event => {
+      if(event.key === "Enter" || event.key === " "){
+        event.preventDefault();
+        openAdminCategoryResourceById(resourceId);
+      }
+    });
+    list.appendChild(row);
+  });
 }
 
 function refreshAdminCategoryResourceList(){
