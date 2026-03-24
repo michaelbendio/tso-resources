@@ -2659,6 +2659,9 @@ function renderAdmin(){
 
   container.innerHTML = `
     <div style="margin-bottom:20px;">
+      <div style="font-size:16px; color:#555; margin-bottom:7px;">
+        Use only if trained. These actions replace stored data.
+      </div>
       <button class="button primary" onclick="exportJSON()">Save resources</button>
 
       <input type="file" id="importFile" accept=".json"
@@ -2704,6 +2707,9 @@ function persist(){
 }
 
 function exportJSON(){
+  const confirmText = prompt("This will overwrite your resources file.\n\nType SAVE to continue:");
+  if(confirmText !== "SAVE") return;
+
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
 
@@ -2718,6 +2724,12 @@ function exportJSON(){
 }
 
 function importJSON(event){
+  const confirmText = prompt("This will replace all current resources.\n\nAny unsaved changes will be lost.\n\nType LOAD to continue:");
+  if(confirmText !== "LOAD"){
+    event.target.value = "";
+    return;
+  }
+
   if(!commitPendingEditsIfChanged()) return;
 
   const file = event.target.files && event.target.files[0];
