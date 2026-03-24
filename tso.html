@@ -98,6 +98,10 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 .resource-listbox { width:100%; box-sizing:border-box; }
 .resource-browse-actions { margin-top:8px; display:flex; gap:8px; align-items:center; width:100%; }
 .resource-browse-actions .spacer { flex:1; }
+.admin-panel-title { margin:0 0 4px; }
+.admin-action-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.admin-option-row { margin:0; }
+.admin-option-row + .admin-action-row { margin-top:12px; }
 .resource-editor-grid {
   display:grid;
   gap:10px;
@@ -3103,13 +3107,13 @@ function renderAdminCategories(container){
   container.innerHTML += `
     <div class="admin-panel">
       <div class="admin-box">
-        <h3>Categories</h3>
-        <select id="catSelect"></select>
-        <div style="margin-top:8px;">
+        <h3 class="admin-panel-title">Categories</h3>
+        <div class="admin-action-row" style="margin-bottom:8px;">
           <button class="button" onclick="newCategory()">New</button>
           <button class="button danger" onclick="deleteCategory()">Delete</button>
           <button class="button" onclick="openCategoryOrderEditor()">Edit display order...</button>
         </div>
+        <select id="catSelect"></select>
         <div id="adminCategoryResourceList" style="display:none;"></div>
         <div id="categoryOrderOverlay" style="${adminCategoryOrderEditorOpen ? "position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:40; display:flex; align-items:center; justify-content:center;" : "display:none;"}">
           <div id="categoryOrderPanel" style="background:#fff; border-radius:8px; border:1px solid #ccc; width:min(640px,90vw); max-height:80vh; overflow:auto; padding:12px;">
@@ -3327,12 +3331,13 @@ function editCategory(idx){
 function renderAdminManageTagsSection(){
   return `
     <div id="adminManageTagsPanel" style="margin-top:8px; ${adminManageTagsOpen ? "" : "display:none;"}">
+      <h4 class="admin-panel-title">Manage tags</h4>
       <div id="adminTagDeleteList" style="max-height:220px; overflow:auto; border:1px solid #ddd; border-radius:6px; padding:8px; margin-bottom:8px;"></div>
-      <div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
+      <div style="display:flex; gap:6px; align-items:center; margin-bottom:12px;">
         <input id="adminNewTagInput" type="text" placeholder="New tag" style="flex:1;">
         <button class="button" type="button" id="adminAddTagBtn">Add</button>
       </div>
-      <div style="display:flex; gap:8px; align-items:center;">
+      <div class="admin-action-row">
         <button id="deleteTagsBtn" class="button danger" onclick="deleteCheckedTags()">Delete checked tags</button>
         <button id="doneTagsBtn" class="button" type="button" onclick="closeManageTags()">Done</button>
       </div>
@@ -3395,20 +3400,20 @@ function renderAdminResources(container){
     container.innerHTML += `
       <div class="admin-panel">
         <div class="admin-box">
-          <h3>Resources</h3>
+          <h3 class="admin-panel-title">Resources</h3>
       <div class="resource-browse-wrap">
-        <label style="display:block; margin-bottom:8px;">
+        <label class="admin-option-row" style="display:block;">
           <input type="checkbox" id="resSortShowVerified">
           Show verified dates
         </label>
-        <select id="resSelect" class="resource-listbox" size="25"></select>
-            <div class="resource-browse-actions">
+            <div class="resource-browse-actions admin-action-row" style="margin-top:12px;">
               <button class="button" onclick="newResource()">New</button>
               <button class="button danger" onclick="deleteResource()">Delete</button>
               <button class="button" onclick="adminManageTagsOpen ? closeManageTags() : openManageTags()">Manage tags</button>
               <span class="spacer"></span>
               <button class="button primary" onclick="openResourceEditor()">Edit</button>
             </div>
+        <select id="resSelect" class="resource-listbox" size="25" style="margin-top:8px;"></select>
             ${renderAdminManageTagsSection()}
           </div>
         </div>
