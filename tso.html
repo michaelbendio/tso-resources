@@ -54,8 +54,19 @@ textarea {
 .button.danger { background:#aa0000; color:white; }
 textarea.big { width:100%; min-height:80px; }
 textarea.services-editor { min-height:320px; resize:vertical; }
+.services-control-block { margin:10px 0 12px; }
+.services-control-header {
+  margin-bottom:8px;
+  padding:10px 12px;
+  border:1px solid #ddd;
+  border-radius:6px;
+  background:#f7f7f7;
+}
 .services-hint { font-size:16px; color:#555; margin-top:6px; }
-.services-preview-toggle { margin-top:8px; display:flex; gap:8px; }
+.services-preview-toggle { margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.services-control-header .services-preview-toggle { margin-top:0; }
+.services-control-header .services-hint { margin-bottom:0; }
+.services-preview-toggle .button.primary { box-shadow:0 0 0 2px rgba(0,51,102,0.18); }
 .services-preview-box {
   margin-top:8px;
   border:1px solid #ddd;
@@ -3759,15 +3770,18 @@ function editResource(idx){
       ${catChecks}
     </div>
 
-    <label style="display:block; font-weight:bold; margin-top:12px;">Services<br>
+    <label style="display:block; font-weight:bold; margin-top:12px;">Services</label>
+    <div class="services-control-block">
+      <div class="services-control-header">
+        <div class="services-preview-toggle">
+          <button class="button primary" type="button" id="res_services_edit_btn">Edit</button>
+          <button class="button" type="button" id="res_services_preview_btn">Preview</button>
+        </div>
+        <div class="services-hint">Bullets: start line with "* " | Bold: **text** | Divider: ---</div>
+      </div>
       <textarea id="res_services" class="big services-editor">${escapeHTML(res.servicesText || "")}</textarea>
-    </label>
-    <div class="services-hint">Bullets: start line with "* " | Bold: **text** | Divider: ---</div>
-    <div class="services-preview-toggle">
-      <button class="button primary" type="button" id="res_services_edit_btn">Edit</button>
-      <button class="button" type="button" id="res_services_preview_btn">Preview</button>
-    </div>
-    <div id="res_services_preview" class="services-preview-box services-rendered hidden"></div><br><br>
+      <div id="res_services_preview" class="services-preview-box services-rendered hidden"></div>
+    </div><br>
   `;
 
   const selectedTags = [...res.tags].sort((a,b) => a.localeCompare(b));
