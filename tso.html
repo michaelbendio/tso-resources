@@ -2706,9 +2706,54 @@ function persist(){
   localStorage.setItem("tsoData", JSON.stringify(data));
 }
 
-function exportJSON(){
-  const confirmText = prompt("This will overwrite your resources file.\n\nType SAVE to continue:");
-  if(confirmText !== "SAVE") return;
+function showTypedConfirm(message, requiredText){
+  return new Promise(resolve => {
+    const modal = document.getElementById("confirmModal");
+    const msg = document.getElementById("confirmMessage");
+    const input = document.getElementById("confirmInput");
+    const ok = document.getElementById("confirmOk");
+    const cancel = document.getElementById("confirmCancel");
+
+    msg.textContent = message + "\n\nType " + requiredText + " to continue:";
+    input.value = "";
+    modal.style.display = "flex";
+    input.focus();
+
+    function cleanup(result){
+      modal.style.display = "none";
+      ok.onclick = null;
+      cancel.onclick = null;
+      input.onkeydown = null;
+      resolve(result);
+    }
+
+    ok.onclick = () => {
+      if(input.value === requiredText){
+        cleanup(true);
+      }
+    };
+
+    cancel.onclick = () => cleanup(false);
+    input.onkeydown = (e) => {
+      if(e.key === "Enter"){
+        e.preventDefault();
+        ok.click();
+        return;
+      }
+      if(e.key === "Escape"){
+        e.preventDefault();
+        cleanup(false);
+      }
+    };
+  });
+}
+
+async function exportJSON(){
+  const ok = await showTypedConfirm(
+    "This will overwrite your saved resources file.",
+    "save"
+  );
+  if(!ok) return;
 
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -2723,17 +2768,20 @@ function exportJSON(){
   URL.revokeObjectURL(url);
 }
 
-function importJSON(event){
-  const confirmText = prompt("This will replace all current resources.\n\nAny unsaved changes will be lost.\n\nType LOAD to continue:");
-  if(confirmText !== "LOAD"){
-    event.target.value = "";
-    return;
-  }
-
+async function importJSON(event){
   if(!commitPendingEditsIfChanged()) return;
 
   const file = event.target.files && event.target.files[0];
   if(!file) return;
+
+  const ok = await showTypedConfirm(
+    "Be sure you want to do this. This will replace all your resources with a saved resources file.",
+    "load"
+  );
+  if(!ok){
+    event.target.value = "";
+    return;
+  }
 
   const reader = new FileReader();
   reader.onload = () => {
@@ -3990,5 +4038,15 @@ safeRender();
 
 </script>
 <!-- ===== APP JS END ===== -->
+<div id="confirmModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:10000; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:16px; border-radius:8px; max-width:400px; width:90%;">
+    <div id="confirmMessage" style="margin-bottom:12px; white-space:pre-line;"></div>
+    <input id="confirmInput" type="text" style="width:100%; margin-bottom:12px;">
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button id="confirmCancel" class="button">Cancel</button>
+      <button id="confirmOk" class="button primary">Confirm</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
