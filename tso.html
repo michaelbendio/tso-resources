@@ -2668,7 +2668,7 @@ function renderAdmin(){
         style="display:none"
         onchange="importJSON(event)">
 
-      <button class="button" onclick="document.getElementById('importFile').click()">Load resources</button>
+      <button class="button" onclick="beginImportJSON()">Load resources</button>
       ${undo ? `
         <button class="button" onclick="undoLastDeletion()">${escapeHTML(undoButtonLabel)}</button>
         <button class="button" onclick="clearUndoSnapshot(); safeRenderAdmin();">Clear undo</button>
@@ -2768,20 +2768,24 @@ async function exportJSON(){
   URL.revokeObjectURL(url);
 }
 
-async function importJSON(event){
+async function beginImportJSON(){
   if(!commitPendingEditsIfChanged()) return;
-
-  const file = event.target.files && event.target.files[0];
-  if(!file) return;
 
   const ok = await showTypedConfirm(
     "Be sure you want to do this. This will replace all your resources with a saved resources file.",
     "load"
   );
-  if(!ok){
-    event.target.value = "";
-    return;
-  }
+  if(!ok) return;
+
+  const input = document.getElementById("importFile");
+  if(!input) return;
+  input.value = "";
+  input.click();
+}
+
+function importJSON(event){
+  const file = event.target.files && event.target.files[0];
+  if(!file) return;
 
   const reader = new FileReader();
   reader.onload = () => {
