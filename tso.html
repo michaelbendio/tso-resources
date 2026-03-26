@@ -1293,6 +1293,8 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 }
 </script>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
 <!-- ===== APP JS START ===== -->
 <script>
 /* ============================================================
@@ -1963,6 +1965,37 @@ function buildResourceCard(res,{expanded=false,showDescription=false,showStar=tr
   if(res.servicesText) html+=`<div><strong>Services:</strong><div class="services-rendered">${renderServicesHTML(res.servicesText)}</div></div>`;
 
   details.innerHTML=html;
+  const pdfPath = typeof res.pdf === "string" ? res.pdf.trim() : "";
+  if(pdfPath){
+    const btn = document.createElement("button");
+    btn.className = "button";
+    btn.textContent = "Open PDF";
+    btn.onclick = async e => {
+      e.stopPropagation();
+      const pdfWindow = window.open("", "_blank");
+      if(!pdfWindow){
+        alert("Unable to open PDF window. Allow pop-ups and try again.");
+        return;
+      }
+      pdfWindow.document.title = "Loading PDF...";
+      pdfWindow.document.body.textContent = "Loading PDF...";
+      try{
+        const blob = await loadAsset(pdfPath);
+        if(!blob){
+          pdfWindow.close();
+          alert("PDF not found. Load package again.");
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        pdfWindow.location = url;
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      }catch(err){
+        pdfWindow.close();
+        alert("Unable to open PDF: " + err.message);
+      }
+    };
+    details.appendChild(btn);
+  }
   main.appendChild(details);
   card.appendChild(main);
   return card;
@@ -2664,11 +2697,11 @@ function renderAdmin(){
       </div>
       <button class="button primary" onclick="exportJSON()">Save resources</button>
 
-      <input type="file" id="importFile" accept=".json"
+      <input type="file" id="importFile" accept=".zip"
         style="display:none"
-        onchange="importJSON(event)">
+        onchange="importPackage(event)">
 
-      <button class="button" onclick="beginImportJSON()">Load resources</button>
+      <button class="button" onclick="beginImportPackage()">Load package</button>
       ${undo ? `
         <button class="button" onclick="undoLastDeletion()">${escapeHTML(undoButtonLabel)}</button>
         <button class="button" onclick="clearUndoSnapshot(); safeRenderAdmin();">Clear undo</button>
@@ -2704,6 +2737,134 @@ function persist(){
   if(DEBUG) assertInvariants("persist");
   data.lastModified = nowISO();
   localStorage.setItem("tsoData", JSON.stringify(data));
+}
+
+function openAssetsDB(){
+  return new Promise((resolve, reject) => {
+    if(typeof indexedDB === "undefined"){
+      reject(new Error("Asset storage is unavailable in this browser."));
+      return;
+    }
+
+    let settled = false;
+    const timeoutId = setTimeout(() => {
+      if(settled) return;
+      settled = true;
+      reject(new Error("Asset storage is unavailable right now. Reload the app and try again."));
+    }, 4000);
+
+    function finish(fn){
+      return value => {
+        if(settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        fn(value);
+      };
+    }
+
+    let req;
+    try{
+      req = indexedDB.open("tsoAssets", 1);
+    }catch(err){
+      clearTimeout(timeoutId);
+      reject(err);
+      return;
+    }
+
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains("files")){
+        db.createObjectStore("files");
+      }
+    };
+
+    req.onsuccess = finish(() => resolve(req.result));
+    req.onerror = finish(() => reject(req.error || new Error("Asset storage is unavailable in this browser.")));
+    req.onblocked = finish(() => reject(new Error("Asset storage is blocked. Close other tabs and try again.")));
+  });
+}
+
+async function saveAsset(key, blob){
+  const db = await openAssetsDB();
+  const tx = db.transaction("files", "readwrite");
+  tx.objectStore("files").put(blob, key);
+
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(tx.error);
+    };
+  });
+}
+
+async function loadAsset(key){
+  const db = await openAssetsDB();
+  const tx = db.transaction("files", "readonly");
+  const req = tx.objectStore("files").get(key);
+
+  return new Promise((resolve, reject) => {
+    req.onsuccess = () => {
+      db.close();
+      resolve(req.result);
+    };
+    req.onerror = () => {
+      db.close();
+      reject(req.error);
+    };
+  });
+}
+
+async function clearAssets(){
+  const db = await openAssetsDB();
+  const tx = db.transaction("files", "readwrite");
+  tx.objectStore("files").clear();
+
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(tx.error);
+    };
+  });
+}
+
+async function storeZipAssets(zip){
+  const files = Object.keys(zip.files);
+  await clearAssets();
+
+  for(const path of files){
+    const entry = zip.file(path);
+    if(entry && path.toLowerCase().endsWith(".pdf")){
+      const blob = await entry.async("blob");
+      await saveAsset(path, blob);
+    }
+  }
+}
+
+function applyImportedData(imported){
+  if(imported && imported.resources){
+    imported.resources.forEach(r => normalizeResourceServices(r));
+  }
+  normalizeDataTagsShape(imported);
+  normalizeDataVerifiedOnShape(imported);
+
+  data = imported;
+  persist();
 }
 
 function showTypedConfirm(message, requiredText){
@@ -2768,11 +2929,11 @@ async function exportJSON(){
   URL.revokeObjectURL(url);
 }
 
-async function beginImportJSON(){
+async function beginImportPackage(){
   if(!commitPendingEditsIfChanged()) return;
 
   const ok = await showTypedConfirm(
-    "Be sure you want to do this. This will replace all your resources with a saved resources file.",
+    "Be sure you want to do this. This will replace all your resources with a saved package.",
     "load"
   );
   if(!ok) return;
@@ -2783,34 +2944,43 @@ async function beginImportJSON(){
   input.click();
 }
 
-function importJSON(event){
+async function importPackage(event){
   const file = event.target.files && event.target.files[0];
   if(!file) return;
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    try{
-      const imported = JSON.parse(reader.result);
+  try{
+    const lowerName = String(file.name || "").toLowerCase();
+    let imported;
 
-      // Normalize legacy services[] -> servicesText and ensure tags shape.
-      if(imported && imported.resources){
-        imported.resources.forEach(r => normalizeResourceServices(r));
+    if(lowerName.endsWith(".json")){
+      const jsonText = await file.text();
+      imported = JSON.parse(jsonText);
+      await clearAssets();
+    }else{
+      if(typeof JSZip === "undefined"){
+        throw new Error("ZIP support is unavailable. Reload the app and try again.");
       }
-      normalizeDataTagsShape(imported);
-      normalizeDataVerifiedOnShape(imported);
+      const zip = await JSZip.loadAsync(file);
+      const jsonFile = zip.file("tso-resources.json");
+      if(!jsonFile){
+        alert("Package missing tso-resources.json");
+        return;
+      }
 
-      data = imported;
-      persist();
-      alert("Load complete.");
-      safeRender();
-    }catch(e){
-      alert("Load failed: " + e.message);
+      const jsonText = await jsonFile.async("string");
+      imported = JSON.parse(jsonText);
+      await storeZipAssets(zip);
     }
-  };
-  reader.readAsText(file);
 
-  // allow re-import of same filename
-  event.target.value = "";
+    applyImportedData(imported);
+    alert(lowerName.endsWith(".json") ? "Load complete." : "Package loaded.");
+    safeRender();
+  }catch(e){
+    alert("Load failed: " + e.message);
+  }finally{
+    // allow re-import of same filename
+    event.target.value = "";
+  }
 }
 
 /* =========================
