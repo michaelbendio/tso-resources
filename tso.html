@@ -3014,6 +3014,62 @@ async function beginImportPackage(){
   input.click();
 }
 
+function validateImportData(imported){
+  const errors = [];
+  const warnings = [];
+
+  if(!imported || typeof imported !== "object"){
+    return { ok:false, errors:["File is not a valid JSON object"], warnings:[] };
+  }
+
+  if(!Array.isArray(imported.categories)){
+    errors.push("Missing or invalid 'categories' array");
+  }
+
+  if(!Array.isArray(imported.resources)){
+    errors.push("Missing or invalid 'resources' array");
+  }
+
+  const categoryIds = new Set();
+  (imported.categories || []).forEach((c, i) => {
+    if(!c.id) errors.push(`Category at index ${i} is missing id`);
+    if(!c.label) warnings.push(`Category '${c.id || i}' missing label`);
+    if(c.id){
+      if(categoryIds.has(c.id)){
+        errors.push(`Duplicate category id '${c.id}'`);
+      }
+      categoryIds.add(c.id);
+    }
+  });
+
+  const resourceIds = new Set();
+  (imported.resources || []).forEach((r, i) => {
+    if(!r.id) errors.push(`Resource at index ${i} missing id`);
+    if(!r.name) warnings.push(`Resource '${r.id || i}' missing name`);
+
+    if(r.id){
+      if(resourceIds.has(r.id)){
+        errors.push(`Duplicate resource id '${r.id}'`);
+      }
+      resourceIds.add(r.id);
+    }
+
+    if(Array.isArray(r.categories)){
+      r.categories.forEach(catId => {
+        if(!categoryIds.has(catId)){
+          warnings.push(`Resource '${r.id}' references unknown category '${catId}'`);
+        }
+      });
+    }
+  });
+
+  return {
+    ok: errors.length === 0,
+    errors,
+    warnings
+  };
+}
+
 async function importPackage(event){
   if(!commitPendingEditsIfChanged()) return;
 
@@ -3033,6 +3089,29 @@ async function importPackage(event){
 
     const jsonText = await jsonFile.async("string");
     const imported = JSON.parse(jsonText);
+
+    const report = validateImportData(imported);
+    if(!report.ok){
+      alert(
+        "Load failed due to errors:\n\n" +
+        report.errors.join("\n")
+      );
+      return;
+    }
+
+    if(report.warnings.length){
+      const proceed = confirm(
+        "Warnings detected:\n\n" +
+        report.warnings.join("\n") +
+        "\n\nContinue anyway?"
+      );
+      if(!proceed) return;
+    }
+
+    const confirmReplace = confirm(
+      "This will replace ALL current data. Continue?"
+    );
+    if(!confirmReplace) return;
 
     await storeZipAssets(zip);
     applyImportedData(imported);
