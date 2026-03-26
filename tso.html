@@ -2673,13 +2673,13 @@ function renderAdmin(){
       <div style="font-size:16px; color:#555; margin-bottom:7px;">
         Use only if trained. These actions replace stored data.
       </div>
-      <button class="button primary" onclick="exportJSON()">Save resources</button>
+      <button class="button primary" onclick="exportPackage()">Save resource package</button>
 
       <input type="file" id="importFile" accept=".zip"
         style="display:none"
         onchange="importPackage(event)">
 
-      <button class="button" onclick="beginImportPackage()">Load package</button>
+      <button class="button" onclick="beginImportPackage()">Load resource package</button>
       ${undo ? `
         <button class="button" onclick="undoLastDeletion()">${escapeHTML(undoButtonLabel)}</button>
         <button class="button" onclick="clearUndoSnapshot(); safeRenderAdmin();">Clear undo</button>
@@ -2804,6 +2804,39 @@ async function getAsset(path){
   return loadAsset(path);
 }
 
+async function savePDF(key, blob){
+  return saveAsset(key, blob);
+}
+
+async function getPDF(key){
+  return getAsset(key);
+}
+
+async function deleteAsset(key){
+  const db = await openAssetsDB();
+  const tx = db.transaction("files", "readwrite");
+  tx.objectStore("files").delete(key);
+
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(tx.error);
+    };
+  });
+}
+
+async function deletePDF(key){
+  return deleteAsset(key);
+}
+
 async function openPDF(path){
   const pdfWindow = window.open("", "_blank");
   if(!pdfWindow){
@@ -2813,7 +2846,7 @@ async function openPDF(path){
   pdfWindow.document.title = "Loading PDF...";
   pdfWindow.document.body.textContent = "Loading PDF...";
   try{
-    const file = await getAsset(path);
+    const file = await getPDF(path);
     if(!file){
       pdfWindow.close();
       alert("PDF not found.");
@@ -2849,15 +2882,19 @@ async function clearAssets(){
   });
 }
 
+async function clearAllPDFs(){
+  return clearAssets();
+}
+
 async function storeZipAssets(zip){
   const files = Object.keys(zip.files);
-  await clearAssets();
+  await clearAllPDFs();
 
   for(const path of files){
     const entry = zip.file(path);
     if(entry && path.toLowerCase().endsWith(".pdf")){
       const blob = await entry.async("blob");
-      await saveAsset(path, blob);
+      await savePDF(path, blob);
     }
   }
 }
@@ -2915,31 +2952,58 @@ function showTypedConfirm(message, requiredText){
   });
 }
 
-async function exportJSON(){
+async function exportPackage(){
+  if(!commitPendingEditsIfChanged()) return;
+
   const ok = await showTypedConfirm(
-    "This will overwrite your saved resources file.",
+    "This will overwrite your saved resource package file.",
     "save"
   );
   if(!ok) return;
 
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
+  if(typeof JSZip === "undefined"){
+    alert("ZIP support is unavailable. Reload the app and try again.");
+    return;
+  }
 
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "tso-resources.json";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  try{
+    const zip = new JSZip();
+    zip.file("tso-resources.json", JSON.stringify(data, null, 2));
 
-  URL.revokeObjectURL(url);
+    const pdfKeys = [...new Set(
+      data.resources
+        .map(r => typeof r.pdf === "string" ? r.pdf.trim() : "")
+        .filter(Boolean)
+    )];
+
+    for(const key of pdfKeys){
+      const blob = await getPDF(key);
+      if(blob){
+        zip.file(key, blob);
+      }
+    }
+
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "tso-resource-package.zip";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
+  }catch(err){
+    alert("Save failed: " + err.message);
+  }
 }
 
 async function beginImportPackage(){
   if(!commitPendingEditsIfChanged()) return;
 
   const ok = await showTypedConfirm(
-    "Be sure you want to do this. This will replace all your resources with a saved package.",
+    "Be sure you want to do this. This will replace all your resources with a saved resource package.",
     "load"
   );
   if(!ok) return;
@@ -2951,35 +3015,28 @@ async function beginImportPackage(){
 }
 
 async function importPackage(event){
+  if(!commitPendingEditsIfChanged()) return;
+
   const file = event.target.files && event.target.files[0];
   if(!file) return;
 
   try{
-    const lowerName = String(file.name || "").toLowerCase();
-    let imported;
-
-    if(lowerName.endsWith(".json")){
-      const jsonText = await file.text();
-      imported = JSON.parse(jsonText);
-      await clearAssets();
-    }else{
-      if(typeof JSZip === "undefined"){
-        throw new Error("ZIP support is unavailable. Reload the app and try again.");
-      }
-      const zip = await JSZip.loadAsync(file);
-      const jsonFile = zip.file("tso-resources.json");
-      if(!jsonFile){
-        alert("Package missing tso-resources.json");
-        return;
-      }
-
-      const jsonText = await jsonFile.async("string");
-      imported = JSON.parse(jsonText);
-      await storeZipAssets(zip);
+    if(typeof JSZip === "undefined"){
+      throw new Error("ZIP support is unavailable. Reload the app and try again.");
+    }
+    const zip = await JSZip.loadAsync(file);
+    const jsonFile = zip.file("tso-resources.json");
+    if(!jsonFile){
+      alert("Package missing tso-resources.json");
+      return;
     }
 
+    const jsonText = await jsonFile.async("string");
+    const imported = JSON.parse(jsonText);
+
+    await storeZipAssets(zip);
     applyImportedData(imported);
-    alert(lowerName.endsWith(".json") ? "Load complete." : "Package loaded.");
+    alert("Package loaded.");
     safeRender();
   }catch(e){
     alert("Load failed: " + e.message);
@@ -4054,14 +4111,6 @@ function editResource(idx){
       <textarea id="res_services" class="big services-editor">${escapeHTML(res.servicesText || "")}</textarea>
       <div id="res_services_preview" class="services-preview-box services-rendered hidden"></div>
     </div><br>
-
-    <div>
-      <strong>PDF</strong><br>
-      <input type="file" id="res_pdf_file" accept="application/pdf"><br>
-      <div id="res_pdf_status" style="margin-top:4px; font-size:13px;"></div>
-      <button class="button" type="button" id="res_pdf_remove">Remove PDF</button>
-    </div>
-    <br>
   `;
 
   const selectedTags = [...res.tags].sort((a,b) => a.localeCompare(b));
@@ -4096,9 +4145,25 @@ function editResource(idx){
   const doneBtn = document.getElementById("res_done_btn");
   const manageTagsBtn = document.getElementById("res_manage_tags_btn");
   const assignTagsBtn = document.getElementById("res_assign_tags_btn");
-  const pdfInput = document.getElementById("res_pdf_file");
-  const pdfStatus = document.getElementById("res_pdf_status");
-  const removeBtn = document.getElementById("res_pdf_remove");
+  const servicesBlock = servicesEl ? servicesEl.parentElement : null;
+  const pdfSection = document.createElement("div");
+  pdfSection.style.marginBottom = "12px";
+
+  if(res.pdf){
+    pdfSection.innerHTML = `
+      <div><strong>PDF:</strong> ${escapeHTML(res.pdf)}</div>
+      <button class="button danger" type="button" id="removePdfBtn">Remove PDF</button>
+    `;
+  }else{
+    pdfSection.innerHTML = `
+      <input type="file" id="pdfPicker" accept="application/pdf">
+    `;
+  }
+  if(servicesBlock){
+    editor.insertBefore(pdfSection, servicesBlock);
+  }else{
+    editor.appendChild(pdfSection);
+  }
 
   function refreshServicesPreview(){
     if(!servicesEl || !servicesPreviewBox) return;
@@ -4145,49 +4210,37 @@ function editResource(idx){
     verifiedInput.addEventListener("input", updateVerifiedDisplayAndWarning);
   }
 
-  function updatePDFStatus(){
-    if(!pdfStatus || !removeBtn) return;
-    if(res.pdf){
-      pdfStatus.textContent = "Attached: " + res.pdf;
-      removeBtn.style.display = "inline-block";
-    }else{
-      pdfStatus.textContent = "No PDF attached";
-      removeBtn.style.display = "none";
-    }
-  }
-
-  updatePDFStatus();
-
-  if(pdfInput){
-    pdfInput.onchange = async () => {
-      const file = pdfInput.files && pdfInput.files[0];
+  if(!res.pdf){
+    const picker = document.getElementById("pdfPicker");
+    if(picker) picker.onchange = async e => {
+      const file = e.target.files && e.target.files[0];
       if(!file) return;
+      if(!commitPendingEditsIfChanged()) return;
 
-      const safeName = file.name.replace(/\s+/g, "-").toLowerCase();
-      const path = "assets/" + safeName;
-
+      const key = "assets/" + file.name;
       try{
-        await saveAsset(path, file);
-        res.pdf = path;
+        await savePDF(key, file);
+        res.pdf = key;
         res.lastModified = nowISO();
         persist();
-        editorSnapshot = snapshotResourceEditor();
-        updatePDFStatus();
+        editResource(idx);
       }catch(err){
         alert("Unable to attach PDF: " + err.message);
-      }finally{
-        pdfInput.value = "";
       }
     };
-  }
-
-  if(removeBtn){
-    removeBtn.onclick = () => {
-      res.pdf = "";
-      res.lastModified = nowISO();
-      persist();
-      editorSnapshot = snapshotResourceEditor();
-      updatePDFStatus();
+  }else{
+    const removePdfBtn = document.getElementById("removePdfBtn");
+    if(removePdfBtn) removePdfBtn.onclick = async () => {
+      if(!commitPendingEditsIfChanged()) return;
+      try{
+        await deletePDF(res.pdf);
+        delete res.pdf;
+        res.lastModified = nowISO();
+        persist();
+        editResource(idx);
+      }catch(err){
+        alert("Unable to remove PDF: " + err.message);
+      }
     };
   }
 
@@ -4234,7 +4287,6 @@ function editResource(idx){
 
   updateVerifiedDisplayAndWarning();
   validateEditorState();
-  updatePDFStatus();
   focusAndSelectResourceName();
 
   editorSnapshot = snapshotResourceEditor();
