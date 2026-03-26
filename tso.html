@@ -1959,42 +1959,20 @@ function buildResourceCard(res,{expanded=false,showDescription=false,showStar=tr
   details.className="resource-details "+(expanded?"expanded":"collapsed");
 
   let html="";
+  const pdfPath = typeof res.pdf === "string" ? res.pdf.trim() : "";
   if(res.phone) html+=`<div><strong>Phone:</strong> <a href="tel:${res.phone}">${res.phone}</a></div>`;
   if(res.address) html+=`<div><strong>Address:</strong> ${escapeHTML(res.address)}</div>`;
   if(res.website) html+=`<div><strong>Website:</strong> <a href="${res.website}" target="_blank">${res.website}</a></div>`;
+  if(pdfPath) html+=`<div><button type="button" class="button resource-pdf-button">Open PDF</button></div>`;
   if(res.servicesText) html+=`<div><strong>Services:</strong><div class="services-rendered">${renderServicesHTML(res.servicesText)}</div></div>`;
 
   details.innerHTML=html;
-  const pdfPath = typeof res.pdf === "string" ? res.pdf.trim() : "";
   if(pdfPath){
-    const btn = document.createElement("button");
-    btn.className = "button";
-    btn.textContent = "Open PDF";
-    btn.onclick = async e => {
+    const btn = details.querySelector(".resource-pdf-button");
+    if(btn) btn.onclick = async e => {
       e.stopPropagation();
-      const pdfWindow = window.open("", "_blank");
-      if(!pdfWindow){
-        alert("Unable to open PDF window. Allow pop-ups and try again.");
-        return;
-      }
-      pdfWindow.document.title = "Loading PDF...";
-      pdfWindow.document.body.textContent = "Loading PDF...";
-      try{
-        const blob = await loadAsset(pdfPath);
-        if(!blob){
-          pdfWindow.close();
-          alert("PDF not found. Load package again.");
-          return;
-        }
-        const url = URL.createObjectURL(blob);
-        pdfWindow.location = url;
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
-      }catch(err){
-        pdfWindow.close();
-        alert("Unable to open PDF: " + err.message);
-      }
+      await openPDF(pdfPath);
     };
-    details.appendChild(btn);
   }
   main.appendChild(details);
   card.appendChild(main);
@@ -2822,6 +2800,34 @@ async function loadAsset(key){
   });
 }
 
+async function getAsset(path){
+  return loadAsset(path);
+}
+
+async function openPDF(path){
+  const pdfWindow = window.open("", "_blank");
+  if(!pdfWindow){
+    alert("Unable to open PDF window. Allow pop-ups and try again.");
+    return;
+  }
+  pdfWindow.document.title = "Loading PDF...";
+  pdfWindow.document.body.textContent = "Loading PDF...";
+  try{
+    const file = await getAsset(path);
+    if(!file){
+      pdfWindow.close();
+      alert("PDF not found.");
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    pdfWindow.location = url;
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }catch(err){
+    pdfWindow.close();
+    alert("Unable to open PDF: " + err.message);
+  }
+}
+
 async function clearAssets(){
   const db = await openAssetsDB();
   const tx = db.transaction("files", "readwrite");
@@ -3023,6 +3029,9 @@ function resourceEditorDraft(){
   if(!nameEl || !phoneEl || !addressEl || !websiteEl || !hoursEl || !descEl || !servicesEl) return null;
   const verifiedEl = document.getElementById("res_verified_on");
   const verifiedOn = verifiedEl ? verifiedEl.value.trim() : "";
+  const pdf = editing?.kind === "resource"
+    ? (data.resources[editing.idx]?.pdf || "")
+    : "";
 
   const tags = Array.from(document.querySelectorAll(".resTag"))
     .filter(cb => cb.checked)
@@ -3037,6 +3046,7 @@ function resourceEditorDraft(){
     hours: hoursEl.value.trim(),
     description: descEl.value,
     servicesText: servicesEl.value,
+    pdf,
     verifiedOn,
     categories: Array.from(document.querySelectorAll(".resCat"))
       .filter(cb=>cb.checked)
@@ -3264,6 +3274,7 @@ function applyCategoryOrderEditor(){
 function applyResourceDraft(idx, draft){
   const res = data.resources[idx];
   if(!res) return;
+  res.pdf = draft.pdf || "";
   res.name = draft.name || res.name;
   res.phone = draft.phone;
   res.address = draft.address;
@@ -3753,6 +3764,7 @@ function newResource(){
     id: generateResourceId(),
     name: "",
     description: "",
+    pdf: "",
     servicesText: "",
     tags: [],
     verifiedOn: null
@@ -3956,9 +3968,11 @@ function editResource(idx){
   const editor = document.getElementById("resEditor");
   if(!res || !editor) return;
   selectedResourceId = res.id || selectedResourceId;
+  editing = { kind: "resource", idx };
 
   normalizeResourceServices(res);
   normalizeResourceVerifiedOn(res);
+  res.pdf = typeof res.pdf === "string" ? res.pdf : "";
   if(!Array.isArray(res.tags)) res.tags = [];
   const verifiedDisplay = formatVerifiedOnForDisplay(res.verifiedOn);
   const assignedTagsLine = res.tags.length ? res.tags.join(", ") : "(none)";
@@ -4040,6 +4054,14 @@ function editResource(idx){
       <textarea id="res_services" class="big services-editor">${escapeHTML(res.servicesText || "")}</textarea>
       <div id="res_services_preview" class="services-preview-box services-rendered hidden"></div>
     </div><br>
+
+    <div>
+      <strong>PDF</strong><br>
+      <input type="file" id="res_pdf_file" accept="application/pdf"><br>
+      <div id="res_pdf_status" style="margin-top:4px; font-size:13px;"></div>
+      <button class="button" type="button" id="res_pdf_remove">Remove PDF</button>
+    </div>
+    <br>
   `;
 
   const selectedTags = [...res.tags].sort((a,b) => a.localeCompare(b));
@@ -4074,6 +4096,9 @@ function editResource(idx){
   const doneBtn = document.getElementById("res_done_btn");
   const manageTagsBtn = document.getElementById("res_manage_tags_btn");
   const assignTagsBtn = document.getElementById("res_assign_tags_btn");
+  const pdfInput = document.getElementById("res_pdf_file");
+  const pdfStatus = document.getElementById("res_pdf_status");
+  const removeBtn = document.getElementById("res_pdf_remove");
 
   function refreshServicesPreview(){
     if(!servicesEl || !servicesPreviewBox) return;
@@ -4120,6 +4145,52 @@ function editResource(idx){
     verifiedInput.addEventListener("input", updateVerifiedDisplayAndWarning);
   }
 
+  function updatePDFStatus(){
+    if(!pdfStatus || !removeBtn) return;
+    if(res.pdf){
+      pdfStatus.textContent = "Attached: " + res.pdf;
+      removeBtn.style.display = "inline-block";
+    }else{
+      pdfStatus.textContent = "No PDF attached";
+      removeBtn.style.display = "none";
+    }
+  }
+
+  updatePDFStatus();
+
+  if(pdfInput){
+    pdfInput.onchange = async () => {
+      const file = pdfInput.files && pdfInput.files[0];
+      if(!file) return;
+
+      const safeName = file.name.replace(/\s+/g, "-").toLowerCase();
+      const path = "assets/" + safeName;
+
+      try{
+        await saveAsset(path, file);
+        res.pdf = path;
+        res.lastModified = nowISO();
+        persist();
+        editorSnapshot = snapshotResourceEditor();
+        updatePDFStatus();
+      }catch(err){
+        alert("Unable to attach PDF: " + err.message);
+      }finally{
+        pdfInput.value = "";
+      }
+    };
+  }
+
+  if(removeBtn){
+    removeBtn.onclick = () => {
+      res.pdf = "";
+      res.lastModified = nowISO();
+      persist();
+      editorSnapshot = snapshotResourceEditor();
+      updatePDFStatus();
+    };
+  }
+
   function validateEditorState(){
     const draft = resourceEditorDraft();
     if(!draft){
@@ -4163,9 +4234,9 @@ function editResource(idx){
 
   updateVerifiedDisplayAndWarning();
   validateEditorState();
+  updatePDFStatus();
   focusAndSelectResourceName();
 
-  editing = { kind: "resource", idx };
   editorSnapshot = snapshotResourceEditor();
 }
 
