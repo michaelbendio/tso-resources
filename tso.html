@@ -1882,6 +1882,20 @@ function runSelfTests(){
     }
   });
 
+  tests.push({
+    name: "PDF MIME NORMALIZATION",
+    fn: () => {
+      const source = new Blob(["%PDF-1.6"], { type: "text/plain" });
+      const normalized = ensurePDFBlob(source);
+      if(!(normalized instanceof Blob)){
+        throw new Error("normalized value is not a Blob");
+      }
+      if(normalized.type !== "application/pdf"){
+        throw new Error(`expected application/pdf, got '${normalized.type}'`);
+      }
+    }
+  });
+
   const results = tests.map(test => {
     try{
       test.fn();
@@ -2673,13 +2687,13 @@ function renderAdmin(){
       <div style="font-size:16px; color:#555; margin-bottom:7px;">
         Use only if trained. These actions replace stored data.
       </div>
-      <button class="button primary" onclick="exportPackage()">Save resource package</button>
+      <button class="button primary" onclick="exportPackage()">Save current resources to 'resource package'</button>
 
       <input type="file" id="importFile" accept=".zip"
         style="display:none"
         onchange="importPackage(event)">
 
-      <button class="button" onclick="beginImportPackage()">Load resource package</button>
+      <button class="button" onclick="beginImportPackage()">Replace current resources with 'resource package'</button>
       ${undo ? `
         <button class="button" onclick="undoLastDeletion()">${escapeHTML(undoButtonLabel)}</button>
         <button class="button" onclick="clearUndoSnapshot(); safeRenderAdmin();">Clear undo</button>
@@ -2804,8 +2818,17 @@ async function getAsset(path){
   return loadAsset(path);
 }
 
+function ensurePDFBlob(value){
+  if(value instanceof Blob){
+    return value.type === "application/pdf"
+      ? value
+      : new Blob([value], { type: "application/pdf" });
+  }
+  return new Blob([value], { type: "application/pdf" });
+}
+
 async function savePDF(key, blob){
-  return saveAsset(key, blob);
+  return saveAsset(key, ensurePDFBlob(blob));
 }
 
 async function getPDF(key){
@@ -2846,13 +2869,14 @@ async function openPDF(path){
   pdfWindow.document.title = "Loading PDF...";
   pdfWindow.document.body.textContent = "Loading PDF...";
   try{
-    const file = await getPDF(path);
-    if(!file){
+    const stored = await getPDF(path);
+    if(!stored){
       pdfWindow.close();
       alert("PDF not found.");
       return;
     }
-    const url = URL.createObjectURL(file);
+    const pdfBlob = ensurePDFBlob(stored);
+    const url = URL.createObjectURL(pdfBlob);
     pdfWindow.location = url;
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   }catch(err){
@@ -2894,7 +2918,8 @@ async function storeZipAssets(zip){
     const entry = zip.file(path);
     if(entry && path.toLowerCase().endsWith(".pdf")){
       const blob = await entry.async("blob");
-      await savePDF(path, blob);
+      const pdfBlob = ensurePDFBlob(blob);
+      await savePDF(path, pdfBlob);
     }
   }
 }
@@ -4231,11 +4256,12 @@ function editResource(idx){
   if(res.pdf){
     pdfSection.innerHTML = `
       <div><strong>PDF:</strong> ${escapeHTML(res.pdf)}</div>
-      <button class="button danger" type="button" id="removePdfBtn">Remove PDF</button>
+      <button class="button" type="button" id="removePdfBtn">Remove PDF</button>
     `;
   }else{
     pdfSection.innerHTML = `
-      <input type="file" id="pdfPicker" accept="application/pdf">
+      <input type="file" id="pdfPicker" accept="application/pdf" style="display:none">
+      <button class="button" type="button" id="attachPdfBtn">Attach PDF</button>
     `;
   }
   if(servicesBlock){
@@ -4291,6 +4317,8 @@ function editResource(idx){
 
   if(!res.pdf){
     const picker = document.getElementById("pdfPicker");
+    const attachPdfBtn = document.getElementById("attachPdfBtn");
+    if(attachPdfBtn && picker) attachPdfBtn.onclick = () => picker.click();
     if(picker) picker.onchange = async e => {
       const file = e.target.files && e.target.files[0];
       if(!file) return;
