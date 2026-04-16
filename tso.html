@@ -206,6 +206,12 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 </head>
 
 <body>
+<!--
+  File orientation:
+  1) HTML containers for the app shell, modal panels, and main view roots.
+  2) Embedded seed JSON data for first-load fallback.
+  3) JavaScript logic organized by section banners.
+-->
 
 <div id="appErrorBanner" style="display:none; position:fixed; top:0; left:0; right:0; background:#ffd9d9; border-bottom:2px solid #c00; z-index:9999; padding:10px; font-size:16px;">
   <strong>TSO Resources error</strong>
@@ -1353,8 +1359,11 @@ function generateResourceId(){
 // ============================================================
 // DATA NORMALIZATION
 // ============================================================
+// Normalize legacy/imported records into a single canonical shape so rendering,
+// editing, and persistence logic only handle one schema.
 
 function normalizeResourceServices(r){
+  // Canonical: servicesText string. Legacy: services array of lines.
   if(!r || typeof r !== "object") return false;
   if(typeof r.servicesText === "string"){
     delete r.services;
@@ -1370,6 +1379,7 @@ function normalizeResourceServices(r){
 }
 
 function normalizeResourceVerifiedOn(r){
+  // Canonical: verifiedOn in MM/YY (or null). Legacy aliases are consumed then removed.
   if(!r || typeof r !== "object") return;
   const preferred = coerceVerifiedOnToMMYY(r.verifiedOn);
   if(preferred){
@@ -1592,8 +1602,14 @@ function renderServicesHTML(text){
 // ============================================================
 // STATE
 // ============================================================
+// Startup flow:
+// 1) Read embedded seed.
+// 2) Load saved snapshot from localStorage (or seed if missing).
+// 3) Normalize startup data to canonical shapes.
+// 4) Load persisted favorites, then initialize transient UI state.
 
 const seed = JSON.parse(document.getElementById("seed-data").textContent);
+// Main persisted app data snapshot (categories/resources/tags + metadata).
 let data = JSON.parse(localStorage.getItem("tsoData") || "null");
 const DEBUG = new URLSearchParams(location.search).has("debug");
 
@@ -1606,9 +1622,11 @@ normalizeDataServicesShape(data);
 normalizeDataTagsShape(data);
 normalizeDataVerifiedOnShape(data);
 
+// Favorites persist separately to keep starring lightweight across views.
 let favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
 if(!Array.isArray(favorites)) favorites = [];
 if(DEBUG) assertInvariants("startup");
+// Remaining fields are runtime UI state; they are not persisted directly.
 let view = "categories";
 let currentCategory = null;
 let adminTab = "categories";
@@ -1631,6 +1649,8 @@ const UNDO_STORAGE_KEY = "tsoUndo";
 // ============================================================
 // SAFETY HARNESS
 // ============================================================
+// Catch runtime errors and (when debug is enabled) enforce invariants to prevent
+// silent corruption during edits, imports, and rendering.
 
 function showAppError(context, err){
   const banner = document.getElementById("appErrorBanner");
@@ -1757,6 +1777,7 @@ if(appErrorDismiss){
 // ============================================================
 // SELF TESTS
 // ============================================================
+// Smoke tests for high-risk flows (create/delete/undo/tags/services/import/export/sorting).
 
 function runSelfTests(){
   const tests = [];
@@ -1951,6 +1972,7 @@ tabAdmin.onclick = ()=>{ setView("admin"); };
 // ============================================================
 
 function buildResourceCard(res,{expanded=false,showDescription=false,showStar=true}={}){
+  // Shared DOM builder used by category view, favorites view, and print previews.
   normalizeResourceServices(res);
 
   const card=document.createElement("div");
@@ -2263,6 +2285,7 @@ function createChecklistPanel({buttonText, selectedTags, allTags, onToggle, onAd
 /* ---------- Render ---------- */
 
 function render(){
+  // Main view router: decides which screen to draw from current app state.
   tabFavorites.textContent=`Favorites (${favorites.length})`;
   appView.classList.toggle("hidden", view==="admin");
   adminView.classList.toggle("hidden", view!=="admin");
@@ -2499,6 +2522,8 @@ function toggleFav(id){
 
 /* ---------- Print ---------- */
 
+// PrintWorkflow is a small queue-based state machine for print preview/packet flow.
+// Each queue entry has a label and render function so print steps stay data-driven.
 const PrintWorkflow = {
   queue: [],
   currentIndex: -1,
@@ -2513,6 +2538,7 @@ const PrintWorkflow = {
   },
 
   getFavoriteGroups(){
+    // "List" resources are separated so favorites packet output can render flyers.
     const normalFavs = [];
     const listFavs = [];
 
@@ -2668,6 +2694,7 @@ function doPrint(){ PrintWorkflow.doPrint(); }
 // ============================================================
 // EVENT HANDLERS
 // ============================================================
+// Top-level DOM events feed stateful subsystems, which then trigger render updates.
 
 window.addEventListener("afterprint", () => {
   PrintWorkflow.handleAfterPrint();
@@ -2678,6 +2705,7 @@ window.addEventListener("afterprint", () => {
 // ============================================================
 
 function renderAdmin(){
+  // Admin shell plus tab routing; detailed panels render in dedicated helpers below.
   const container = document.getElementById("adminView");
   const undo = getUndoSnapshot();
   const undoButtonLabel = undo ? `Undo ${undo.message}` : "";
@@ -2724,14 +2752,20 @@ function renderAdmin(){
 // ============================================================
 // PERSISTENCE
 // ============================================================
+// Storage split:
+// - localStorage keeps the primary JSON snapshot ("tsoData").
+// - IndexedDB keeps binary assets (PDF blobs) under string keys.
+// - resource.pdf stores that key/path, not PDF bytes.
 
 function persist(){
+  // Writes the canonical JSON snapshot used to restore app state on reload.
   if(DEBUG) assertInvariants("persist");
   data.lastModified = nowISO();
   localStorage.setItem("tsoData", JSON.stringify(data));
 }
 
 function openAssetsDB(){
+  // Opens the IndexedDB database used for PDF blob storage/retrieval.
   return new Promise((resolve, reject) => {
     if(typeof indexedDB === "undefined"){
       reject(new Error("Asset storage is unavailable in this browser."));
@@ -2777,6 +2811,7 @@ function openAssetsDB(){
 }
 
 async function saveAsset(key, blob){
+  // Generic keyed binary write used by higher-level PDF helpers.
   const db = await openAssetsDB();
   const tx = db.transaction("files", "readwrite");
   tx.objectStore("files").put(blob, key);
@@ -2798,6 +2833,7 @@ async function saveAsset(key, blob){
 }
 
 async function loadAsset(key){
+  // Generic keyed binary read.
   const db = await openAssetsDB();
   const tx = db.transaction("files", "readonly");
   const req = tx.objectStore("files").get(key);
@@ -2828,10 +2864,12 @@ function ensurePDFBlob(value){
 }
 
 async function savePDF(key, blob){
+  // PDF-specific save wrapper to enforce PDF blob type.
   return saveAsset(key, ensurePDFBlob(blob));
 }
 
 async function getPDF(key){
+  // Lookup PDF blob by the key/path stored in resource.pdf.
   return getAsset(key);
 }
 
@@ -2861,6 +2899,7 @@ async function deletePDF(key){
 }
 
 async function openPDF(path){
+  // Opens a resource PDF by resolving its key/path into an IndexedDB blob.
   const pdfWindow = window.open("", "_blank");
   if(!pdfWindow){
     alert("Unable to open PDF window. Allow pop-ups and try again.");
@@ -2911,6 +2950,7 @@ async function clearAllPDFs(){
 }
 
 async function storeZipAssets(zip){
+  // Rebuilds IndexedDB assets from imported ZIP contents (PDF files only).
   const files = Object.keys(zip.files);
   await clearAllPDFs();
 
@@ -2925,6 +2965,7 @@ async function storeZipAssets(zip){
 }
 
 function applyImportedData(imported){
+  // Final import handoff: normalize incoming JSON, replace in-memory state, persist.
   if(imported && imported.resources){
     imported.resources.forEach(r => normalizeResourceServices(r));
   }
@@ -2978,6 +3019,7 @@ function showTypedConfirm(message, requiredText){
 }
 
 async function exportPackage(){
+  // Exports package ZIP: tso-resources.json + any referenced PDF blobs.
   if(!commitPendingEditsIfChanged()) return;
 
   const ok = await showTypedConfirm(
@@ -3025,6 +3067,7 @@ async function exportPackage(){
 }
 
 async function beginImportPackage(){
+  // Starts destructive import flow after explicit typed confirmation.
   if(!commitPendingEditsIfChanged()) return;
 
   const ok = await showTypedConfirm(
@@ -3040,6 +3083,7 @@ async function beginImportPackage(){
 }
 
 function validateImportData(imported){
+  // Validates imported tso-resources.json structure before replacing current data.
   const errors = [];
   const warnings = [];
 
@@ -3096,6 +3140,7 @@ function validateImportData(imported){
 }
 
 async function importPackage(event){
+  // Imports package ZIP, validates JSON, stores PDFs, then swaps active dataset.
   if(!commitPendingEditsIfChanged()) return;
 
   const file = event.target.files && event.target.files[0];
@@ -3167,6 +3212,7 @@ function switchAdminTab(nextTab){
 }
 
 function categoryEditorDraft(){
+  // Capture category editor form state as a plain draft object.
   const labelEl = document.getElementById("cat_label");
   const orderEl = document.getElementById("cat_order");
   if(!labelEl || !orderEl || !editing || editing.kind !== "category") return null;
@@ -3180,6 +3226,7 @@ function categoryEditorDraft(){
 }
 
 function resourceEditorDraft(){
+  // Capture resource editor form state as a plain draft object.
   const nameEl = document.getElementById("res_name");
   const phoneEl = document.getElementById("res_phone");
   const addressEl = document.getElementById("res_address");
@@ -3223,6 +3270,7 @@ function getResourceIndexById(resourceId){
 }
 
 function validateResourceName(draft, idx){
+  // Prevent empty names and duplicates before applying/persisting resource edits.
   const name = String(draft && draft.name || "").trim();
   if(!name){
     return { valid:false, message:"Name is required." };
@@ -3236,6 +3284,7 @@ function validateResourceName(draft, idx){
 }
 
 function validateCategoryDraft(_draft){
+  // Delegate numeric display-order checks to browser input validity.
   const orderInput = document.getElementById("cat_order");
   if(orderInput && !orderInput.checkValidity()){
     return { valid:false, message:orderInput.validationMessage || "Display order must be a number." };
@@ -3264,16 +3313,19 @@ function showResourceVerifiedWarning(message){
 }
 
 function snapshotCategoryEditor(){
+  // Snapshot string supports cheap "changed?" detection for category drafts.
   const draft = categoryEditorDraft();
   return draft ? JSON.stringify(draft) : "";
 }
 
 function snapshotResourceEditor(){
+  // Snapshot string supports cheap "changed?" detection for resource drafts.
   const draft = resourceEditorDraft();
   return draft ? JSON.stringify(draft) : "";
 }
 
 function applyCategoryDraft(idx, draft){
+  // Apply validated category draft into canonical data model.
   const cat = data.categories[idx];
   if(!cat) return;
   cat.id = cat.id || draft.id || generateResourceId();
@@ -3433,6 +3485,7 @@ function applyCategoryOrderEditor(){
 }
 
 function applyResourceDraft(idx, draft){
+  // Apply validated resource draft into canonical data model.
   const res = data.resources[idx];
   if(!res) return;
   res.pdf = draft.pdf || "";
@@ -3454,6 +3507,8 @@ function applyResourceDraft(idx, draft){
 }
 
 function commitPendingEditsIfChanged(){
+  // Editor commit pattern:
+  // UI fields -> draft snapshot -> validation -> apply canonical update -> persist.
   if(!editing) return true;
 
   let nextSnapshot = "";
@@ -3509,6 +3564,7 @@ function commitPendingEditsIfChanged(){
 /* ---------- Admin: Categories ---------- */
 
 function renderAdminCategories(container){
+  // Category management view (list, editor, order controls, and related actions).
 
   container.innerHTML += `
     <div class="admin-panel">
@@ -3797,6 +3853,7 @@ function setupAdminManageTagsPanel(){
 }
 
 function renderAdminResources(container){
+  // Resource management view (browse list, edit mode, tags, PDF association).
   adminCheckedTags = adminCheckedTags.filter(tag => data.tags.includes(tag));
   if(adminResourceEditMode && !selectedResourceId && data.resources[0] && data.resources[0].id){
     selectedResourceId = data.resources[0].id;
