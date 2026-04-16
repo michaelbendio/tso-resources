@@ -3068,6 +3068,7 @@ async function exportPackage(){
     a.remove();
 
     URL.revokeObjectURL(url);
+    alert("Resource package exported. Run embed-seed.sh to update embedded seed.");
   }catch(err){
     alert("Save failed: " + err.message);
   }
