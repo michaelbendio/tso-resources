@@ -227,6 +227,7 @@ textarea.services-editor { min-height:320px; resize:vertical; }
   <div class="title">TSO Resources</div>
   <div class="tabs">
     <span id="tabCategories">Categories</span>
+    <span id="tabTags">Tags</span>
     <span id="tabFavorites">Favorites (0)</span>
     <span id="tabAdmin">Admin</span>
   </div>
@@ -1638,6 +1639,7 @@ if(DEBUG) assertInvariants("startup");
 // Remaining fields are runtime UI state; they are not persisted directly.
 let view = "categories";
 let currentCategory = null;
+let currentTag = null;
 let adminTab = "categories";
 let adminShowVerifiedDates = false;
 let adminCheckedTags = [];
@@ -1973,6 +1975,11 @@ function setView(nextView){
 }
 
 tabCategories.onclick = ()=>{ setView("categories"); };
+tabTags.onclick = ()=>{
+  clearAllCategoryFilters(false);
+  currentTag = null;
+  setView("tags");
+};
 tabFavorites.onclick = ()=>{ setView("favorites"); };
 tabAdmin.onclick = ()=>{ setView("admin"); };
 
@@ -2045,6 +2052,119 @@ function setCategoryFilterTags(categoryId, tags){
 function clearAllCategoryFilters(shouldRender = true){
   categoryTagFilters = {};
   if(shouldRender && view === "category") safeRender();
+}
+
+function getSortedTags(){
+  return [...new Set(data.tags || [])].sort((a,b)=>a.localeCompare(b));
+}
+
+function getResourcesForTag(tag){
+  if(!tag) return [];
+  return data.resources
+    .filter(r => Array.isArray(r.tags) && r.tags.includes(tag))
+    .sort((a,b)=>a.name.localeCompare(b.name));
+}
+
+function getCategoriesForTag(tag){
+  const matching = getResourcesForTag(tag);
+  const ids = new Set();
+  matching.forEach(res => {
+    (res.categories || []).forEach(id => ids.add(id));
+  });
+  return data.categories
+    .filter(cat => ids.has(cat.id))
+    .slice()
+    .sort((a,b)=>(a.displayOrder??999)-(b.displayOrder??999));
+}
+
+function renderTagsView(){
+  const title = document.createElement("div");
+  title.textContent = "Browse by Tag";
+  title.style.fontWeight = "bold";
+  title.style.fontSize = "1.2em";
+  title.style.marginBottom = "12px";
+  appView.appendChild(title);
+
+  if(!currentTag){
+    const tags = getSortedTags();
+    if(!tags.length){
+      const empty = document.createElement("p");
+      empty.textContent = "No tags available.";
+      appView.appendChild(empty);
+      return;
+    }
+
+    const wrap = document.createElement("div");
+    wrap.style.display = "flex";
+    wrap.style.flexWrap = "wrap";
+    wrap.style.gap = "8px";
+    tags.forEach(tag => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "button";
+      btn.textContent = tag;
+      btn.onclick = () => {
+        currentTag = tag;
+        safeRender();
+      };
+      wrap.appendChild(btn);
+    });
+    appView.appendChild(wrap);
+    return;
+  }
+
+  const controls = document.createElement("div");
+  controls.style.marginBottom = "10px";
+  const clearBtn = document.createElement("button");
+  clearBtn.className = "button";
+  clearBtn.textContent = "Clear";
+  clearBtn.onclick = () => {
+    currentTag = null;
+    safeRender();
+  };
+  controls.appendChild(clearBtn);
+  appView.appendChild(controls);
+
+  const selected = document.createElement("div");
+  selected.textContent = `Tag: ${currentTag}`;
+  selected.style.fontWeight = "bold";
+  selected.style.marginBottom = "10px";
+  appView.appendChild(selected);
+
+  const matching = getResourcesForTag(currentTag);
+  if(!matching.length){
+    const empty = document.createElement("p");
+    empty.textContent = "No resources match this tag.";
+    appView.appendChild(empty);
+    return;
+  }
+
+  const categories = getCategoriesForTag(currentTag);
+  categories.forEach(cat => {
+    const catResources = matching
+      .filter(r => Array.isArray(r.categories) && r.categories.includes(cat.id))
+      .sort((a,b)=>a.name.localeCompare(b.name));
+    if(!catResources.length) return;
+
+    const catHeading = document.createElement("div");
+    catHeading.textContent = cat.label;
+    catHeading.style.fontWeight = "bold";
+    catHeading.style.fontSize = "1.1em";
+    catHeading.style.margin = "14px 0 8px";
+    appView.appendChild(catHeading);
+
+    catResources.forEach(res => {
+      let expanded = false;
+      const card = buildResourceCard(res,{showDescription:true});
+      card.onclick = () => {
+        expanded=!expanded;
+        const d=card.querySelector(".resource-details");
+        d.classList.toggle("collapsed",!expanded);
+        d.classList.toggle("expanded",expanded);
+      };
+      appView.appendChild(card);
+    });
+  });
 }
 
 // ============================================================
@@ -2504,6 +2624,10 @@ function render(){
       appView.appendChild(card);
     });
     }
+
+  if(view==="tags"){
+    renderTagsView();
+  }
 
   if(view==="favorites"){
     const { normalFavs, listFavs } = PrintWorkflow.getFavoriteGroups();
