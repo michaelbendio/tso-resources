@@ -1582,7 +1582,7 @@ function renderServicesHTML(text){
   lines.forEach(line => {
     const trimmed = line.trim();
     const isDivider = trimmed === "---";
-    const isBullet = line.startsWith("* ");
+    const bulletMatch = line.match(/^\s*(?:\*|-|•)\s+(.*)$/);
 
     if(isDivider){
       flushList();
@@ -1590,8 +1590,8 @@ function renderServicesHTML(text){
       return;
     }
 
-    if(isBullet){
-      const bulletText = applyServicesBold(escapeHTML(line.slice(2)));
+    if(bulletMatch){
+      const bulletText = applyServicesBold(escapeHTML(bulletMatch[1]));
       listItems.push(`<li>${bulletText}</li>`);
       return;
     }
