@@ -1342,6 +1342,12 @@ docs/architecture/ADR-001-print-workflow.md
 
 function nowISO(){ return new Date().toISOString(); }
 function escapeHTML(str){ return (str||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;" }[m])); }
+function normalizeWebsiteURL(url){
+  const trimmed = typeof url === "string" ? url.trim() : "";
+  if(!trimmed) return "";
+  if(/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
 function generateResourceId(){
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
@@ -1974,9 +1980,10 @@ function buildResourceCard(res,{expanded=false,showDescription=false,showStar=tr
 
   let html="";
   const pdfPath = typeof res.pdf === "string" ? res.pdf.trim() : "";
+  const websiteURL = normalizeWebsiteURL(res.website);
   if(res.phone) html+=`<div><strong>Phone:</strong> <a href="tel:${res.phone}">${res.phone}</a></div>`;
   if(res.address) html+=`<div><strong>Address:</strong> ${escapeHTML(res.address)}</div>`;
-  if(res.website) html+=`<div><strong>Website:</strong> <a href="${res.website}" target="_blank">${res.website}</a></div>`;
+  if(websiteURL) html+=`<div><strong>Website:</strong> <a href="${websiteURL}" target="_blank">${res.website}</a></div>`;
   if(pdfPath) html+=`<div><button type="button" class="button resource-pdf-button">Open PDF</button></div>`;
   if(res.servicesText) html+=`<div><strong>Services:</strong><div class="services-rendered">${renderServicesHTML(res.servicesText)}</div></div>`;
 
