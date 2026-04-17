@@ -3152,12 +3152,60 @@ function showTypedConfirm(message, requiredText){
   });
 }
 
+async function beginResourcePackageSave(){
+  // Request a save target up front so browsers can honor the user gesture.
+  const suggestedName = "tso-resource-package.zip";
+  if(typeof window.showSaveFilePicker === "function"){
+    const handle = await window.showSaveFilePicker({
+      id: "tso-resource-package",
+      startIn: "downloads",
+      suggestedName,
+      types: [{
+        description: "TSO resource package",
+        accept: {
+          "application/zip": [".zip"]
+        }
+      }]
+    });
+    return { kind:"file-handle", handle, suggestedName };
+  }
+  return { kind:"download", suggestedName };
+}
+
+async function saveResourcePackageBlob(target, blob){
+  if(target && target.kind === "file-handle" && target.handle){
+    const writable = await target.handle.createWritable();
+    try{
+      await writable.write(blob);
+      await writable.close();
+    }catch(err){
+      try{
+        await writable.abort();
+      }catch(_err){}
+      throw err;
+    }
+    return;
+  }
+
+  const url = URL.createObjectURL(blob);
+  try{
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = target && target.suggestedName ? target.suggestedName : "tso-resource-package.zip";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }finally{
+    URL.revokeObjectURL(url);
+  }
+}
+
 async function exportPackage(){
   // Exports package ZIP: tso-resources.json + any referenced PDF blobs.
   if(!commitPendingEditsIfChanged()) return;
 
   const ok = await showTypedConfirm(
-    "This will overwrite your saved resource package file.",
+    "This will open a save dialog for the resource package. If you choose an existing file, it will be overwritten.",
     "save"
   );
   if(!ok) return;
@@ -3168,6 +3216,7 @@ async function exportPackage(){
   }
 
   try{
+    const saveTarget = await beginResourcePackageSave();
     const zip = new JSZip();
     zip.file("tso-resources.json", JSON.stringify(data, null, 2));
 
@@ -3185,18 +3234,10 @@ async function exportPackage(){
     }
 
     const blob = await zip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "tso-resource-package.zip";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    URL.revokeObjectURL(url);
+    await saveResourcePackageBlob(saveTarget, blob);
     alert("Resource package exported. Run embed-seed.sh to update embedded seed.");
   }catch(err){
+    if(err && err.name === "AbortError") return;
     alert("Save failed: " + err.message);
   }
 }
