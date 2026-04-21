@@ -1,5 +1,25 @@
+# Text files: always store and check out with LF
+*.html  text eol=lf
+*.js    text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.sh    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
 
-*.html text eol=lf
-*.js   text eol=lf
-*.json text eol=lf
-*.css  text eol=lf
+# Windows scripts: keep CRLF if you ever add them
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# Binary files: never normalize
+*.zip   binary
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
