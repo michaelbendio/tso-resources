@@ -2077,6 +2077,7 @@ if(DEBUG) assertInvariants("startup");
 let view = "categories";
 let currentCategory = null;
 let currentTag = null;
+let isAdminVisible = false;
 let adminTab = "categories";
 let adminShowVerifiedDates = false;
 let adminCheckedTags = [];
@@ -2404,11 +2405,26 @@ if(selfTestCloseBtn){
 // ============================================================
 
 function setView(nextView){
+  if(nextView === "admin" && !isAdminVisible) return;
   if(view === "admin" && nextView !== "admin"){
     if(!commitPendingEditsIfChanged()) return;
   }
   view = nextView;
   safeRender();
+}
+
+function setAdminVisibility(visible){
+  const nextVisible = !!visible;
+  if(!nextVisible && view === "admin"){
+    setView("categories");
+    if(view === "admin") return;
+  }
+  isAdminVisible = nextVisible;
+  tabAdmin.style.display = isAdminVisible ? "" : "none";
+  if(!isAdminVisible){
+    const adminSection = document.getElementById("adminView");
+    if(adminSection) adminSection.classList.add("hidden");
+  }
 }
 
 tabCategories.onclick = ()=>{ setView("categories"); };
@@ -2854,8 +2870,9 @@ function createChecklistPanel({buttonText, selectedTags, allTags, onToggle, onAd
 function render(){
   // Main view router: decides which screen to draw from current app state.
   tabFavorites.textContent=`Favorites (${favorites.length})`;
+  tabAdmin.style.display = isAdminVisible ? "" : "none";
   appView.classList.toggle("hidden", view==="admin");
-  adminView.classList.toggle("hidden", view!=="admin");
+  adminView.classList.toggle("hidden", !isAdminVisible || view!=="admin");
 
   if(view !== "admin"){
     editing = null;
@@ -5087,6 +5104,21 @@ window.addEventListener("keydown", (e) => {
   closeResourceEditor();
 }, true);
 
+window.addEventListener("keydown", (e) => {
+  const activeTag = document.activeElement && document.activeElement.tagName
+    ? document.activeElement.tagName.toUpperCase()
+    : "";
+  if(activeTag === "INPUT" || activeTag === "TEXTAREA") return;
+
+  const isAdminToggleShortcut = e.ctrlKey && e.shiftKey && (e.key === "A" || e.key === "a");
+  if(!isAdminToggleShortcut) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+  setAdminVisibility(!isAdminVisible);
+  safeRender();
+}, true);
+
 /* ---------- Hidden Favorites Reset Hotkey ---------- */
 /*
   Ctrl + Alt + Shift + F  => clear Favorites and reload.
@@ -5108,6 +5140,7 @@ window.addEventListener("keydown", (e) => {
 
 /* ---------- Start ---------- */
 
+setAdminVisibility(false);
 safeRender();
 
 </script>
