@@ -244,7 +244,7 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 </div>
 
 <div class="topbar">
-  <div class="title">TSO Resources</div>
+  <div class="title" id="appTitle">TSO Resources</div>
   <div class="tabs">
     <span id="tabCategories">Categories</span>
     <span id="tabTags">Tags</span>
@@ -1803,11 +1803,25 @@ AGENTS.md
 docs/code-map.md
 docs/architecture/ADR-001-print-workflow.md
 ============================================================ */
+const APP_VERSION_CREATED_AT = "2026-04-23T09:00:00-06:00";
+
 // ============================================================
 // UTILITIES
 // ============================================================
 
 function nowISO(){ return new Date().toISOString(); }
+function formatAppVersionCreatedAt(isoString){
+  if(!isoString) return "(unknown version date)";
+  const dt = new Date(isoString);
+  if(Number.isNaN(dt.getTime())) return "(unknown version date)";
+  const month = dt.getMonth() + 1;
+  const day = dt.getDate();
+  const minutes = String(dt.getMinutes()).padStart(2, "0");
+  let hours = dt.getHours();
+  const meridiem = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  return `${month}/${day} ${hours}:${minutes} ${meridiem}`;
+}
 function escapeHTML(str){ return (str||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;" }[m])); }
 function normalizeWebsiteURL(url){
   const trimmed = typeof url === "string" ? url.trim() : "";
@@ -2473,6 +2487,13 @@ tabTags.onclick = ()=>{
 };
 tabFavorites.onclick = ()=>{ setView("favorites"); };
 tabAdmin.onclick = ()=>{ setView("admin"); };
+const appTitle = document.getElementById("appTitle");
+if(appTitle){
+  appTitle.onclick = () => {
+    const createdAt = formatAppVersionCreatedAt(APP_VERSION_CREATED_AT);
+    alert(`TSO Resources version created: ${createdAt}`);
+  };
+}
 
 // ============================================================
 // RENDERING — RESOURCES
