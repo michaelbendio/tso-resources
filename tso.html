@@ -54,6 +54,7 @@ textarea {
   font-size: 18px;
 }
 .button.primary { background:#003366; color:white; }
+.button.secondary { background:#f7f7f7; color:#333; border:1px solid #bbb; }
 .button.danger { background:#aa0000; color:white; }
 textarea.big { width:100%; min-height:80px; }
 textarea.services-editor { min-height:320px; resize:vertical; }
@@ -117,6 +118,25 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 .verified-warning { color:#aa0000; font-size:13px; margin-top:4px; min-height:1.1em; }
 .tag-controls-row { margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 .assigned-tags-line { font-size:14px; }
+.reload-resources-wrap { margin-top:16px; text-align:right; }
+.reload-resources-wrap .button { font-size:14px; padding:7px 10px; }
+.app-toast {
+  position:fixed;
+  right:18px;
+  bottom:18px;
+  z-index:10001;
+  max-width:360px;
+  padding:12px 14px;
+  border:1px solid #c8d6e5;
+  border-radius:6px;
+  background:#f7fbff;
+  color:#1f2d3d;
+  box-shadow:0 2px 10px rgba(0,0,0,.14);
+  font-size:14px;
+  line-height:1.35;
+  white-space:pre-line;
+}
+.app-toast.hidden { display:none; }
 .category-order-input { appearance:textfield; -moz-appearance:textfield; }
 .category-order-input::-webkit-outer-spin-button,
 .category-order-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
@@ -1803,6 +1823,24 @@ function generateResourceId(){
     .join("");
 }
 
+function showToast(message){
+  let toast = document.getElementById("appToast");
+  if(!toast){
+    toast = document.createElement("div");
+    toast.id = "appToast";
+    toast.className = "app-toast hidden";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.remove("hidden");
+  if(showToast.timer) clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => {
+    toast.classList.add("hidden");
+  }, 4500);
+}
+
 // ============================================================
 // DATA NORMALIZATION
 // ============================================================
@@ -2879,7 +2917,11 @@ function render(){
     editorSnapshot = "";
   }
 
-  if(view==="admin"){ safeRenderAdmin(); return; }
+  if(view==="admin"){
+    appView.innerHTML = "";
+    safeRenderAdmin();
+    return;
+  }
 
   appView.innerHTML="";
 
@@ -2896,6 +2938,16 @@ function render(){
     });
 
     appView.appendChild(grid);
+
+    const reloadWrap = document.createElement("div");
+    reloadWrap.className = "reload-resources-wrap";
+    const reloadBtn = document.createElement("button");
+    reloadBtn.type = "button";
+    reloadBtn.className = "button secondary";
+    reloadBtn.textContent = "Reload Resources";
+    reloadBtn.onclick = beginMergeImportPackage;
+    reloadWrap.appendChild(reloadBtn);
+    appView.appendChild(reloadWrap);
   }
 
   if(view==="category"){
@@ -3301,15 +3353,9 @@ function renderAdmin(){
   container.innerHTML = `
     <div style="margin-bottom:20px;">
       <div style="font-size:16px; color:#555; margin-bottom:7px;">
-        Use only if trained. These actions replace stored data.
+        Use only if trained. These actions manage stored data.
       </div>
-      <button class="button primary" onclick="exportPackage()">Save current resources to 'resource package'</button>
-
-      <input type="file" id="importFile" accept=".zip"
-        style="display:none"
-        onchange="importPackage(event)">
-
-      <button class="button" onclick="beginImportPackage()">Replace current resources with 'resource package'</button>
+      <button class="button primary" onclick="exportPackage()">Save Resource Package</button>
       ${undo ? `
         <button class="button" onclick="undoLastDeletion()">${escapeHTML(undoButtonLabel)}</button>
         <button class="button" onclick="clearUndoSnapshot(); safeRenderAdmin();">Clear undo</button>
@@ -3533,77 +3579,140 @@ async function clearAssets(){
   });
 }
 
-async function clearAllPDFs(){
-  return clearAssets();
+function cloneDataObject(value){
+  return JSON.parse(JSON.stringify(value || {}));
 }
 
-async function storeZipAssets(zip){
-  // Rebuilds IndexedDB assets from imported ZIP contents (PDF files only).
-  const files = Object.keys(zip.files);
-  await clearAllPDFs();
+function getValidTimestamp(value){
+  const timestamp = Date.parse(String(value || ""));
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
 
-  for(const path of files){
-    const entry = zip.file(path);
-    if(entry && path.toLowerCase().endsWith(".pdf")){
-      const blob = await entry.async("blob");
-      const pdfBlob = ensurePDFBlob(blob);
-      await savePDF(path, pdfBlob);
-    }
+function objectsDiffer(a, b){
+  return JSON.stringify(a || {}) !== JSON.stringify(b || {});
+}
+
+function chooseMergeObject(localItem, incomingItem){
+  if(!localItem && incomingItem) return { item:incomingItem, changed:true };
+  if(localItem && !incomingItem) return { item:localItem, changed:false };
+
+  const localTime = getValidTimestamp(localItem.lastModified);
+  const incomingTime = getValidTimestamp(incomingItem.lastModified);
+  const differs = objectsDiffer(localItem, incomingItem);
+
+  if(localTime !== null && incomingTime !== null){
+    return incomingTime > localTime
+      ? { item:incomingItem, changed:differs }
+      : { item:localItem, changed:false };
   }
+  if(localTime === null && incomingTime !== null) return { item:incomingItem, changed:differs };
+  if(localTime !== null && incomingTime === null) return { item:localItem, changed:false };
+  return differs
+    ? { item:incomingItem, changed:true }
+    : { item:localItem, changed:false };
 }
 
-function applyImportedData(imported){
-  // Final import handoff: normalize incoming JSON, replace in-memory state, persist.
-  if(imported && imported.resources){
-    imported.resources.forEach(r => normalizeResourceServices(r));
-  }
-  normalizeDataTagsShape(imported);
-  normalizeDataVerifiedOnShape(imported);
+function mergeItemsById(localItems, incomingItems){
+  const localList = Array.isArray(localItems) ? localItems : [];
+  const incomingList = Array.isArray(incomingItems) ? incomingItems : [];
+  const incomingById = new Map(incomingList.map(item => [String(item && item.id || ""), item]).filter(([id]) => id));
+  const seen = new Set();
+  const merged = [];
+  let added = 0;
+  let updated = 0;
 
-  data = imported;
-  persist();
-}
-
-function showTypedConfirm(message, requiredText){
-  return new Promise(resolve => {
-    const modal = document.getElementById("confirmModal");
-    const msg = document.getElementById("confirmMessage");
-    const input = document.getElementById("confirmInput");
-    const ok = document.getElementById("confirmOk");
-    const cancel = document.getElementById("confirmCancel");
-
-    msg.textContent = message + "\n\nType " + requiredText + " to continue:";
-    input.value = "";
-    modal.style.display = "flex";
-    input.focus();
-
-    function cleanup(result){
-      modal.style.display = "none";
-      ok.onclick = null;
-      cancel.onclick = null;
-      input.onkeydown = null;
-      resolve(result);
-    }
-
-    ok.onclick = () => {
-      if(input.value === requiredText){
-        cleanup(true);
-      }
-    };
-
-    cancel.onclick = () => cleanup(false);
-    input.onkeydown = (e) => {
-      if(e.key === "Enter"){
-        e.preventDefault();
-        ok.click();
-        return;
-      }
-      if(e.key === "Escape"){
-        e.preventDefault();
-        cleanup(false);
-      }
-    };
+  localList.forEach(localItem => {
+    const id = String(localItem && localItem.id || "");
+    if(!id) return;
+    const incomingItem = incomingById.get(id);
+    const choice = chooseMergeObject(localItem, incomingItem);
+    merged.push(cloneDataObject(choice.item));
+    seen.add(id);
+    if(incomingItem && choice.item === incomingItem && choice.changed) updated += 1;
   });
+
+  incomingList.forEach(incomingItem => {
+    const id = String(incomingItem && incomingItem.id || "");
+    if(!id || seen.has(id)) return;
+    merged.push(cloneDataObject(incomingItem));
+    seen.add(id);
+    added += 1;
+  });
+
+  return { merged, added, updated };
+}
+
+function mergeTagLists(localTags, incomingTags){
+  const merged = [];
+  const seen = new Set();
+  [...(Array.isArray(localTags) ? localTags : []), ...(Array.isArray(incomingTags) ? incomingTags : [])]
+    .map(tag => String(tag || "").trim())
+    .filter(Boolean)
+    .forEach(tag => {
+      const key = tag.toLowerCase();
+      if(seen.has(key)) return;
+      seen.add(key);
+      merged.push(tag);
+    });
+  return merged;
+}
+
+function normalizePackageData(nextData){
+  if(!nextData || typeof nextData !== "object") nextData = {};
+  if(!Array.isArray(nextData.categories)) nextData.categories = [];
+  if(!Array.isArray(nextData.resources)) nextData.resources = [];
+  normalizeDataServicesShape(nextData);
+  normalizeDataTagsShape(nextData);
+  normalizeDataVerifiedOnShape(nextData);
+  return nextData;
+}
+
+function mergeResourcePackages(localData, incomingData){
+  const local = normalizePackageData(cloneDataObject(localData));
+  const incoming = normalizePackageData(cloneDataObject(incomingData));
+  const categoryMerge = mergeItemsById(local.categories, incoming.categories);
+  const resourceMerge = mergeItemsById(local.resources, incoming.resources);
+  const resourceTags = resourceMerge.merged.flatMap(resource => Array.isArray(resource.tags) ? resource.tags : []);
+  const mergedData = {
+    ...local,
+    ...incoming,
+    categories: categoryMerge.merged,
+    resources: resourceMerge.merged,
+    tags: mergeTagLists(mergeTagLists(local.tags, incoming.tags), resourceTags)
+  };
+  normalizePackageData(mergedData);
+  return {
+    mergedData,
+    summary: {
+      categoriesAdded: categoryMerge.added,
+      categoriesUpdated: categoryMerge.updated,
+      resourcesAdded: resourceMerge.added,
+      resourcesUpdated: resourceMerge.updated
+    }
+  };
+}
+
+async function mergeZipAssets(zip, mergedData){
+  const pdfKeys = [...new Set(
+    (mergedData.resources || [])
+      .map(r => typeof r.pdf === "string" ? r.pdf.trim() : "")
+      .filter(Boolean)
+  )];
+
+  for(const key of pdfKeys){
+    const entry = zip.file(key);
+    if(entry && key.toLowerCase().endsWith(".pdf")){
+      const blob = await entry.async("blob");
+      await savePDF(key, blob);
+    }
+  }
+}
+
+function applyMergedData(mergedData){
+  normalizePackageData(mergedData);
+  data = mergedData;
+  persist();
+  safeRender();
 }
 
 async function beginResourcePackageSave(){
@@ -3658,12 +3767,6 @@ async function exportPackage(){
   // Exports package ZIP: tso-resources.json + any referenced PDF blobs.
   if(!commitPendingEditsIfChanged()) return;
 
-  const ok = await showTypedConfirm(
-    "This will open a save dialog for the resource package. If you choose an existing file, it will be overwritten.",
-    "save"
-  );
-  if(!ok) return;
-
   if(typeof JSZip === "undefined"){
     alert("ZIP support is unavailable. Reload the app and try again.");
     return;
@@ -3689,31 +3792,29 @@ async function exportPackage(){
 
     const blob = await zip.generateAsync({ type: "blob" });
     await saveResourcePackageBlob(saveTarget, blob);
-    alert("Resource package exported. Run embed-seed.sh to update embedded seed.");
+    showToast("Resource package saved");
   }catch(err){
     if(err && err.name === "AbortError") return;
     alert("Save failed: " + err.message);
   }
 }
 
-async function beginImportPackage(){
-  // Starts destructive import flow after explicit typed confirmation.
+function beginMergeImportPackage(){
+  // Opens a package ZIP picker for merge-based resource reload.
   if(!commitPendingEditsIfChanged()) return;
 
-  const ok = await showTypedConfirm(
-    "Be sure you want to do this. This will replace all your resources with a saved resource package.",
-    "load"
-  );
-  if(!ok) return;
-
-  const input = document.getElementById("importFile");
-  if(!input) return;
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".zip";
+  input.style.display = "none";
+  input.onchange = mergeImportPackage;
+  document.body.appendChild(input);
   input.value = "";
   input.click();
 }
 
 function validateImportData(imported){
-  // Validates imported tso-resources.json structure before replacing current data.
+  // Validates imported tso-resources.json structure before merging current data.
   const errors = [];
   const warnings = [];
 
@@ -3769,12 +3870,18 @@ function validateImportData(imported){
   };
 }
 
-async function importPackage(event){
-  // Imports package ZIP, validates JSON, stores PDFs, then swaps active dataset.
-  if(!commitPendingEditsIfChanged()) return;
+async function mergeImportPackage(event){
+  // Imports package ZIP, validates JSON, merges data, then stores referenced PDFs.
+  if(!commitPendingEditsIfChanged()){
+    event.target.remove();
+    return;
+  }
 
   const file = event.target.files && event.target.files[0];
-  if(!file) return;
+  if(!file){
+    event.target.remove();
+    return;
+  }
 
   try{
     if(typeof JSZip === "undefined"){
@@ -3799,40 +3906,36 @@ async function importPackage(event){
       return;
     }
 
-    if(report.warnings.length){
-      const proceed = confirm(
-        "Warnings detected:\n\n" +
-        report.warnings.join("\n") +
-        "\n\nContinue anyway?"
-      );
-      if(!proceed) return;
-    }
-
-    const confirmReplace = confirm(
-      "This will replace ALL current data. Continue?"
-    );
-    if(!confirmReplace) return;
-
-    const resources = data ? data.resources : undefined;
-    const resourcesWithPdf = (resources || [])
-      .filter(r => r.attachedPdf)
+    const localResourcesWithPdf = ((data && data.resources) || [])
+      .filter(r => typeof r.pdf === "string" && r.pdf.trim());
+    const { mergedData, summary } = mergeResourcePackages(data, imported);
+    const mergedById = new Map((mergedData.resources || []).map(r => [String(r && r.id || ""), r]));
+    const resourcesWithPdf = localResourcesWithPdf
+      .filter(r => {
+        const mergedResource = mergedById.get(String(r && r.id || ""));
+        return !mergedResource || mergedResource.pdf !== r.pdf;
+      })
       .map(r => r.name);
 
-    await storeZipAssets(zip);
-    applyImportedData(imported);
+    await mergeZipAssets(zip, mergedData);
+    applyMergedData(mergedData);
     if (resourcesWithPdf.length > 0) {
       alert(
         "The following PDFs were not preserved:\n\n" +
         resourcesWithPdf.map(name => `• ${name}`).join("\n")
       );
     }
-    alert("Package loaded.");
-    safeRender();
+    showToast(
+      "Reload complete\n" +
+      `Categories: +${summary.categoriesAdded} added, ${summary.categoriesUpdated} updated\n` +
+      `Resources: +${summary.resourcesAdded} added, ${summary.resourcesUpdated} updated`
+    );
   }catch(e){
     alert("Load failed: " + e.message);
   }finally{
     // allow re-import of same filename
     event.target.value = "";
+    event.target.remove();
   }
 }
 
@@ -5156,15 +5259,5 @@ safeRender();
 
 </script>
 <!-- ===== APP JS END ===== -->
-<div id="confirmModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:10000; align-items:center; justify-content:center;">
-  <div style="background:#fff; padding:16px; border-radius:8px; max-width:400px; width:90%;">
-    <div id="confirmMessage" style="margin-bottom:12px; white-space:pre-line;"></div>
-    <input id="confirmInput" type="text" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
-    <div style="display:flex; justify-content:flex-end; gap:8px;">
-      <button id="confirmCancel" class="button">Cancel</button>
-      <button id="confirmOk" class="button primary">Confirm</button>
-    </div>
-  </div>
-</div>
 </body>
 </html>
