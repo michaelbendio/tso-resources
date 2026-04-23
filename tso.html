@@ -3813,8 +3813,19 @@ async function importPackage(event){
     );
     if(!confirmReplace) return;
 
+    const resources = data ? data.resources : undefined;
+    const resourcesWithPdf = (resources || [])
+      .filter(r => r.attachedPdf)
+      .map(r => r.name);
+
     await storeZipAssets(zip);
     applyImportedData(imported);
+    if (resourcesWithPdf.length > 0) {
+      alert(
+        "The following PDFs were not preserved:\n\n" +
+        resourcesWithPdf.map(name => `• ${name}`).join("\n")
+      );
+    }
     alert("Package loaded.");
     safeRender();
   }catch(e){
