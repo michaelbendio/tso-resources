@@ -4148,7 +4148,7 @@ async function mergeImportPackage(event){
     const localResourcesWithPdf = ((data && data.resources) || [])
       .map(r => ({ resource:r, paths:collectPDFPathsFromResource(r) }))
       .filter(item => item.paths.length);
-    const { mergedData, summary } = mergeResourcePackages(data, imported);
+    const { mergedData } = mergeResourcePackages(data, imported);
     const mergedById = new Map((mergedData.resources || []).map(r => [String(r && r.id || ""), r]));
     const resourcesWithPdf = localResourcesWithPdf
       .filter(item => {
@@ -4175,12 +4175,12 @@ async function mergeImportPackage(event){
     }
     if(warningBlocks.length){
       alert(warningBlocks.join("\n\n"));
+    }else{
+      showToast(
+        "Resources loaded successfully.\n" +
+        "You may now delete tso-resource-package.zip if desired."
+      );
     }
-    showToast(
-      "Reload complete\n" +
-      `Categories: +${summary.categoriesAdded} added, ${summary.categoriesUpdated} updated\n` +
-      `Resources: +${summary.resourcesAdded} added, ${summary.resourcesUpdated} updated`
-    );
   }catch(e){
     alert("Load failed: " + e.message);
   }finally{
