@@ -2225,7 +2225,7 @@ function renderServicesHTML(text){
 const seed = JSON.parse(document.getElementById("seed-data").textContent);
 // Main persisted app data snapshot (categories/resources/tags + metadata).
 let data = JSON.parse(localStorage.getItem("tsoData") || "null");
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
 const DEBUG = new URLSearchParams(location.search).has("debug");
 
 if(!data){
