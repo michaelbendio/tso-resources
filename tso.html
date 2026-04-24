@@ -118,6 +118,8 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 .verified-warning { color:#aa0000; font-size:13px; margin-top:4px; min-height:1.1em; }
 .tag-controls-row { margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 .assigned-tags-line { font-size:14px; }
+.pdf-attachments-list { margin:6px 0 8px; display:grid; gap:6px; }
+.pdf-attachment-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 .reload-resources-wrap { margin-top:16px; text-align:right; }
 .reload-resources-wrap .button { font-size:14px; padding:7px 10px; }
 .app-toast {
@@ -1825,6 +1827,36 @@ function generateResourceId(){
     .join("");
 }
 
+function filenameFromPath(path){
+  const clean = String(path || "").split(/[?#]/)[0];
+  return clean.split("/").filter(Boolean).pop() || "";
+}
+
+function safePDFFileName(name){
+  const fallback = "attachment.pdf";
+  const base = filenameFromPath(name) || fallback;
+  const safe = base.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || fallback;
+  return /\.pdf$/i.test(safe) ? safe : `${safe}.pdf`;
+}
+
+function stablePDFIdFromPath(path, fallback = "pdf"){
+  const text = String(path || fallback);
+  let hash = 2166136261;
+  for(let i = 0; i < text.length; i += 1){
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `pdf-${(hash >>> 0).toString(16)}`;
+}
+
+function pdfNameFromPath(path){
+  return filenameFromPath(path) || "PDF";
+}
+
+function buildPDFStoragePath(resourceId, attachmentId, fileName){
+  return `pdfs/${encodeURIComponent(resourceId || "resource")}/${attachmentId}-${safePDFFileName(fileName)}`;
+}
+
 function showToast(message){
   let toast = document.getElementById("appToast");
   if(!toast){
@@ -1880,9 +1912,48 @@ function normalizeResourceVerifiedOn(r){
   if("verifiedDate" in r) delete r.verifiedDate;
 }
 
+function normalizeResourcePDFs(r){
+  // Canonical: pdfs array of { id, name, path }. Legacy pdf path is preserved.
+  if(!r || typeof r !== "object") return;
+  const attachments = [];
+  const seenPaths = new Set();
+
+  if(Array.isArray(r.pdfs)){
+    r.pdfs.forEach((pdf, index) => {
+      if(!pdf || typeof pdf !== "object") return;
+      const path = typeof pdf.path === "string" ? pdf.path.trim() : "";
+      if(!path || seenPaths.has(path)) return;
+      seenPaths.add(path);
+      const id = String(pdf.id || "").trim() || stablePDFIdFromPath(`${path}:${index}`);
+      attachments.push({
+        id,
+        name: String(pdf.name || pdfNameFromPath(path)).trim() || "PDF",
+        path
+      });
+    });
+  }
+
+  const legacyPath = typeof r.pdf === "string" ? r.pdf.trim() : "";
+  if(legacyPath && !seenPaths.has(legacyPath)){
+    attachments.push({
+      id: stablePDFIdFromPath(legacyPath),
+      name: pdfNameFromPath(legacyPath),
+      path: legacyPath
+    });
+  }
+
+  r.pdfs = attachments;
+  if(typeof r.pdf !== "string" && "pdf" in r) delete r.pdf;
+}
+
 function normalizeDataServicesShape(data){
   if(!data.resources) return;
   data.resources.forEach(normalizeResourceServices);
+}
+
+function normalizeDataPDFShape(nextData){
+  if(!nextData || !Array.isArray(nextData.resources)) return;
+  nextData.resources.forEach(normalizeResourcePDFs);
 }
 
 function normalizeDataVerifiedOnShape(nextData){
@@ -2041,6 +2112,63 @@ function normalizeDataTagsShape(nextData){
   });
 }
 
+function getResourcePDFs(resource){
+  normalizeResourcePDFs(resource);
+  return Array.isArray(resource.pdfs) ? resource.pdfs : [];
+}
+
+function collectPDFPathsFromResource(resource, { includeLegacy = true } = {}){
+  if(!resource || typeof resource !== "object") return [];
+  const paths = [];
+  const seen = new Set();
+  getResourcePDFs(resource).forEach(pdf => {
+    const path = typeof pdf.path === "string" ? pdf.path.trim() : "";
+    if(!path || seen.has(path)) return;
+    seen.add(path);
+    paths.push(path);
+  });
+  if(includeLegacy && typeof resource.pdf === "string"){
+    const legacyPath = resource.pdf.trim();
+    if(legacyPath && !seen.has(legacyPath)) paths.push(legacyPath);
+  }
+  return paths;
+}
+
+function collectPDFPathsFromResources(resources){
+  const paths = [];
+  const seen = new Set();
+  (Array.isArray(resources) ? resources : []).forEach(resource => {
+    collectPDFPathsFromResource(resource).forEach(path => {
+      if(seen.has(path)) return;
+      seen.add(path);
+      paths.push(path);
+    });
+  });
+  return paths;
+}
+
+function removePDFAttachmentFromResource(resource, pdfId){
+  if(!resource || typeof resource !== "object") return null;
+  normalizeResourcePDFs(resource);
+  const removed = resource.pdfs.find(pdf => pdf.id === pdfId);
+  if(!removed) return null;
+  resource.pdfs = resource.pdfs.filter(pdf => pdf.id !== pdfId);
+  if(typeof resource.pdf === "string" && resource.pdf.trim() === removed.path){
+    delete resource.pdf;
+  }
+  return removed;
+}
+
+function isPDFPathReferencedInResources(resources, path){
+  const key = String(path || "").trim();
+  if(!key) return false;
+  return (Array.isArray(resources) ? resources : []).some(resource => collectPDFPathsFromResource(resource).includes(key));
+}
+
+function isPDFPathReferenced(path){
+  return isPDFPathReferencedInResources(data.resources || [], path);
+}
+
 function applyServicesBold(escapedText){
   return escapedText.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
 }
@@ -2098,6 +2226,7 @@ function renderServicesHTML(text){
 const seed = JSON.parse(document.getElementById("seed-data").textContent);
 // Main persisted app data snapshot (categories/resources/tags + metadata).
 let data = JSON.parse(localStorage.getItem("tsoData") || "null");
+const APP_VERSION = "1.0";
 const DEBUG = new URLSearchParams(location.search).has("debug");
 
 if(!data){
@@ -2106,8 +2235,10 @@ if(!data){
 }
 
 normalizeDataServicesShape(data);
+normalizeDataPDFShape(data);
 normalizeDataTagsShape(data);
 normalizeDataVerifiedOnShape(data);
+data.appVersion = APP_VERSION;
 
 // Favorites persist separately to keep starring lightweight across views.
 let favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
@@ -2181,6 +2312,12 @@ function assertInvariants(context = "invariant check"){
     ids.add(id);
 
     if(!Array.isArray(resource.tags)) throw new Error(`${context}: resource '${id}' tags must be an array`);
+    if(!Array.isArray(resource.pdfs)) throw new Error(`${context}: resource '${id}' pdfs must be an array`);
+    resource.pdfs.forEach((pdf, pdfIdx) => {
+      if(!pdf || typeof pdf !== "object") throw new Error(`${context}: resource '${id}' pdf ${pdfIdx} must be an object`);
+      if(!pdf.id) throw new Error(`${context}: resource '${id}' pdf ${pdfIdx} is missing id`);
+      if(!pdf.path) throw new Error(`${context}: resource '${id}' pdf ${pdfIdx} is missing path`);
+    });
     const tagSet = new Set(data.tags || []);
     resource.tags.forEach(tag => {
       if(!tagSet.has(tag)) throw new Error(`${context}: resource '${id}' tag '${tag}' is not in data.tags`);
@@ -2406,6 +2543,88 @@ function runSelfTests(){
     }
   });
 
+  tests.push({
+    name: "LEGACY PDF NORMALIZATION",
+    fn: () => {
+      const resource = { id:"legacy-pdf", pdf:"assets/forms/intake.pdf" };
+      normalizeResourcePDFs(resource);
+      if(!Array.isArray(resource.pdfs) || resource.pdfs.length !== 1){
+        throw new Error("legacy pdf was not migrated into pdfs[]");
+      }
+      if(resource.pdfs[0].path !== "assets/forms/intake.pdf"){
+        throw new Error("legacy pdf path was not preserved");
+      }
+      if(resource.pdfs[0].name !== "intake.pdf"){
+        throw new Error(`expected filename label, got '${resource.pdfs[0].name}'`);
+      }
+      const once = JSON.stringify(resource.pdfs);
+      normalizeResourcePDFs(resource);
+      if(JSON.stringify(resource.pdfs) !== once){
+        throw new Error("PDF normalization is not idempotent");
+      }
+    }
+  });
+
+  tests.push({
+    name: "MULTIPLE PDF EXPORT KEYS",
+    fn: () => {
+      const keys = collectPDFPathsFromResources([{
+        id:"multi-pdf",
+        pdf:"assets/legacy.pdf",
+        pdfs:[
+          { id:"a", name:"A", path:"pdfs/multi/a-a.pdf" },
+          { id:"b", name:"B", path:"pdfs/multi/b-b.pdf" },
+          { id:"dup", name:"Dup", path:"assets/legacy.pdf" }
+        ]
+      }]);
+      const expected = ["pdfs/multi/a-a.pdf", "pdfs/multi/b-b.pdf", "assets/legacy.pdf"];
+      if(JSON.stringify(keys) !== JSON.stringify(expected)){
+        throw new Error(`unexpected export keys: ${JSON.stringify(keys)}`);
+      }
+    }
+  });
+
+  tests.push({
+    name: "MULTIPLE PDF BUTTON RENDERING",
+    fn: () => {
+      const card = buildResourceCard({
+        id:"render-pdfs",
+        name:"Render PDFs",
+        pdfs:[
+          { id:"one", name:"First form", path:"pdfs/render/one.pdf" },
+          { id:"two", name:"Second form", path:"pdfs/render/two.pdf" }
+        ],
+        servicesText:"",
+        tags:[]
+      }, { expanded:true });
+      const buttons = card.querySelectorAll(".resource-pdf-button");
+      if(buttons.length !== 2) throw new Error(`expected 2 PDF buttons, got ${buttons.length}`);
+      if(buttons[0].textContent !== "First form" || buttons[1].textContent !== "Second form"){
+        throw new Error("PDF button labels were not rendered from attachment names");
+      }
+    }
+  });
+
+  tests.push({
+    name: "REMOVE ONE PDF PRESERVES OTHERS",
+    fn: () => {
+      const resource = {
+        id:"remove-pdf",
+        pdfs:[
+          { id:"one", name:"One", path:"pdfs/remove/one.pdf" },
+          { id:"two", name:"Two", path:"pdfs/remove/two.pdf" }
+        ]
+      };
+      const removed = removePDFAttachmentFromResource(resource, "one");
+      if(!removed || removed.path !== "pdfs/remove/one.pdf"){
+        throw new Error("target PDF was not removed");
+      }
+      if(resource.pdfs.length !== 1 || resource.pdfs[0].path !== "pdfs/remove/two.pdf"){
+        throw new Error("unrelated PDF was removed");
+      }
+    }
+  });
+
   const results = tests.map(test => {
     try{
       test.fn();
@@ -2489,6 +2708,7 @@ if(appTitle){
 function buildResourceCard(res,{expanded=false,showDescription=false,showStar=true}={}){
   // Shared DOM builder used by category view, favorites view, and print previews.
   normalizeResourceServices(res);
+  normalizeResourcePDFs(res);
 
   const card=document.createElement("div");
   card.className="resource-card";
@@ -2510,22 +2730,33 @@ function buildResourceCard(res,{expanded=false,showDescription=false,showStar=tr
   details.className="resource-details "+(expanded?"expanded":"collapsed");
 
   let html="";
-  const pdfPath = typeof res.pdf === "string" ? res.pdf.trim() : "";
+  const pdfs = getResourcePDFs(res);
   const websiteURL = normalizeWebsiteURL(res.website);
   if(res.phone) html+=`<div><strong>Phone:</strong> <a href="tel:${res.phone}">${res.phone}</a></div>`;
   if(res.address) html+=`<div><strong>Address:</strong> ${escapeHTML(res.address)}</div>`;
   if(websiteURL) html+=`<div><strong>Website:</strong> <a href="${websiteURL}" target="_blank">${res.website}</a></div>`;
-  if(pdfPath) html+=`<div><button type="button" class="button resource-pdf-button">Open PDF</button></div>`;
+  if(pdfs.length === 1){
+    const label = pdfs[0].name && pdfs[0].name !== "PDF" ? pdfs[0].name : "Open PDF";
+    html+=`<div><button type="button" class="button resource-pdf-button" data-pdf-index="0">${escapeHTML(label)}</button></div>`;
+  }
+  if(pdfs.length > 1){
+    html+=`<div><strong>PDFs:</strong><div class="pdf-attachments-list">`;
+    pdfs.forEach((pdf, index) => {
+      html+=`<button type="button" class="button resource-pdf-button" data-pdf-index="${index}">${escapeHTML(pdf.name || "PDF")}</button>`;
+    });
+    html+=`</div></div>`;
+  }
   if(res.servicesText) html+=`<div><strong>Services:</strong><div class="services-rendered">${renderServicesHTML(res.servicesText)}</div></div>`;
 
   details.innerHTML=html;
-  if(pdfPath){
-    const btn = details.querySelector(".resource-pdf-button");
-    if(btn) btn.onclick = async e => {
+  details.querySelectorAll(".resource-pdf-button").forEach(btn => {
+    btn.onclick = async e => {
       e.stopPropagation();
-      await openPDF(pdfPath);
+      const index = Number(btn.dataset.pdfIndex);
+      const pdf = pdfs[index];
+      if(pdf && pdf.path) await openPDF(pdf.path);
     };
-  }
+  });
   main.appendChild(details);
   card.appendChild(main);
   return card;
@@ -2699,6 +2930,7 @@ function undoLastDeletion(){
   if(!snapshot || !snapshot.dataSnapshot) return;
       data = snapshot.dataSnapshot;
       normalizeDataServicesShape(data);
+      normalizeDataPDFShape(data);
       normalizeDataTagsShape(data);
       normalizeDataVerifiedOnShape(data);
   adminCheckedTags = [];
@@ -3397,11 +3629,12 @@ function renderAdmin(){
 // Storage split:
 // - localStorage keeps the primary JSON snapshot ("tsoData").
 // - IndexedDB keeps binary assets (PDF blobs) under string keys.
-// - resource.pdf stores that key/path, not PDF bytes.
+// - resource.pdfs stores PDF metadata; resource.pdf remains legacy-compatible.
 
 function persist(){
   // Writes the canonical JSON snapshot used to restore app state on reload.
   if(DEBUG) assertInvariants("persist");
+  data.appVersion = APP_VERSION;
   data.lastModified = nowISO();
   localStorage.setItem("tsoData", JSON.stringify(data));
 }
@@ -3511,7 +3744,7 @@ async function savePDF(key, blob){
 }
 
 async function getPDF(key){
-  // Lookup PDF blob by the key/path stored in resource.pdf.
+  // Lookup PDF blob by the key/path stored in resource.pdfs[].path.
   return getAsset(key);
 }
 
@@ -3670,6 +3903,7 @@ function normalizePackageData(nextData){
   if(!Array.isArray(nextData.categories)) nextData.categories = [];
   if(!Array.isArray(nextData.resources)) nextData.resources = [];
   normalizeDataServicesShape(nextData);
+  normalizeDataPDFShape(nextData);
   normalizeDataTagsShape(nextData);
   normalizeDataVerifiedOnShape(nextData);
   return nextData;
@@ -3701,19 +3935,23 @@ function mergeResourcePackages(localData, incomingData){
 }
 
 async function mergeZipAssets(zip, mergedData){
-  const pdfKeys = [...new Set(
-    (mergedData.resources || [])
-      .map(r => typeof r.pdf === "string" ? r.pdf.trim() : "")
-      .filter(Boolean)
-  )];
+  const pdfKeys = collectPDFPathsFromResources(mergedData.resources);
+  const missing = [];
 
   for(const key of pdfKeys){
     const entry = zip.file(key);
     if(entry && key.toLowerCase().endsWith(".pdf")){
       const blob = await entry.async("blob");
       await savePDF(key, blob);
+    }else{
+      let existing = null;
+      try{
+        existing = await getPDF(key);
+      }catch(_err){}
+      if(!existing) missing.push(key);
     }
   }
+  return missing;
 }
 
 function applyMergedData(mergedData){
@@ -3785,11 +4023,7 @@ async function exportPackage(){
     const zip = new JSZip();
     zip.file("tso-resources.json", JSON.stringify(data, null, 2));
 
-    const pdfKeys = [...new Set(
-      data.resources
-        .map(r => typeof r.pdf === "string" ? r.pdf.trim() : "")
-        .filter(Boolean)
-    )];
+    const pdfKeys = collectPDFPathsFromResources(data.resources);
 
     for(const key of pdfKeys){
       const blob = await getPDF(key);
@@ -3913,25 +4147,38 @@ async function mergeImportPackage(event){
       );
       return;
     }
+    normalizePackageData(imported);
 
     const localResourcesWithPdf = ((data && data.resources) || [])
-      .filter(r => typeof r.pdf === "string" && r.pdf.trim());
+      .map(r => ({ resource:r, paths:collectPDFPathsFromResource(r) }))
+      .filter(item => item.paths.length);
     const { mergedData, summary } = mergeResourcePackages(data, imported);
     const mergedById = new Map((mergedData.resources || []).map(r => [String(r && r.id || ""), r]));
     const resourcesWithPdf = localResourcesWithPdf
-      .filter(r => {
-        const mergedResource = mergedById.get(String(r && r.id || ""));
-        return !mergedResource || mergedResource.pdf !== r.pdf;
+      .filter(item => {
+        const mergedResource = mergedById.get(String(item.resource && item.resource.id || ""));
+        const mergedPaths = new Set(collectPDFPathsFromResource(mergedResource));
+        return item.paths.some(path => !mergedPaths.has(path));
       })
-      .map(r => r.name);
+      .map(item => item.resource.name);
 
-    await mergeZipAssets(zip, mergedData);
+    const missingPdfPaths = await mergeZipAssets(zip, mergedData);
     applyMergedData(mergedData);
-    if (resourcesWithPdf.length > 0) {
-      alert(
+    const warningBlocks = [];
+    if(resourcesWithPdf.length > 0){
+      warningBlocks.push(
         "The following PDFs were not preserved:\n\n" +
         resourcesWithPdf.map(name => `• ${name}`).join("\n")
       );
+    }
+    if(missingPdfPaths.length > 0){
+      warningBlocks.push(
+        "The package referenced PDF files that were not found in the zip:\n\n" +
+        missingPdfPaths.map(path => `• ${path}`).join("\n")
+      );
+    }
+    if(warningBlocks.length){
+      alert(warningBlocks.join("\n\n"));
     }
     showToast(
       "Reload complete\n" +
@@ -3989,9 +4236,9 @@ function resourceEditorDraft(){
   if(!nameEl || !phoneEl || !addressEl || !websiteEl || !hoursEl || !descEl || !servicesEl) return null;
   const verifiedEl = document.getElementById("res_verified_on");
   const verifiedOn = verifiedEl ? verifiedEl.value.trim() : "";
-  const pdf = editing?.kind === "resource"
-    ? (data.resources[editing.idx]?.pdf || "")
-    : "";
+  const pdfs = editing?.kind === "resource"
+    ? getResourcePDFs(data.resources[editing.idx]).map(pdf => ({ ...pdf }))
+    : [];
 
   const tags = Array.from(document.querySelectorAll(".resTag"))
     .filter(cb => cb.checked)
@@ -4006,7 +4253,7 @@ function resourceEditorDraft(){
     hours: hoursEl.value.trim(),
     description: descEl.value,
     servicesText: servicesEl.value,
-    pdf,
+    pdfs,
     verifiedOn,
     categories: Array.from(document.querySelectorAll(".resCat"))
       .filter(cb=>cb.checked)
@@ -4240,7 +4487,11 @@ function applyResourceDraft(idx, draft){
   // Apply validated resource draft into canonical data model.
   const res = data.resources[idx];
   if(!res) return;
-  res.pdf = draft.pdf || "";
+  res.pdfs = Array.isArray(draft.pdfs) ? draft.pdfs.map(pdf => ({ ...pdf })) : [];
+  normalizeResourcePDFs(res);
+  if(typeof res.pdf === "string" && !res.pdfs.some(pdf => pdf.path === res.pdf.trim())){
+    delete res.pdf;
+  }
   res.name = draft.name || res.name;
   res.phone = draft.phone;
   res.address = draft.address;
@@ -4734,7 +4985,7 @@ function newResource(){
     id: generateResourceId(),
     name: "",
     description: "",
-    pdf: "",
+    pdfs: [],
     servicesText: "",
     tags: [],
     verifiedOn: null
@@ -4942,7 +5193,7 @@ function editResource(idx){
 
   normalizeResourceServices(res);
   normalizeResourceVerifiedOn(res);
-  res.pdf = typeof res.pdf === "string" ? res.pdf : "";
+  normalizeResourcePDFs(res);
   if(!Array.isArray(res.tags)) res.tags = [];
   const verifiedDisplay = formatVerifiedOnForDisplay(res.verifiedOn);
   const assignedTagsLine = res.tags.length ? res.tags.join(", ") : "(none)";
@@ -5059,20 +5310,22 @@ function editResource(idx){
   const manageTagsBtn = document.getElementById("res_manage_tags_btn");
   const assignTagsBtn = document.getElementById("res_assign_tags_btn");
   const servicesBlock = servicesEl ? servicesEl.parentElement : null;
+  const pdfs = getResourcePDFs(res);
   const pdfSection = document.createElement("div");
   pdfSection.style.marginBottom = "12px";
-
-  if(res.pdf){
-    pdfSection.innerHTML = `
-      <div><strong>PDF:</strong> ${escapeHTML(res.pdf)}</div>
-      <button class="button" type="button" id="removePdfBtn">Remove PDF</button>
-    `;
-  }else{
-    pdfSection.innerHTML = `
-      <input type="file" id="pdfPicker" accept="application/pdf" style="display:none">
-      <button class="button" type="button" id="attachPdfBtn">Attach PDF</button>
-    `;
-  }
+  pdfSection.innerHTML = `
+    <div><strong>PDF attachments</strong></div>
+    <div class="pdf-attachments-list">
+      ${pdfs.length ? pdfs.map(pdf => `
+        <div class="pdf-attachment-row">
+          <span>${escapeHTML(pdf.name || "PDF")}</span>
+          <button class="button" type="button" data-remove-pdf-id="${escapeHTML(pdf.id)}">Remove PDF</button>
+        </div>
+      `).join("") : `<div>No PDFs attached.</div>`}
+    </div>
+    <input type="file" id="pdfPicker" accept="application/pdf" multiple style="display:none">
+    <button class="button" type="button" id="attachPdfBtn">Attach PDF</button>
+  `;
   if(servicesBlock){
     editor.insertBefore(pdfSection, servicesBlock);
   }else{
@@ -5124,41 +5377,52 @@ function editResource(idx){
     verifiedInput.addEventListener("input", updateVerifiedDisplayAndWarning);
   }
 
-  if(!res.pdf){
-    const picker = document.getElementById("pdfPicker");
-    const attachPdfBtn = document.getElementById("attachPdfBtn");
-    if(attachPdfBtn && picker) attachPdfBtn.onclick = () => picker.click();
-    if(picker) picker.onchange = async e => {
-      const file = e.target.files && e.target.files[0];
-      if(!file) return;
-      if(!commitPendingEditsIfChanged()) return;
+  const picker = document.getElementById("pdfPicker");
+  const attachPdfBtn = document.getElementById("attachPdfBtn");
+  if(attachPdfBtn && picker) attachPdfBtn.onclick = () => picker.click();
+  if(picker) picker.onchange = async e => {
+    const files = Array.from((e.target.files || [])).filter(file => file && (/\.pdf$/i.test(file.name) || file.type === "application/pdf"));
+    if(!files.length) return;
+    if(!commitPendingEditsIfChanged()) return;
 
-      const key = "assets/" + file.name;
-      try{
+    const current = data.resources[idx];
+    if(!current) return;
+    normalizeResourcePDFs(current);
+    try{
+      for(const file of files){
+        const id = generateResourceId();
+        const key = buildPDFStoragePath(current.id, id, file.name);
         await savePDF(key, file);
-        res.pdf = key;
-        res.lastModified = nowISO();
-        persist();
-        editResource(idx);
-      }catch(err){
-        alert("Unable to attach PDF: " + err.message);
+        current.pdfs.push({ id, name:file.name || "PDF", path:key });
       }
-    };
-  }else{
-    const removePdfBtn = document.getElementById("removePdfBtn");
-    if(removePdfBtn) removePdfBtn.onclick = async () => {
+      current.lastModified = nowISO();
+      persist();
+      editResource(idx);
+    }catch(err){
+      alert("Unable to attach PDF: " + err.message);
+    }
+  };
+
+  pdfSection.querySelectorAll("[data-remove-pdf-id]").forEach(btn => {
+    btn.onclick = async () => {
       if(!commitPendingEditsIfChanged()) return;
+      const current = data.resources[idx];
+      if(!current) return;
+      const pdfId = btn.getAttribute("data-remove-pdf-id");
+      const removed = removePDFAttachmentFromResource(current, pdfId);
+      if(!removed) return;
       try{
-        await deletePDF(res.pdf);
-        delete res.pdf;
-        res.lastModified = nowISO();
+        current.lastModified = nowISO();
         persist();
+        if(!isPDFPathReferenced(removed.path)){
+          await deletePDF(removed.path);
+        }
         editResource(idx);
       }catch(err){
         alert("Unable to remove PDF: " + err.message);
       }
     };
-  }
+  });
 
   function validateEditorState(){
     const draft = resourceEditorDraft();
