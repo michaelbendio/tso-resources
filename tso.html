@@ -2235,8 +2235,9 @@ function renderServicesHTML(text){
 const seed = JSON.parse(document.getElementById("seed-data").textContent);
 // Main persisted app data snapshot (categories/resources + metadata).
 let data = JSON.parse(localStorage.getItem("tsoData") || "null");
-const APP_VERSION = "1.2";
+const APP_VERSION = "1.3";
 const DEBUG = new URLSearchParams(location.search).has("debug");
+const UPDATE_SEEN_STORAGE_KEY = "tsoRecentUpdatesSeen";
 
 if(!data){
   data = seed;
@@ -2247,6 +2248,7 @@ normalizeDataServicesShape(data);
 normalizeDataPDFShape(data);
 normalizeDataTagsShape(data);
 normalizeDataVerifiedOnShape(data);
+if(!Array.isArray(data.changeLog)) data.changeLog = [];
 data.appVersion = APP_VERSION;
 
 // Favorites persist separately to keep starring lightweight across views.
@@ -2268,6 +2270,8 @@ let editing = null;
 let editorSnapshot = "";
 let categoryTagFilters = {}; // categoryId -> [tag, ...]
 const UNDO_STORAGE_KEY = "tsoUndo";
+let pendingRecentUpdates = [];
+let recentUpdateDetail = null;
 
 // ============================================================
 // SAFETY HARNESS
@@ -2416,6 +2420,38 @@ if(appErrorDismiss){
 
 function runSelfTests(){
   const tests = [];
+
+  tests.push({
+    name: "CHANGE LOG NORMALIZATION",
+    fn: () => {
+      const sample = {};
+      if(!Array.isArray(sample.changeLog)) sample.changeLog = [];
+      if(!Array.isArray(sample.changeLog)) throw new Error("changeLog should normalize to array");
+    }
+  });
+
+  tests.push({
+    name: "RESOURCE UPDATE DETECTION",
+    fn: () => {
+      const fields = meaningfulResourceDiff(
+        { id:"a", name:"A", phone:"1", categories:["x"] },
+        { id:"a", name:"A2", phone:"1", categories:["x","y"] }
+      );
+      if(!fields.includes("name") || !fields.includes("categories")){
+        throw new Error("meaningful diff missed expected fields");
+      }
+    }
+  });
+
+  tests.push({
+    name: "SEEN STATE STORAGE",
+    fn: () => {
+      const seen = new Set(["one","two"]);
+      saveSeenUpdateIds(seen);
+      const loaded = getSeenUpdateIds();
+      if(!loaded.has("one") || !loaded.has("two")) throw new Error("seen ids were not persisted");
+    }
+  });
 
   tests.push({
     name: "DATA STRUCTURE",
@@ -2739,8 +2775,29 @@ tabAdmin.onclick = ()=>{ setView("admin"); };
 const appTitle = document.getElementById("appTitle");
 if(appTitle){
   appTitle.onclick = () => {
-    alert(`TSO Resources version ${APP_VERSION}`);
+    view = "recent-updates";
+    const seen = getSeenUpdateIds();
+    (data.changeLog || []).forEach(entry => seen.add(String(entry.id)));
+    saveSeenUpdateIds(seen);
+    safeRender();
   };
+}
+
+function getUnseenUpdates(){
+  const seen = getSeenUpdateIds();
+  return (data.changeLog || []).filter(entry => !seen.has(String(entry.id)));
+}
+
+function getCategoryUpdateMap(){
+  const map = new Map();
+  getUnseenUpdates().forEach(entry => {
+    const res = data.resources.find(r => r.id === entry.resourceId);
+    (res?.categories || []).forEach(catId => {
+      if(!map.has(catId)) map.set(catId, []);
+      map.get(catId).push(entry);
+    });
+  });
+  return map;
 }
 
 // ============================================================
@@ -2936,13 +2993,21 @@ function render(){
   appView.innerHTML="";
 
   if(view==="categories"){
+    if(pendingRecentUpdates.length){
+      const note = document.createElement("div");
+      note.className = "category-card";
+      note.innerHTML = `<strong>Recent Updates</strong><div>${pendingRecentUpdates.length} new updates loaded.</div><div>Click TSO Resources at any time to review recent updates.</div>`;
+      appView.appendChild(note);
+    }
     const grid=document.createElement("div");
     grid.className="grid";
+    const updatesByCategory = getCategoryUpdateMap();
 
     data.categories.slice().sort((a,b)=>(a.displayOrder??999)-(b.displayOrder??999)).forEach(cat=>{
       const card=document.createElement("div");
       card.className="category-card";
-      card.innerHTML=`<strong>${cat.label}</strong>`;
+      const updates = updatesByCategory.get(cat.id) || [];
+      card.innerHTML=`<strong>${cat.label}</strong>${updates.length ? `<div class="tag">Updates: ${updates.map(u=>escapeHTML(u.resourceName)).join(", ")}</div>` : ""}`;
       card.onclick=()=>{ currentCategory=cat.id; view="category"; safeRender(); };
       grid.appendChild(card);
     });
@@ -2983,6 +3048,15 @@ function render(){
       title.style.fontSize = "1.2em";
       title.style.marginBottom = "12px";
       appView.appendChild(title);
+    }
+    const unseen = getUnseenUpdates().filter(entry => {
+      const res = data.resources.find(r => r.id === entry.resourceId);
+      return (res?.categories || []).includes(currentCategory);
+    });
+    if(unseen.length){
+      const seen = getSeenUpdateIds();
+      unseen.forEach(entry => seen.add(String(entry.id)));
+      saveSeenUpdateIds(seen);
     }
 
     const categoryTags = getCategoryTagOptions(currentCategory);
@@ -3052,6 +3126,21 @@ function render(){
     filtered.forEach(res=>{
       let expanded=false;
       const card=buildResourceCard(res,{showDescription:true});
+      const resourceUpdates = getUnseenUpdates().filter(entry => entry.resourceId === res.id);
+      if(resourceUpdates.length){
+        const badge = document.createElement("button");
+        badge.className = "button secondary";
+        badge.textContent = resourceUpdates.some(u => u.changeType === "new") ? "New" : "Updated";
+        badge.onclick = e => {
+          e.stopPropagation();
+          recentUpdateDetail = resourceUpdates[0];
+          const seen = getSeenUpdateIds();
+          resourceUpdates.forEach(entry => seen.add(String(entry.id)));
+          saveSeenUpdateIds(seen);
+          safeRender();
+        };
+        card.prepend(badge);
+      }
       card.onclick=()=>{
         expanded=!expanded;
         const d=card.querySelector(".resource-details");
@@ -3061,6 +3150,27 @@ function render(){
       appView.appendChild(card);
     });
     }
+
+  if(view==="recent-updates"){
+    const entries = (data.changeLog || []).slice().sort((a,b)=>String(b.changedAt||"").localeCompare(String(a.changedAt||"")));
+    appView.innerHTML = `<div class="category-card"><strong>Recent Updates</strong><div>App version: ${escapeHTML(data.appVersion || APP_VERSION)}</div><div>Last modified: ${escapeHTML(data.lastModified || "(none)")}</div></div>`;
+    if(!entries.length){
+      appView.innerHTML += `<p>No recent updates.</p>`;
+    }else{
+      entries.forEach(entry => {
+        const card = document.createElement("div");
+        card.className = "resource-card";
+        card.innerHTML = `<strong>${escapeHTML(entry.resourceName)}</strong><div>${escapeHTML(entry.changeType.toUpperCase())} · ${escapeHTML(entry.changedAt || "")}</div><div>${escapeHTML(entry.summary || "")}</div><div>Fields: ${escapeHTML((entry.details?.fieldsChanged || []).join(", ") || "(none)")}</div>`;
+        appView.appendChild(card);
+      });
+    }
+    if(recentUpdateDetail){
+      const detail = document.createElement("div");
+      detail.className = "category-card";
+      detail.innerHTML = `<strong>Update Detail</strong><div>${escapeHTML(recentUpdateDetail.resourceName)}</div><div>${escapeHTML(recentUpdateDetail.changeType)}</div><div>${escapeHTML((recentUpdateDetail.details?.fieldsChanged || []).join(", "))}</div>`;
+      appView.prepend(detail);
+    }
+  }
 
   if(view==="favorites"){
     const { normalFavs, listFavs } = PrintWorkflow.getFavoriteGroups();
@@ -3279,6 +3389,7 @@ function renderAdmin(){
   container.innerHTML = `
     <div style="margin-bottom:20px;">
       <button class="button primary" onclick="exportPackage()">Save Resource Package</button>
+      <button class="button" onclick="clearResourceChangeLog()">Clear resource change log</button>
       ${undo ? `
         <button class="button" onclick="undoLastDeletion()">${escapeHTML(undoButtonLabel)}</button>
         <button class="button" onclick="clearUndoSnapshot(); safeRenderAdmin();">Clear undo</button>
@@ -3304,6 +3415,17 @@ function renderAdmin(){
 
   if(adminTab === "categories") renderAdminCategories(container);
   if(adminTab === "resources") renderAdminResources(container);
+}
+
+function clearResourceChangeLog(){
+  if(!confirm("Clear resource change log?")) return;
+  data.changeLog = [];
+  pendingRecentUpdates = [];
+  recentUpdateDetail = null;
+  localStorage.removeItem(UPDATE_SEEN_STORAGE_KEY);
+  persist();
+  safeRender();
+  safeRenderAdmin();
 }
 
 // ============================================================
@@ -3516,6 +3638,46 @@ function objectsDiffer(a, b){
   return JSON.stringify(a || {}) !== JSON.stringify(b || {});
 }
 
+function getSeenUpdateIds(){
+  try{
+    const parsed = JSON.parse(localStorage.getItem(UPDATE_SEEN_STORAGE_KEY) || "[]");
+    return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+  }catch(_err){
+    return new Set();
+  }
+}
+
+function saveSeenUpdateIds(seenSet){
+  localStorage.setItem(UPDATE_SEEN_STORAGE_KEY, JSON.stringify(Array.from(seenSet)));
+}
+
+function meaningfulResourceDiff(localItem, incomingItem){
+  const fields = ["name","phone","address","website","hours","description","servicesText","categories","tags","verifiedOn","pdf"];
+  const changed = [];
+  fields.forEach(field => {
+    if(JSON.stringify((localItem || {})[field] ?? null) !== JSON.stringify((incomingItem || {})[field] ?? null)){
+      changed.push(field);
+    }
+  });
+  return changed;
+}
+
+function pushChangeLogEntry(changeType, localItem, incomingItem, fieldsChanged){
+  const source = incomingItem || localItem || {};
+  const entry = {
+    id: `${source.id || "resource"}:${nowISO()}:${Math.random().toString(16).slice(2,8)}`,
+    resourceId: source.id || "",
+    resourceName: source.name || "(Unnamed resource)",
+    changeType,
+    changedAt: nowISO(),
+    summary: `${changeType === "new" ? "New" : changeType === "updated" ? "Updated" : "Deleted"} resource`,
+    details: { fieldsChanged: fieldsChanged || [] }
+  };
+  data.changeLog = Array.isArray(data.changeLog) ? data.changeLog : [];
+  data.changeLog.push(entry);
+  pendingRecentUpdates.push(entry);
+}
+
 function chooseMergeObject(localItem, incomingItem){
   if(!localItem && incomingItem) return { item:incomingItem, changed:true };
   if(localItem && !incomingItem) return { item:localItem, changed:false };
@@ -3536,7 +3698,7 @@ function chooseMergeObject(localItem, incomingItem){
     : { item:localItem, changed:false };
 }
 
-function mergeItemsById(localItems, incomingItems){
+function mergeItemsById(localItems, incomingItems, options = {}){
   const localList = Array.isArray(localItems) ? localItems : [];
   const incomingList = Array.isArray(incomingItems) ? incomingItems : [];
   const incomingById = new Map(incomingList.map(item => [String(item && item.id || ""), item]).filter(([id]) => id));
@@ -3552,7 +3714,13 @@ function mergeItemsById(localItems, incomingItems){
     const choice = chooseMergeObject(localItem, incomingItem);
     merged.push(cloneDataObject(choice.item));
     seen.add(id);
-    if(incomingItem && choice.item === incomingItem && choice.changed) updated += 1;
+    if(incomingItem && choice.item === incomingItem && choice.changed){
+      updated += 1;
+      if(options.kind === "resources"){
+        const fieldsChanged = meaningfulResourceDiff(localItem, incomingItem);
+        if(fieldsChanged.length) pushChangeLogEntry("updated", localItem, incomingItem, fieldsChanged);
+      }
+    }
   });
 
   incomingList.forEach(incomingItem => {
@@ -3561,6 +3729,9 @@ function mergeItemsById(localItems, incomingItems){
     merged.push(cloneDataObject(incomingItem));
     seen.add(id);
     added += 1;
+    if(options.kind === "resources"){
+      pushChangeLogEntry("new", null, incomingItem, ["name","categories"]);
+    }
   });
 
   return { merged, added, updated };
@@ -3580,8 +3751,8 @@ function normalizePackageData(nextData){
 function mergeResourcePackages(localData, incomingData){
   const local = normalizePackageData(cloneDataObject(localData));
   const incoming = normalizePackageData(cloneDataObject(incomingData));
-  const categoryMerge = mergeItemsById(local.categories, incoming.categories);
-  const resourceMerge = mergeItemsById(local.resources, incoming.resources);
+  const categoryMerge = mergeItemsById(local.categories, incoming.categories, { kind:"categories" });
+  const resourceMerge = mergeItemsById(local.resources, incoming.resources, { kind:"resources" });
   const mergedData = {
     ...local,
     ...incoming,
