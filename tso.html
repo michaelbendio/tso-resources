@@ -2318,7 +2318,7 @@ normalizeDataServicesShape(data);
 normalizeDataPDFShape(data);
 normalizeDataTagsShape(data);
 normalizeDataVerifiedOnShape(data);
-if(!Array.isArray(data.changeLog)) data.changeLog = [];
+normalizeChanges(data);
 data.appVersion = APP_VERSION;
 
 // Favorites persist separately to keep starring lightweight across views.
@@ -2342,6 +2342,8 @@ let categoryTagFilters = {}; // categoryId -> [tag, ...]
 const UNDO_STORAGE_KEY = "tsoUndo";
 let pendingRecentUpdates = [];
 let recentUpdateDetail = null;
+let newCategoryIds = new Set();
+let newResourceIds = new Set();
 
 // ============================================================
 // SAFETY HARNESS
@@ -2495,21 +2497,20 @@ function runSelfTests(){
     name: "CHANGE LOG NORMALIZATION",
     fn: () => {
       const sample = {};
-      if(!Array.isArray(sample.changeLog)) sample.changeLog = [];
-      if(!Array.isArray(sample.changeLog)) throw new Error("changeLog should normalize to array");
+      normalizeChanges(sample);
+      if(!Array.isArray(sample.changes)) throw new Error("changes should normalize to array");
     }
   });
 
   tests.push({
-    name: "RESOURCE UPDATE DETECTION",
+    name: "ADMIN CHANGE ENTRY CREATION",
     fn: () => {
-      const fields = meaningfulResourceDiff(
-        { id:"a", name:"A", phone:"1", categories:["x"] },
-        { id:"a", name:"A2", phone:"1", categories:["x","y"] }
-      );
-      if(!fields.includes("name") || !fields.includes("categories")){
-        throw new Error("meaningful diff missed expected fields");
-      }
+      const entry = createChangeEntry("resource", "updated", "r1", "Resource One", "  Updated phone  ");
+      if(!entry) throw new Error("change entry was not created");
+      if(entry.description !== "Updated phone") throw new Error("description was not trimmed");
+      if(entry.type !== "resource" || entry.action !== "updated" || entry.targetId !== "r1") throw new Error("entry fields were not set");
+      if(!Date.parse(entry.timestamp)) throw new Error("timestamp is not parseable");
+      if(createChangeEntry("resource", "updated", "r1", "Resource One", "   ") !== null) throw new Error("blank descriptions should not create entries");
     }
   });
 
@@ -2585,6 +2586,7 @@ function runSelfTests(){
       };
       normalizePackageData(sample);
       if(sample.unknownField !== true) throw new Error("unknown package field was not preserved");
+      if(!Array.isArray(sample.changes) || sample.changes.length !== 0) throw new Error("missing changes should normalize to []");
       if(JSON.stringify(sample.resources[0].tags) !== JSON.stringify([])) throw new Error("missing tags should normalize to []");
       if(JSON.stringify(sample.resources[1].tags) !== JSON.stringify(["Rental", "Eviction Help"])) throw new Error("string tags were not split");
       if(JSON.stringify(sample.resources[2].tags) !== JSON.stringify([])) throw new Error("null tags should normalize to []");
@@ -2932,7 +2934,7 @@ if(appTitle){
   appTitle.onclick = () => {
     view = "recent-updates";
     const seen = getSeenUpdateIds();
-    (data.changeLog || []).forEach(entry => seen.add(String(entry.id)));
+    getRecentChanges().forEach(entry => seen.add(String(entry.id)));
     saveSeenUpdateIds(seen);
     safeRender();
   };
@@ -2940,14 +2942,13 @@ if(appTitle){
 
 function getUnseenUpdates(){
   const seen = getSeenUpdateIds();
-  return (data.changeLog || []).filter(entry => !seen.has(String(entry.id)));
+  return getRecentChanges().filter(entry => !seen.has(String(entry.id)));
 }
 
 function getCategoryUpdateMap(){
   const map = new Map();
   getUnseenUpdates().forEach(entry => {
-    const res = data.resources.find(r => r.id === entry.resourceId);
-    (res?.categories || []).forEach(catId => {
+    getCategoryIdsForChange(entry).forEach(catId => {
       if(!map.has(catId)) map.set(catId, []);
       map.get(catId).push(entry);
     });
@@ -3131,6 +3132,7 @@ function undoLastDeletion(){
       normalizeDataPDFShape(data);
       normalizeDataTagsShape(data);
       normalizeDataVerifiedOnShape(data);
+      normalizeChanges(data);
   clearUndoSnapshot();
   persist();
   safeRender();
@@ -3173,7 +3175,17 @@ function render(){
       const card=document.createElement("div");
       card.className="category-card";
       const updates = updatesByCategory.get(cat.id) || [];
-      card.innerHTML=`<strong>${cat.label}</strong>${updates.length ? `<div class="tag">Updates: ${updates.map(u=>escapeHTML(u.resourceName)).join(", ")}</div>` : ""}`;
+      card.innerHTML=`<strong>${cat.label}</strong>${updates.length ? `<div><button type="button" class="button secondary category-update-badge">Updates: ${updates.length}</button></div>` : ""}`;
+      const updateBadge = card.querySelector(".category-update-badge");
+      if(updateBadge){
+        updateBadge.onclick = e => {
+          e.stopPropagation();
+          recentUpdateDetail = updates;
+          markChangesViewed(updates.map(entry => entry.id));
+          view = "recent-updates";
+          safeRender();
+        };
+      }
       card.onclick=()=>{ currentCategory=cat.id; setCategoryFilterTags(currentCategory, []); view="category"; safeRender(); };
       grid.appendChild(card);
     });
@@ -3215,16 +3227,6 @@ function render(){
       title.style.marginBottom = "12px";
       appView.appendChild(title);
     }
-    const unseen = getUnseenUpdates().filter(entry => {
-      const res = data.resources.find(r => r.id === entry.resourceId);
-      return (res?.categories || []).includes(currentCategory);
-    });
-    if(unseen.length){
-      const seen = getSeenUpdateIds();
-      unseen.forEach(entry => seen.add(String(entry.id)));
-      saveSeenUpdateIds(seen);
-    }
-
     const categoryTags = getCategoryTagOptions(currentCategory);
     let activeTags = getCategoryFilterTags(currentCategory).filter(tag =>
       categoryTags.some(option => option.toLowerCase() === tag.toLowerCase())
@@ -3292,17 +3294,16 @@ function render(){
     filtered.forEach(res=>{
       let expanded=false;
       const card=buildResourceCard(res,{showDescription:true});
-      const resourceUpdates = getUnseenUpdates().filter(entry => entry.resourceId === res.id);
+      const resourceUpdates = getChangesForResource(res.id, { unseenOnly:true });
       if(resourceUpdates.length){
         const badge = document.createElement("button");
         badge.className = "button secondary";
-        badge.textContent = resourceUpdates.some(u => u.changeType === "new") ? "New" : "Updated";
+        badge.textContent = resourceUpdates.some(u => u.action === "added") ? "New" : "Updated";
         badge.onclick = e => {
           e.stopPropagation();
-          recentUpdateDetail = resourceUpdates[0];
-          const seen = getSeenUpdateIds();
-          resourceUpdates.forEach(entry => seen.add(String(entry.id)));
-          saveSeenUpdateIds(seen);
+          recentUpdateDetail = resourceUpdates;
+          markChangesViewed(resourceUpdates.map(entry => entry.id));
+          view = "recent-updates";
           safeRender();
         };
         card.prepend(badge);
@@ -3318,7 +3319,7 @@ function render(){
     }
 
   if(view==="recent-updates"){
-    const entries = (data.changeLog || []).slice().sort((a,b)=>String(b.changedAt||"").localeCompare(String(a.changedAt||"")));
+    const entries = Array.isArray(recentUpdateDetail) ? recentUpdateDetail : getRecentChanges();
     appView.innerHTML = `<div class="category-card"><strong>Recent Updates</strong><div>App version: ${escapeHTML(data.appVersion || APP_VERSION)}</div><div>Last modified: ${escapeHTML(data.lastModified || "(none)")}</div></div>`;
     if(!entries.length){
       appView.innerHTML += `<p>No recent updates.</p>`;
@@ -3326,16 +3327,12 @@ function render(){
       entries.forEach(entry => {
         const card = document.createElement("div");
         card.className = "resource-card";
-        card.innerHTML = `<strong>${escapeHTML(entry.resourceName)}</strong><div>${escapeHTML(entry.changeType.toUpperCase())} · ${escapeHTML(entry.changedAt || "")}</div><div>${escapeHTML(entry.summary || "")}</div><div>Fields: ${escapeHTML((entry.details?.fieldsChanged || []).join(", ") || "(none)")}</div>`;
+        card.innerHTML = formatChangeEntryHTML(entry);
         appView.appendChild(card);
       });
     }
-    if(recentUpdateDetail){
-      const detail = document.createElement("div");
-      detail.className = "category-card";
-      detail.innerHTML = `<strong>Update Detail</strong><div>${escapeHTML(recentUpdateDetail.resourceName)}</div><div>${escapeHTML(recentUpdateDetail.changeType)}</div><div>${escapeHTML((recentUpdateDetail.details?.fieldsChanged || []).join(", "))}</div>`;
-      appView.prepend(detail);
-    }
+    recentUpdateDetail = null;
+    pendingRecentUpdates = [];
   }
 
   if(view==="favorites"){
@@ -3551,11 +3548,15 @@ function renderAdmin(){
   const container = document.getElementById("adminView");
   const undo = getUndoSnapshot();
   const undoButtonLabel = undo ? `Undo ${undo.message}` : "";
+  const hasChangeLog = getRecentChanges().length > 0;
 
   container.innerHTML = `
     <div style="margin-bottom:20px;">
       <button class="button primary" onclick="exportPackage()">Save Resource Package</button>
-      <button class="button" onclick="clearResourceChangeLog()">Clear resource change log</button>
+      ${hasChangeLog ? `
+        <button class="button" onclick="showChangeLog()">Show change log</button>
+        <button class="button" onclick="clearChangeLog()">Clear change log</button>
+      ` : ""}
       ${undo ? `
         <button class="button" onclick="undoLastDeletion()">${escapeHTML(undoButtonLabel)}</button>
         <button class="button" onclick="clearUndoSnapshot(); safeRenderAdmin();">Clear undo</button>
@@ -3583,13 +3584,21 @@ function renderAdmin(){
   if(adminTab === "resources") renderAdminResources(container);
 }
 
-function clearResourceChangeLog(){
-  if(!confirm("Clear resource change log?")) return;
-  data.changeLog = [];
+function showChangeLog(){
+  view = "recent-updates";
+  recentUpdateDetail = null;
+  markChangesViewed(getRecentChanges().map(entry => entry.id));
+  safeRender();
+}
+
+function clearChangeLog(){
+  if(!confirm("Clear change log?")) return;
+  data.changes = [];
   pendingRecentUpdates = [];
   recentUpdateDetail = null;
   localStorage.removeItem(UPDATE_SEEN_STORAGE_KEY);
   persist();
+  showToast("Change log cleared");
   safeRender();
   safeRenderAdmin();
 }
@@ -3817,31 +3826,113 @@ function saveSeenUpdateIds(seenSet){
   localStorage.setItem(UPDATE_SEEN_STORAGE_KEY, JSON.stringify(Array.from(seenSet)));
 }
 
-function meaningfulResourceDiff(localItem, incomingItem){
-  const fields = ["name","phone","address","website","hours","description","servicesText","categories","tags","verifiedOn","pdf"];
-  const changed = [];
-  fields.forEach(field => {
-    if(JSON.stringify((localItem || {})[field] ?? null) !== JSON.stringify((incomingItem || {})[field] ?? null)){
-      changed.push(field);
-    }
+function normalizeChanges(packageData){
+  if(!packageData || typeof packageData !== "object") return;
+  const source = Array.isArray(packageData.changes) ? packageData.changes : [];
+  const normalized = [];
+  const seen = new Set();
+  source.forEach((entry, index) => {
+    if(!entry || typeof entry !== "object") return;
+    const description = String(entry.description || "").trim();
+    if(!description) return;
+    const type = entry.type === "category" ? "category" : "resource";
+    const action = ["added", "updated", "removed"].includes(entry.action) ? entry.action : "updated";
+    const timestamp = Date.parse(String(entry.timestamp || "")) ? String(entry.timestamp) : nowISO();
+    const id = String(entry.id || `${type}:${entry.targetId || index}:${timestamp}`).trim();
+    if(!id || seen.has(id)) return;
+    seen.add(id);
+    normalized.push({
+      id,
+      type,
+      action,
+      targetId: String(entry.targetId || ""),
+      targetName: String(entry.targetName || "(Unnamed)").trim() || "(Unnamed)",
+      description,
+      timestamp,
+      categoryIds: Array.isArray(entry.categoryIds) ? entry.categoryIds.map(String) : []
+    });
   });
-  return changed;
+  packageData.changes = normalized;
 }
 
-function pushChangeLogEntry(changeType, localItem, incomingItem, fieldsChanged){
-  const source = incomingItem || localItem || {};
-  const entry = {
-    id: `${source.id || "resource"}:${nowISO()}:${Math.random().toString(16).slice(2,8)}`,
-    resourceId: source.id || "",
-    resourceName: source.name || "(Unnamed resource)",
-    changeType,
-    changedAt: nowISO(),
-    summary: `${changeType === "new" ? "New" : changeType === "updated" ? "Updated" : "Deleted"} resource`,
-    details: { fieldsChanged: fieldsChanged || [] }
+function createChangeEntry(type, action, targetId, targetName, description, options = {}){
+  const cleanDescription = String(description || "").trim();
+  if(!cleanDescription) return null;
+  const timestamp = nowISO();
+  return {
+    id: `${type || "change"}:${targetId || "unknown"}:${timestamp}:${Math.random().toString(16).slice(2,8)}`,
+    type: type === "category" ? "category" : "resource",
+    action: ["added", "updated", "removed"].includes(action) ? action : "updated",
+    targetId: String(targetId || ""),
+    targetName: String(targetName || "(Unnamed)").trim() || "(Unnamed)",
+    description: cleanDescription,
+    timestamp,
+    categoryIds: Array.isArray(options.categoryIds) ? options.categoryIds.map(String) : []
   };
-  data.changeLog = Array.isArray(data.changeLog) ? data.changeLog : [];
-  data.changeLog.push(entry);
-  pendingRecentUpdates.push(entry);
+}
+
+function addChangeEntry(changeEntry){
+  if(!changeEntry) return;
+  normalizeChanges(data);
+  data.changes.push(changeEntry);
+}
+
+function mergeChanges(localChanges, incomingChanges){
+  const merged = [];
+  const seen = new Set();
+  [localChanges, incomingChanges].forEach(list => {
+    (Array.isArray(list) ? list : []).forEach(entry => {
+      const id = String(entry && entry.id || "");
+      if(!id || seen.has(id)) return;
+      seen.add(id);
+      merged.push(cloneDataObject(entry));
+    });
+  });
+  return merged;
+}
+
+function getRecentChanges(){
+  normalizeChanges(data);
+  return data.changes.slice().sort((a,b)=>String(b.timestamp||"").localeCompare(String(a.timestamp||"")));
+}
+
+function markChangesViewed(changeIds){
+  const seen = getSeenUpdateIds();
+  (Array.isArray(changeIds) ? changeIds : []).forEach(id => {
+    if(id) seen.add(String(id));
+  });
+  saveSeenUpdateIds(seen);
+}
+
+function getChangesForResource(resourceId, { unseenOnly = false } = {}){
+  const seen = getSeenUpdateIds();
+  return getRecentChanges().filter(entry => {
+    return entry.type === "resource" &&
+      String(entry.targetId || "") === String(resourceId || "") &&
+      (!unseenOnly || !seen.has(String(entry.id)));
+  });
+}
+
+function getCategoryIdsForChange(entry){
+  if(!entry) return [];
+  if(Array.isArray(entry.categoryIds) && entry.categoryIds.length) return entry.categoryIds.slice();
+  if(entry.type === "category") return entry.targetId ? [String(entry.targetId)] : [];
+  const res = data.resources.find(r => String(r && r.id || "") === String(entry.targetId || ""));
+  return Array.isArray(res && res.categories) ? res.categories.slice() : [];
+}
+
+function getChangesForCategory(categoryId, { unseenOnly = false } = {}){
+  const seen = getSeenUpdateIds();
+  return getRecentChanges().filter(entry => {
+    return getCategoryIdsForChange(entry).includes(categoryId) &&
+      (!unseenOnly || !seen.has(String(entry.id)));
+  });
+}
+
+function formatChangeEntryHTML(entry){
+  const timestamp = entry && entry.timestamp ? new Date(entry.timestamp) : null;
+  const dateText = timestamp && !Number.isNaN(timestamp.getTime()) ? timestamp.toLocaleDateString() : "";
+  return `<strong>${escapeHTML(entry.targetName || "(Unnamed)")}</strong><div>${escapeHTML(dateText)} · ${escapeHTML(entry.type || "")} · ${escapeHTML(entry.action || "")}</div><div>${escapeHTML(entry.description || "")}</div>`;
 }
 
 function chooseMergeObject(localItem, incomingItem){
@@ -3882,10 +3973,6 @@ function mergeItemsById(localItems, incomingItems, options = {}){
     seen.add(id);
     if(incomingItem && choice.item === incomingItem && choice.changed){
       updated += 1;
-      if(options.kind === "resources"){
-        const fieldsChanged = meaningfulResourceDiff(localItem, incomingItem);
-        if(fieldsChanged.length) pushChangeLogEntry("updated", localItem, incomingItem, fieldsChanged);
-      }
     }
   });
 
@@ -3895,9 +3982,6 @@ function mergeItemsById(localItems, incomingItems, options = {}){
     merged.push(cloneDataObject(incomingItem));
     seen.add(id);
     added += 1;
-    if(options.kind === "resources"){
-      pushChangeLogEntry("new", null, incomingItem, ["name","categories"]);
-    }
   });
 
   return { merged, added, updated };
@@ -3911,6 +3995,7 @@ function normalizePackageData(nextData){
   normalizeDataPDFShape(nextData);
   normalizeDataTagsShape(nextData);
   normalizeDataVerifiedOnShape(nextData);
+  normalizeChanges(nextData);
   return nextData;
 }
 
@@ -3924,6 +4009,7 @@ function mergeResourcePackages(localData, incomingData){
     ...incoming,
     categories: categoryMerge.merged,
     resources: resourceMerge.merged,
+    changes: mergeChanges(local.changes, incoming.changes),
     tags: []
   };
   normalizePackageData(mergedData);
@@ -4153,6 +4239,7 @@ async function mergeImportPackage(event){
       return;
     }
     normalizePackageData(imported);
+    const importedChangeIds = new Set((imported.changes || []).map(entry => String(entry && entry.id || "")).filter(Boolean));
 
     const localResourcesWithPdf = ((data && data.resources) || [])
       .map(r => ({ resource:r, paths:collectPDFPathsFromResource(r) }))
@@ -4169,6 +4256,14 @@ async function mergeImportPackage(event){
 
     const missingPdfPaths = await mergeZipAssets(zip, mergedData);
     applyMergedData(mergedData);
+    const loadedChanges = getRecentChanges().filter(entry => importedChangeIds.has(String(entry.id || "")));
+    if(loadedChanges.length){
+      pendingRecentUpdates = loadedChanges;
+      recentUpdateDetail = loadedChanges;
+      view = "recent-updates";
+      markChangesViewed(loadedChanges.map(entry => entry.id));
+      safeRender();
+    }
     const warningBlocks = [];
     if(resourcesWithPdf.length > 0){
       warningBlocks.push(
@@ -4217,13 +4312,15 @@ function categoryEditorDraft(){
   // Capture category editor form state as a plain draft object.
   const labelEl = document.getElementById("cat_label");
   const orderEl = document.getElementById("cat_order");
+  const updateEl = document.getElementById("cat_update_description");
   if(!labelEl || !orderEl || !editing || editing.kind !== "category") return null;
   const cat = data.categories[editing.idx];
   if(!cat) return null;
   return {
     id: cat.id || generateResourceId(),
     label: labelEl.value.trim(),
-    displayOrder: orderEl.value
+    displayOrder: orderEl.value,
+    updateDescription: updateEl ? updateEl.value.trim() : ""
   };
 }
 
@@ -4237,6 +4334,7 @@ function resourceEditorDraft(){
   const descEl = document.getElementById("res_description");
   const servicesEl = document.getElementById("res_services");
   const tagsEl = document.getElementById("res_tags");
+  const updateEl = document.getElementById("res_update_description");
   if(!nameEl || !phoneEl || !addressEl || !websiteEl || !hoursEl || !descEl || !servicesEl || !tagsEl) return null;
   const verifiedEl = document.getElementById("res_verified_on");
   const verifiedOn = verifiedEl ? verifiedEl.value.trim() : "";
@@ -4259,7 +4357,8 @@ function resourceEditorDraft(){
       .filter(cb=>cb.checked)
       .map(cb=>cb.value)
       .sort(),
-    tags
+    tags,
+    updateDescription: updateEl ? updateEl.value.trim() : ""
   };
 }
 
@@ -4527,7 +4626,10 @@ function commitPendingEditsIfChanged(){
       return false;
     }
     if(nextSnapshot !== editorSnapshot){
+      const action = newCategoryIds.has(draft.id) ? "added" : "updated";
       applyCategoryDraft(editing.idx, draft);
+      addChangeEntry(createChangeEntry("category", action, draft.id, draft.label || "(Unnamed category)", draft.updateDescription));
+      newCategoryIds.delete(draft.id);
       persist();
       editorSnapshot = nextSnapshot;
     }
@@ -4556,10 +4658,15 @@ function commitPendingEditsIfChanged(){
       return false;
     }
     if(nextSnapshot !== editorSnapshot){
+      const resource = data.resources[editing.idx];
+      const resourceId = resource && resource.id ? resource.id : "";
+      const action = newResourceIds.has(resourceId) ? "added" : "updated";
       applyResourceDraft(editing.idx, draft);
+      const saved = data.resources[editing.idx];
+      addChangeEntry(createChangeEntry("resource", action, saved && saved.id, draft.name || "(Unnamed resource)", draft.updateDescription, { categoryIds:draft.categories }));
+      if(saved && saved.id) newResourceIds.delete(saved.id);
       persist();
       editorSnapshot = nextSnapshot;
-      const saved = data.resources[editing.idx];
       if(saved && saved.id) selectedResourceId = saved.id;
     }
     return true;
@@ -4692,9 +4799,10 @@ function renderAdminCategories(container){
 function newCategory(){
   if(!commitPendingEditsIfChanged()) return;
   const newIndex = data.categories.length;
+  const categoryId = generateResourceId();
 
   data.categories.push({
-    id: generateResourceId(),
+    id: categoryId,
     label: "",
     active: true,
     lastModified: nowISO(),
@@ -4702,6 +4810,7 @@ function newCategory(){
   });
 
   persist();
+  newCategoryIds.add(categoryId);
   adminTab = "categories";
   selectedCategoryIndex = String(newIndex);
   safeRenderAdmin();
@@ -4725,6 +4834,7 @@ function deleteCategory(){
 
   const confirmDelete = confirm(buildAdminDeleteConfirmation("category", cat.label || "(unnamed)"));
   if(!confirmDelete) return;
+  const updateDescription = prompt("Describe this update (optional):", "") || "";
   setUndoSnapshot(`deleted category "${cat.label}"`);
 
   // remove category from resources too
@@ -4736,6 +4846,8 @@ function deleteCategory(){
 
   data.categories.splice(idx,1);
   delete categoryTagFilters[cat.id];
+  addChangeEntry(createChangeEntry("category", "removed", cat.id, cat.label || "(Unnamed category)", updateDescription));
+  newCategoryIds.delete(cat.id);
   selectedCategoryIndex = "";
   persist();
   safeRenderAdmin();
@@ -4766,6 +4878,9 @@ function editCategory(idx){
     <label>Display order (optional)<br>
       <input id="cat_order" type="number" value="${cat.displayOrder ?? ""}">
     </label><br><br>
+    <label>Describe this update (optional)<br>
+      <textarea id="cat_update_description" class="big" style="min-height:60px;"></textarea>
+    </label><br><br>
     <div style="display:flex; gap:8px; align-items:center;">
       <button class="button" type="button" onclick="cancelCategoryEdit()">Cancel</button>
       <button class="button primary" type="button" id="cat_done_btn" onclick="closeCategoryEditor()">Done</button>
@@ -4777,6 +4892,7 @@ function editCategory(idx){
 
   const labelInput = document.getElementById("cat_label");
   const orderInput = document.getElementById("cat_order");
+  const updateInput = document.getElementById("cat_update_description");
   const doneBtn = document.getElementById("cat_done_btn");
   function validateCategoryEditorState(){
     const draft = categoryEditorDraft();
@@ -4791,6 +4907,7 @@ function editCategory(idx){
   }
   if(labelInput) labelInput.addEventListener("input", validateCategoryEditorState);
   if(orderInput) orderInput.addEventListener("input", validateCategoryEditorState);
+  if(updateInput) updateInput.addEventListener("input", validateCategoryEditorState);
   validateCategoryEditorState();
 }
 
@@ -4914,9 +5031,10 @@ function populateResourceSelectOptions(sel, preferredResourceId){
 
 function newResource(){
   if(!commitPendingEditsIfChanged()) return;
+  const resourceId = generateResourceId();
 
   const resource = {
-    id: generateResourceId(),
+    id: resourceId,
     name: "",
     description: "",
     pdfs: [],
@@ -4927,6 +5045,7 @@ function newResource(){
   data.resources.push(resource);
 
   persist();
+  newResourceIds.add(resourceId);
   adminTab = "resources";
   selectedResourceId = resource.id;
   adminResourceEditMode = true;
@@ -4946,9 +5065,12 @@ function deleteResource(){
 
   const confirmDelete = confirm(buildAdminDeleteConfirmation("resource", res.name || "(unnamed)"));
   if(!confirmDelete) return;
+  const updateDescription = prompt("Describe this update (optional):", "") || "";
   setUndoSnapshot(`deleted resource "${res.name}"`);
 
   data.resources.splice(idx,1);
+  addChangeEntry(createChangeEntry("resource", "removed", res.id, res.name || "(Unnamed resource)", updateDescription, { categoryIds:res.categories }));
+  newResourceIds.delete(res.id);
 
   const remainingIds = getAdminResourceBrowseList().map(r => String(r.id || ""));
   if(!remainingIds.length){
@@ -5049,6 +5171,10 @@ function editResource(idx){
       <textarea id="res_description" class="big">${escapeHTML(res.description || "")}</textarea>
     </label><br>
 
+    <label style="display:block; margin-top:8px;">Describe this update (optional)<br>
+      <textarea id="res_update_description" class="big" style="min-height:60px;"></textarea>
+    </label><br>
+
     <label style="display:block; margin-top:8px;">Tags (comma-separated or one per line)<br>
       <textarea id="res_tags" class="big" style="min-height:72px;">${escapeHTML(tagInputValue)}</textarea>
     </label>
@@ -5083,6 +5209,7 @@ function editResource(idx){
   const verifiedDisplayEl = document.getElementById("res_verified_display");
   const verifiedWarning = document.getElementById("res_verified_warning");
   const nameEl = document.getElementById("res_name");
+  const updateEl = document.getElementById("res_update_description");
   const tagsEl = document.getElementById("res_tags");
   const servicesEl = document.getElementById("res_services");
   const servicesEditBtn = document.getElementById("res_services_edit_btn");
@@ -5235,6 +5362,7 @@ function editResource(idx){
     nameEl.addEventListener("input", validateEditorState);
   }
   if(tagsEl) tagsEl.addEventListener("input", validateEditorState);
+  if(updateEl) updateEl.addEventListener("input", validateEditorState);
   if(verifiedInput) verifiedInput.addEventListener("input", validateEditorState);
 
   updateVerifiedDisplayAndWarning();
