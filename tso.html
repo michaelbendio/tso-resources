@@ -1965,6 +1965,13 @@ function formatMMYYFromDate(d){
   return `${mm}/${yy}`;
 }
 
+function formatDateOnly(isoString){
+  if(!isoString) return "(none)";
+  const date = new Date(isoString);
+  if(Number.isNaN(date.getTime())) return String(isoString);
+  return date.toLocaleDateString(undefined, { year:"numeric", month:"long", day:"numeric" });
+}
+
 function parseMMYYToMonthIndex(mmyy){
   const match = String(mmyy || "").trim().match(/^(0[1-9]|1[0-2])\/(\d{2})$/);
   if(!match) return null;
@@ -3320,7 +3327,7 @@ function render(){
 
   if(view==="recent-updates"){
     const entries = Array.isArray(recentUpdateDetail) ? recentUpdateDetail : getRecentChanges();
-    appView.innerHTML = `<div class="category-card"><strong>Recent Updates</strong><div>App version: ${escapeHTML(data.appVersion || APP_VERSION)}</div><div>Last modified: ${escapeHTML(data.lastModified || "(none)")}</div></div>`;
+    appView.innerHTML = `<div class="category-card"><strong>Recent Updates</strong><div>App version: ${escapeHTML(data.appVersion || APP_VERSION)}</div><div>Last modified: ${escapeHTML(formatDateOnly(data.lastModified))}</div></div>`;
     if(!entries.length){
       appView.innerHTML += `<p>No recent updates.</p>`;
     }else{
@@ -3930,8 +3937,7 @@ function getChangesForCategory(categoryId, { unseenOnly = false } = {}){
 }
 
 function formatChangeEntryHTML(entry){
-  const timestamp = entry && entry.timestamp ? new Date(entry.timestamp) : null;
-  const dateText = timestamp && !Number.isNaN(timestamp.getTime()) ? timestamp.toLocaleDateString() : "";
+  const dateText = formatDateOnly(entry && entry.timestamp);
   return `<strong>${escapeHTML(entry.targetName || "(Unnamed)")}</strong><div>${escapeHTML(dateText)} · ${escapeHTML(entry.type || "")} · ${escapeHTML(entry.action || "")}</div><div>${escapeHTML(entry.description || "")}</div>`;
 }
 
