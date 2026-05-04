@@ -4842,6 +4842,17 @@ function newCategory(){
 
 function cancelCategoryEdit(){
   if(!editing || editing.kind !== "category") return;
+  const cat = data.categories[editing.idx];
+  if(cat && newCategoryIds.has(cat.id)){
+    data.categories.splice(editing.idx, 1);
+    newCategoryIds.delete(cat.id);
+    delete categoryTagFilters[cat.id];
+    selectedCategoryIndex = "";
+    editing = null;
+    persist();
+    safeRenderAdmin();
+    return;
+  }
   editCategory(editing.idx);
 }
 
