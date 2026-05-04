@@ -4387,11 +4387,27 @@ function validateResourceName(draft, idx){
   return { valid:true, message:"" };
 }
 
-function validateCategoryDraft(_draft){
+function normalizeCategoryName(name){
+  return String(name || "").trim().toLowerCase();
+}
+
+function categoryNameExists(name, excludeId){
+  const normalizedName = normalizeCategoryName(name);
+  if(!normalizedName) return false;
+  return (Array.isArray(data.categories) ? data.categories : []).some(cat => {
+    if(excludeId && String(cat && cat.id || "") === String(excludeId)) return false;
+    return normalizeCategoryName(cat && cat.label) === normalizedName;
+  });
+}
+
+function validateCategoryDraft(draft){
   // Delegate numeric display-order checks to browser input validity.
   const orderInput = document.getElementById("cat_order");
   if(orderInput && !orderInput.checkValidity()){
     return { valid:false, message:orderInput.validationMessage || "Display order must be a number." };
+  }
+  if(categoryNameExists(draft && draft.label, draft && draft.id)){
+    return { valid:false, message:"Category already exists." };
   }
   return { valid:true, message:"" };
 }
