@@ -2094,15 +2094,19 @@ function canonicalizeResourceTag(tag){
 function normalizeResourceTags(tags){
   const normalized = [];
   const seen = new Set();
-  (Array.isArray(tags) ? tags : [])
-    .map(canonicalizeResourceTag)
-    .filter(Boolean)
-    .forEach(tag => {
-      const key = tag.toLowerCase();
-      if(seen.has(key)) return;
-      seen.add(key);
-      normalized.push(tag);
-    });
+  const source = Array.isArray(tags)
+    ? tags
+    : (typeof tags === "string" ? tags.split(/[,\n]/) : []);
+
+  source.forEach(rawTag => {
+    if(typeof rawTag !== "string" && typeof rawTag !== "number") return;
+    const tag = canonicalizeResourceTag(rawTag);
+    if(!tag) return;
+    const key = tag.toLowerCase();
+    if(seen.has(key)) return;
+    seen.add(key);
+    normalized.push(tag);
+  });
   return normalized;
 }
 
@@ -2119,6 +2123,72 @@ function normalizeDataTagsShape(nextData){
   nextData.resources.forEach(r => {
     r.tags = normalizeResourceTags(r.tags);
   });
+}
+
+function getAllTags(excludeResourceId = ""){
+  const tags = [];
+  const seen = new Set();
+  (Array.isArray(data.resources) ? data.resources : []).forEach(resource => {
+    if(excludeResourceId && String(resource && resource.id || "") === String(excludeResourceId)) return;
+    normalizeResourceTags(resource && resource.tags).forEach(tag => {
+      const key = tag.toLowerCase();
+      if(seen.has(key)) return;
+      seen.add(key);
+      tags.push(tag);
+    });
+  });
+  return tags.sort((a,b)=>a.localeCompare(b, undefined, { sensitivity:"base" }));
+}
+
+const TAG_CATEGORY_HINTS = [
+  {
+    categoryLabel: "Housing",
+    tags: ["Shelter", "Rental", "Subsidized Housing", "Eviction Help", "Hotel/Motel", "Room for Rent", "Rent/Mortgage Assistance"]
+  },
+  {
+    categoryLabel: "Employment",
+    tags: ["Temp Agency", "Employment Agency", "Employment Counseling", "Career/Vocational Training", "Apprenticeship", "Ex-Offender Support"]
+  },
+  {
+    categoryLabel: "Education",
+    tags: ["Career/Vocational Training", "GED", "Scholarships", "Apprenticeship"]
+  }
+];
+
+function getSuggestedCategoriesFromTags(tags){
+  const tagKeys = new Set(normalizeResourceTags(tags).map(tag => tag.toLowerCase()));
+  return TAG_CATEGORY_HINTS
+    .filter(hint => hint.tags.some(tag => tagKeys.has(canonicalizeResourceTag(tag).toLowerCase())))
+    .map(hint => hint.categoryLabel);
+}
+
+function findCategoryByLabelOrId(label){
+  const key = String(label || "").trim().toLowerCase();
+  return (Array.isArray(data.categories) ? data.categories : [])
+    .find(cat => String(cat && cat.label || "").trim().toLowerCase() === key || String(cat && cat.id || "").trim().toLowerCase() === key);
+}
+
+function getMissingSuggestedCategories(draft){
+  const selected = new Set(Array.isArray(draft && draft.categories) ? draft.categories.map(String) : []);
+  return getSuggestedCategoriesFromTags(draft && draft.tags)
+    .filter(label => {
+      const category = findCategoryByLabelOrId(label);
+      return category && !selected.has(String(category.id || ""));
+    });
+}
+
+function formatCategoryList(labels){
+  if(labels.length <= 1) return labels[0] || "";
+  if(labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`;
+}
+
+function confirmCategoryAssignmentHint(draft){
+  const missing = getMissingSuggestedCategories(draft);
+  if(!missing.length) return true;
+  const categoryList = formatCategoryList(missing);
+  const categoryPhrase = missing.length === 1 ? "that category is" : "those categories are";
+  return confirm(`This resource has tags suggesting ${categoryList}, but ${categoryPhrase} not selected. Continue?`);
 }
 
 function getResourcePDFs(resource){
@@ -2497,6 +2567,31 @@ function runSelfTests(){
   });
 
   tests.push({
+    name: "DEFENSIVE TAG NORMALIZATION",
+    fn: () => {
+      const fromString = normalizeResourceTags("Shelter, This is a list, shelter, ");
+      if(JSON.stringify(fromString) !== JSON.stringify(["Shelter", "List"])){
+        throw new Error(`unexpected string tags ${JSON.stringify(fromString)}`);
+      }
+
+      const sample = {
+        unknownField: true,
+        categories:[{ id:"housing", label:"Housing" }],
+        resources:[
+          { id:"old", name:"Old", categories:["housing"] },
+          { id:"string", name:"String Tags", categories:["housing"], tags:"Rental, Eviction Help" },
+          { id:"bad", name:"Bad Tags", categories:["housing"], tags:null }
+        ]
+      };
+      normalizePackageData(sample);
+      if(sample.unknownField !== true) throw new Error("unknown package field was not preserved");
+      if(JSON.stringify(sample.resources[0].tags) !== JSON.stringify([])) throw new Error("missing tags should normalize to []");
+      if(JSON.stringify(sample.resources[1].tags) !== JSON.stringify(["Rental", "Eviction Help"])) throw new Error("string tags were not split");
+      if(JSON.stringify(sample.resources[2].tags) !== JSON.stringify([])) throw new Error("null tags should normalize to []");
+    }
+  });
+
+  tests.push({
     name: "CATEGORY TAG FILTER OR LOGIC",
     fn: () => {
       const resources = [
@@ -2510,6 +2605,66 @@ function runSelfTests(){
         if(!matching.includes(name)) throw new Error(`${name} was excluded`);
       });
       if(matching.includes("Neither")) throw new Error("resource without selected tags was included");
+    }
+  });
+
+  tests.push({
+    name: "CATEGORY TAGS ARE RESOURCE OWNED",
+    fn: () => {
+      const previousData = data;
+      try{
+        data = {
+          categories:[
+            { id:"employment", label:"Employment" },
+            { id:"education", label:"Education" }
+          ],
+          resources:[
+            { id:"shared", name:"Shared Training", categories:["employment","education"], tags:["Career/Vocational Training", "Apprenticeship"] },
+            { id:"ged", name:"GED", categories:["education"], tags:["GED"] }
+          ]
+        };
+        const employmentTags = getTagsForCategory("employment");
+        const educationTags = getTagsForCategory("education");
+        if(!employmentTags.includes("Apprenticeship") || !educationTags.includes("Apprenticeship")){
+          throw new Error("shared resource tags did not appear in both categories");
+        }
+        const matching = filterResourcesBySelectedTags(getCategoryResources("education"), ["Apprenticeship", "GED"]).map(r => r.id);
+        if(!matching.includes("shared") || !matching.includes("ged")){
+          throw new Error("OR tag filtering missed expected education resources");
+        }
+      }finally{
+        data = previousData;
+      }
+    }
+  });
+
+  tests.push({
+    name: "CATEGORY ASSIGNMENT TAG HINT",
+    fn: () => {
+      const previousData = data;
+      try{
+        data = {
+          categories:[
+            { id:"housing", label:"Housing" },
+            { id:"employment", label:"Employment" },
+            { id:"education", label:"Education" }
+          ],
+          resources:[]
+        };
+        const suggested = getSuggestedCategoriesFromTags(["Shelter", "Apprenticeship"]);
+        if(JSON.stringify(suggested) !== JSON.stringify(["Housing", "Employment", "Education"])){
+          throw new Error(`unexpected suggestions ${JSON.stringify(suggested)}`);
+        }
+        const missing = getMissingSuggestedCategories({
+          tags:["Shelter", "Apprenticeship"],
+          categories:["housing"]
+        });
+        if(JSON.stringify(missing) !== JSON.stringify(["Employment", "Education"])){
+          throw new Error(`unexpected missing categories ${JSON.stringify(missing)}`);
+        }
+      }finally{
+        data = previousData;
+      }
     }
   });
 
@@ -2897,11 +3052,17 @@ function countSelectedTagMatches(resource, activeTagKeys){
   return count;
 }
 
+function resourceMatchesSelectedTags(resource, selectedTags){
+  const activeTags = normalizeResourceTags(selectedTags);
+  const activeTagKeys = new Set(activeTags.map(tag => tag.toLowerCase()));
+  return !activeTagKeys.size || countSelectedTagMatches(resource, activeTagKeys) > 0;
+}
+
 function filterResourcesBySelectedTags(resources, selectedTags){
   const activeTags = normalizeResourceTags(selectedTags);
   const activeTagKeys = new Set(activeTags.map(tag => tag.toLowerCase()));
   return (Array.isArray(resources) ? resources : [])
-    .filter(resource => !activeTagKeys.size || countSelectedTagMatches(resource, activeTagKeys) > 0)
+    .filter(resource => resourceMatchesSelectedTags(resource, activeTags))
     .sort((a, b) => {
       if(activeTagKeys.size){
         const matchDiff = countSelectedTagMatches(b, activeTagKeys) - countSelectedTagMatches(a, activeTagKeys);
@@ -2912,10 +3073,11 @@ function filterResourcesBySelectedTags(resources, selectedTags){
 }
 
 function getCategoryResources(categoryId){
-  return data.resources.filter(r => Array.isArray(r.categories) && r.categories.includes(categoryId));
+  return (Array.isArray(data.resources) ? data.resources : [])
+    .filter(r => Array.isArray(r.categories) && r.categories.includes(categoryId));
 }
 
-function getCategoryTagOptions(categoryId){
+function getTagsForCategory(categoryId){
   const tags = [];
   const seen = new Set();
   getCategoryResources(categoryId).forEach(resource => {
@@ -2927,6 +3089,10 @@ function getCategoryTagOptions(categoryId){
     });
   });
   return tags.sort((a,b)=>a.localeCompare(b, undefined, { sensitivity:"base" }));
+}
+
+function getCategoryTagOptions(categoryId){
+  return getTagsForCategory(categoryId);
 }
 
 // ============================================================
@@ -3008,7 +3174,7 @@ function render(){
       card.className="category-card";
       const updates = updatesByCategory.get(cat.id) || [];
       card.innerHTML=`<strong>${cat.label}</strong>${updates.length ? `<div class="tag">Updates: ${updates.map(u=>escapeHTML(u.resourceName)).join(", ")}</div>` : ""}`;
-      card.onclick=()=>{ currentCategory=cat.id; view="category"; safeRender(); };
+      card.onclick=()=>{ currentCategory=cat.id; setCategoryFilterTags(currentCategory, []); view="category"; safeRender(); };
       grid.appendChild(card);
     });
 
@@ -3859,6 +4025,7 @@ async function exportPackage(){
   try{
     const saveTarget = await beginResourcePackageSave();
     const zip = new JSZip();
+    normalizePackageData(data);
     zip.file("tso-resources.json", JSON.stringify(data, null, 2));
 
     const pdfKeys = collectPDFPathsFromResources(data.resources);
@@ -3911,7 +4078,7 @@ function validateImportData(imported){
   }
 
   const categoryIds = new Set();
-  (imported.categories || []).forEach((c, i) => {
+  (Array.isArray(imported.categories) ? imported.categories : []).forEach((c, i) => {
     if(!c.id) errors.push(`Category at index ${i} is missing id`);
     if(!c.label) warnings.push(`Category '${c.id || i}' missing label`);
     if(c.id){
@@ -3923,7 +4090,7 @@ function validateImportData(imported){
   });
 
   const resourceIds = new Set();
-  (imported.resources || []).forEach((r, i) => {
+  (Array.isArray(imported.resources) ? imported.resources : []).forEach((r, i) => {
     if(!r.id) errors.push(`Resource at index ${i} missing id`);
     if(!r.name) warnings.push(`Resource '${r.id || i}' missing name`);
 
@@ -4385,6 +4552,9 @@ function commitPendingEditsIfChanged(){
       if(verifiedInput) verifiedInput.focus();
       return false;
     }
+    if(nextSnapshot !== editorSnapshot && !confirmCategoryAssignmentHint(draft)){
+      return false;
+    }
     if(nextSnapshot !== editorSnapshot){
       applyResourceDraft(editing.idx, draft);
       persist();
@@ -4831,6 +5001,7 @@ function editResource(idx){
   res.tags = normalizeResourceTags(res.tags);
   const verifiedDisplay = formatVerifiedOnForDisplay(res.verifiedOn);
   const tagInputValue = res.tags.join("\n");
+  const tagSuggestions = getAllTags(res.id);
 
   const catChecks = data.categories
     .slice()
@@ -4880,7 +5051,13 @@ function editResource(idx){
 
     <label style="display:block; margin-top:8px;">Tags (comma-separated or one per line)<br>
       <textarea id="res_tags" class="big" style="min-height:72px;">${escapeHTML(tagInputValue)}</textarea>
-    </label><br>
+    </label>
+    ${tagSuggestions.length ? `
+      <div id="res_tag_suggestions" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;">
+        ${tagSuggestions.map(tag => `<button class="button" type="button" data-tag-suggestion="${escapeHTML(tag)}">${escapeHTML(tag)}</button>`).join("")}
+      </div>
+    ` : ""}
+    <br>
 
     <div>
       <strong>Categories</strong><br>
@@ -4958,6 +5135,18 @@ function editResource(idx){
     servicesEl.addEventListener("input", refreshServicesPreview);
   }
   setServicesEditorMode("preview");
+
+  function insertTagSuggestion(tag){
+    if(!tagsEl) return;
+    const nextTags = normalizeResourceTags([...parseResourceTagsInput(tagsEl.value), tag]);
+    tagsEl.value = nextTags.join("\n");
+    tagsEl.dispatchEvent(new Event("input", { bubbles:true }));
+    tagsEl.focus();
+  }
+
+  editor.querySelectorAll("[data-tag-suggestion]").forEach(btn => {
+    btn.onclick = () => insertTagSuggestion(btn.getAttribute("data-tag-suggestion") || "");
+  });
 
   function updateVerifiedDisplayAndWarning(){
     if(!verifiedInput || !verifiedDisplayEl) return true;
