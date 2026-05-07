@@ -5597,7 +5597,7 @@ window.addEventListener("keydown", (e) => {
     : "";
   if(activeTag === "INPUT" || activeTag === "TEXTAREA") return;
 
-  const isAdminToggleShortcut = e.ctrlKey && e.altKey && (e.key === "A" || e.key === "a");
+  const isAdminToggleShortcut = e.ctrlKey && e.shiftKey && (e.key === "A" || e.key === "a");
   if(!isAdminToggleShortcut) return;
 
   e.preventDefault();
