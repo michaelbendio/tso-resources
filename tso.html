@@ -2121,6 +2121,77 @@ function parseResourceTagsInput(value){
   return normalizeResourceTags(String(value || "").split(/[,\n]/));
 }
 
+function normalizeSearchText(value){
+  return String(value || "").toLowerCase().trim();
+}
+
+function isListResource(resource){
+  const tagKeys = new Set(normalizeResourceTags(resource && resource.tags).map(tag => tag.toLowerCase()));
+  return tagKeys.has("list") || tagKeys.has("this resource is a list");
+}
+
+function resourceMatchesSearch(resource, query){
+  const normalizedQuery = normalizeSearchText(query);
+  if(!normalizedQuery) return false;
+  const haystack = [
+    resource && resource.name,
+    resource && resource.description,
+    resource && resource.servicesText,
+    normalizeResourceTags(resource && resource.tags).join(" ")
+  ].map(normalizeSearchText).join("\n");
+  return haystack.includes(normalizedQuery);
+}
+
+function getResourceSearchResults(query){
+  const normalizedQuery = normalizeSearchText(query);
+  if(!normalizedQuery) return [];
+  return (Array.isArray(data.resources) ? data.resources : [])
+    .filter(resource => !isListResource(resource))
+    .filter(resource => resourceMatchesSearch(resource, normalizedQuery))
+    .sort(compareResourcesByName);
+}
+
+function getCategoryLabelsForResource(resource){
+  const categoryIds = Array.isArray(resource && resource.categories) ? resource.categories : [];
+  if(!categoryIds.length) return ["none"];
+  return categoryIds.map(categoryId => {
+    const match = (Array.isArray(data.categories) ? data.categories : []).find(cat => String(cat && cat.id || "") === String(categoryId || ""));
+    return match ? String(match.label || categoryId) : String(categoryId || "");
+  });
+}
+
+function buildTextExcerpt(text, query){
+  const rawText = String(text || "");
+  const needle = String(query || "");
+  if(!rawText || !needle) return "";
+  const lowerText = rawText.toLowerCase();
+  const lowerNeedle = needle.toLowerCase();
+  const index = lowerText.indexOf(lowerNeedle);
+  if(index < 0) return "";
+  const radius = 45;
+  const start = Math.max(0, index - radius);
+  const end = Math.min(rawText.length, index + needle.length + radius);
+  const prefix = start > 0 ? "..." : "";
+  const suffix = end < rawText.length ? "..." : "";
+  return `${prefix}${rawText.slice(start, end).replace(/\s+/g, " ").trim()}${suffix}`;
+}
+
+function findResourceListReferences(resource){
+  if(!resource || !resource.name) return [];
+  const query = normalizeSearchText(resource.name);
+  if(!query) return [];
+  return (Array.isArray(data.resources) ? data.resources : [])
+    .filter(candidate => String(candidate && candidate.id || "") !== String(resource.id || ""))
+    .filter(candidate => isListResource(candidate))
+    .filter(candidate => normalizeSearchText(candidate && candidate.servicesText).includes(query))
+    .map(candidate => ({
+      resource: candidate,
+      categories: getCategoryLabelsForResource(candidate),
+      excerpt: buildTextExcerpt(candidate && candidate.servicesText, resource.name)
+    }))
+    .sort((a, b) => compareResourcesByName(a.resource, b.resource));
+}
+
 function normalizeDataTagsShape(nextData){
   if(!nextData || typeof nextData !== "object") return;
   if(!Array.isArray(nextData.tags)) nextData.tags = [];
@@ -2345,6 +2416,7 @@ let adminCategoryOrderEditorOpen = false;
 let adminCategoryOrderDraft = null; // array of { idx, value } in fixed editor row order
 let editing = null;
 let editorSnapshot = "";
+let resourceSearchQuery = "";
 let categoryTagFilters = {}; // categoryId -> [tag, ...]
 const UNDO_STORAGE_KEY = "tsoUndo";
 let pendingRecentUpdates = [];
@@ -2597,6 +2669,42 @@ function runSelfTests(){
       if(JSON.stringify(sample.resources[0].tags) !== JSON.stringify([])) throw new Error("missing tags should normalize to []");
       if(JSON.stringify(sample.resources[1].tags) !== JSON.stringify(["Rental", "Eviction Help"])) throw new Error("string tags were not split");
       if(JSON.stringify(sample.resources[2].tags) !== JSON.stringify([])) throw new Error("null tags should normalize to []");
+    }
+  });
+
+  tests.push({
+    name: "RESOURCE SEARCH + LIST REFERENCES",
+    fn: () => {
+      const previousData = data;
+      try{
+        data = {
+          categories:[
+            { id:"employment", label:"Employment" },
+            { id:"temp", label:"Temp agencies" }
+          ],
+          resources:[
+            { id:"r1", name:"Ability 1st", description:"Canonical resource", servicesText:"Food and meals support", tags:["Support"], categories:["employment"] },
+            { id:"r2", name:"Employment Agencies", description:"List page", servicesText:"...Ability 1st helps with jobs...", tags:["This resource is a list"], categories:["employment","temp"] },
+            { id:"r3", name:"Mentor Program", description:"General referral", servicesText:"ability 1st referral pathways", tags:["Support"], categories:["employment"] },
+            { id:"r4", name:"Legacy List", description:"another list", servicesText:"Ability 1st again", tags:["list"], categories:["missing-cat"] }
+          ]
+        };
+        const mealsMatches = getResourceSearchResults("meals").map(r => r.id);
+        if(!mealsMatches.includes("r1")) throw new Error("servicesText search failed");
+        const caseInsensitive = getResourceSearchResults("ABILITY 1ST").map(r => r.id);
+        if(!caseInsensitive.includes("r1") || !caseInsensitive.includes("r3")) throw new Error("case-insensitive search failed");
+        if(caseInsensitive.includes("r2") || caseInsensitive.includes("r4")) throw new Error("list resources should be excluded from user search");
+        const refs = findResourceListReferences(data.resources[0]);
+        const refIds = refs.map(item => item.resource.id);
+        if(!refIds.includes("r2") || !refIds.includes("r4")) throw new Error("list reference detection missed list resource mention");
+        if(refIds.includes("r3")) throw new Error("non-list resource should not appear in references");
+        const labels = getCategoryLabelsForResource(data.resources[1]);
+        if(JSON.stringify(labels) !== JSON.stringify(["Employment", "Temp agencies"])) throw new Error("category label resolution failed");
+        const fallback = getCategoryLabelsForResource(data.resources[3]);
+        if(JSON.stringify(fallback) !== JSON.stringify(["missing-cat"])) throw new Error("category fallback to raw id failed");
+      }finally{
+        data = previousData;
+      }
     }
   });
 
@@ -3168,36 +3276,76 @@ function render(){
   appView.innerHTML="";
 
   if(view==="categories"){
+    const searchWrap = document.createElement("div");
+    searchWrap.style.marginBottom = "12px";
+    const searchInput = document.createElement("input");
+    searchInput.type = "search";
+    searchInput.placeholder = "Search resources by service or name";
+    searchInput.value = resourceSearchQuery;
+    searchInput.style.width = "100%";
+    searchInput.style.boxSizing = "border-box";
+    searchInput.oninput = () => {
+      resourceSearchQuery = searchInput.value || "";
+      safeRender();
+    };
+    searchWrap.appendChild(searchInput);
+    appView.appendChild(searchWrap);
+
     if(pendingRecentUpdates.length){
       const note = document.createElement("div");
       note.className = "category-card";
       note.innerHTML = `<strong>Recent Updates</strong><div>${pendingRecentUpdates.length} new updates loaded.</div><div>Click TSO Resources at any time to review recent updates.</div>`;
       appView.appendChild(note);
     }
-    const grid=document.createElement("div");
-    grid.className="grid";
-    const updatesByCategory = getCategoryUpdateMap();
-
-    data.categories.slice().sort((a,b)=>(a.displayOrder??999)-(b.displayOrder??999)).forEach(cat=>{
-      const card=document.createElement("div");
-      card.className="category-card";
-      const updates = updatesByCategory.get(cat.id) || [];
-      card.innerHTML=`<strong>${cat.label}</strong>${updates.length ? `<div><button type="button" class="button secondary category-update-badge">Updates: ${updates.length}</button></div>` : ""}`;
-      const updateBadge = card.querySelector(".category-update-badge");
-      if(updateBadge){
-        updateBadge.onclick = e => {
-          e.stopPropagation();
-          recentUpdateDetail = updates;
-          markChangesViewed(updates.map(entry => entry.id));
-          view = "recent-updates";
-          safeRender();
-        };
+    const normalizedSearch = normalizeSearchText(resourceSearchQuery);
+    if(normalizedSearch){
+      const results = getResourceSearchResults(normalizedSearch);
+      const count = document.createElement("p");
+      count.textContent = `${results.length} ${results.length === 1 ? "resource" : "resources"} found`;
+      appView.appendChild(count);
+      if(!results.length){
+        const empty = document.createElement("p");
+        empty.textContent = "No resources match this search.";
+        appView.appendChild(empty);
+      }else{
+        results.forEach(res => {
+          let expanded = false;
+          const card = buildResourceCard(res,{showDescription:true});
+          card.onclick=()=>{
+            expanded=!expanded;
+            const d=card.querySelector(".resource-details");
+            d.classList.toggle("collapsed",!expanded);
+            d.classList.toggle("expanded",expanded);
+          };
+          appView.appendChild(card);
+        });
       }
-      card.onclick=()=>{ currentCategory=cat.id; setCategoryFilterTags(currentCategory, []); view="category"; safeRender(); };
-      grid.appendChild(card);
-    });
+    }else{
+      const grid=document.createElement("div");
+      grid.className="grid";
+      const updatesByCategory = getCategoryUpdateMap();
 
-    appView.appendChild(grid);
+      data.categories.slice().sort((a,b)=>(a.displayOrder??999)-(b.displayOrder??999)).forEach(cat=>{
+        const card=document.createElement("div");
+        card.className="category-card";
+        const updates = updatesByCategory.get(cat.id) || [];
+        card.innerHTML=`<strong>${cat.label}</strong>${updates.length ? `<div><button type="button" class="button secondary category-update-badge">Updates: ${updates.length}</button></div>` : ""}`;
+        const updateBadge = card.querySelector(".category-update-badge");
+        if(updateBadge){
+          updateBadge.onclick = e => {
+            e.stopPropagation();
+            recentUpdateDetail = updates;
+            markChangesViewed(updates.map(entry => entry.id));
+            view = "recent-updates";
+            safeRender();
+          };
+        }
+        card.onclick=()=>{ currentCategory=cat.id; setCategoryFilterTags(currentCategory, []); view="category"; safeRender(); };
+        grid.appendChild(card);
+      });
+
+      appView.appendChild(grid);
+    }
 
     const reloadWrap = document.createElement("div");
     reloadWrap.className = "reload-resources-wrap";
@@ -5235,6 +5383,7 @@ function editResource(idx){
       <textarea id="res_services" class="big services-editor">${escapeHTML(res.servicesText || "")}</textarea>
       <div id="res_services_preview" class="services-preview-box services-rendered hidden"></div>
     </div><br>
+    <div id="res_list_references" style="margin-top:12px;"></div>
   `;
 
   const verifiedBtn = document.getElementById("res_verified_btn");
@@ -5295,6 +5444,25 @@ function editResource(idx){
     servicesEl.addEventListener("input", refreshServicesPreview);
   }
   setServicesEditorMode("preview");
+
+  const referencesWrap = document.getElementById("res_list_references");
+  if(referencesWrap){
+    const references = findResourceListReferences(res);
+    if(!references.length){
+      referencesWrap.innerHTML = `<div><strong>Referenced in lists</strong></div><div>No list references found.</div>`;
+    }else{
+      referencesWrap.innerHTML = `
+        <div><strong>Referenced in lists</strong></div>
+        ${references.map(item => `
+          <div class="category-card" style="margin-top:8px;">
+            <div><strong>${escapeHTML(item.resource.name || "(Unnamed resource)")}</strong></div>
+            <div>Categories: ${escapeHTML(item.categories.join(", "))}</div>
+            ${item.excerpt ? `<div>"${escapeHTML(item.excerpt)}"</div>` : ""}
+          </div>
+        `).join("")}
+      `;
+    }
+  }
 
   function insertTagSuggestion(tag){
     if(!tagsEl) return;
