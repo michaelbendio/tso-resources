@@ -143,6 +143,47 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 .category-order-input::-webkit-outer-spin-button,
 .category-order-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
 
+.reference-modal {
+  position:fixed;
+  inset:0;
+  z-index:10002;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:18px;
+  box-sizing:border-box;
+  background:rgba(0,0,0,.45);
+}
+.reference-modal.hidden { display:none; }
+.reference-modal-panel {
+  width:min(720px,100%);
+  max-height:min(82vh,720px);
+  display:flex;
+  flex-direction:column;
+  background:white;
+  border:1px solid #c8d6e5;
+  border-radius:6px;
+  box-shadow:0 8px 28px rgba(0,0,0,.22);
+}
+.reference-modal-header {
+  display:flex;
+  justify-content:space-between;
+  gap:16px;
+  padding:16px 18px;
+  border-bottom:1px solid #dde6ef;
+}
+.reference-modal-title { font-size:20px; font-weight:bold; }
+.reference-modal-subtitle { margin-top:2px; color:#555; }
+.reference-modal-body {
+  padding:16px 18px 18px;
+  overflow:auto;
+}
+.reference-group { margin-top:14px; }
+.reference-group:first-child { margin-top:0; }
+.reference-group-title { font-weight:bold; margin-bottom:6px; }
+.reference-list { margin:0; padding-left:22px; }
+.reference-empty { margin:0; color:#555; }
+
 /* Print modal */
 #printModal {
   position:fixed;
@@ -169,7 +210,7 @@ textarea.services-editor { min-height:320px; resize:vertical; }
     background: white;
   }
 
-  body > *:not(#printModal) {
+  body > *:not(#printModal):not(#referenceModal) {
     display: none !important;
   }
 
@@ -195,6 +236,49 @@ textarea.services-editor { min-height:320px; resize:vertical; }
   }
 
   #printContentWrapper button {
+    display: none !important;
+  }
+
+  #referenceModal {
+    position: static;
+    inset: auto;
+    display: block;
+    padding: 0;
+    background: transparent;
+  }
+
+  #referenceModal.hidden {
+    display: none !important;
+  }
+
+  .reference-modal-panel {
+    width: auto;
+    max-height: none;
+    display: block;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  .reference-modal-header {
+    padding: 0 0 12pt;
+    margin-bottom: 12pt;
+    border-bottom: 1px solid #aaa;
+  }
+
+  .reference-modal-title {
+    font-size: 16pt;
+  }
+
+  .reference-modal-body {
+    padding: 0;
+    overflow: visible;
+    font-size: 11pt;
+    line-height: 1.35;
+  }
+
+  .reference-modal-close {
     display: none !important;
   }
 
@@ -2618,6 +2702,38 @@ function runSelfTests(){
   });
 
   tests.push({
+    name: "LIST REFERENCE LOOKUP",
+    fn: () => {
+      const previousData = data;
+      try{
+        data = {
+          categories:[
+            { id:"housing", label:"Housing", displayOrder:1 },
+            { id:"food", label:"Food", displayOrder:2 }
+          ],
+          resources:[
+            { id:"target", name:"Community Action", categories:["food"], tags:["Food"], servicesText:"" },
+            { id:"list-food", name:"Food Pantries", categories:["food"], tags:["List"], servicesText:"Community Action\ncommunity action" },
+            { id:"list-housing", name:"Housing Lists", categories:["housing","food"], tags:["List"], servicesText:"community action" },
+            { id:"not-list", name:"Caseworker Note", categories:["food"], tags:["Food"], servicesText:"Community Action" }
+          ]
+        };
+
+        const matches = findReferencingLists("COMMUNITY ACTION");
+        const keys = matches.map(match => `${match.categoryLabel}:${match.listName}`);
+        if(!keys.includes("Food:Food Pantries")) throw new Error("food list reference was not found");
+        if(!keys.includes("Housing:Housing Lists")) throw new Error("housing list reference was not found");
+        if(!keys.includes("Food:Housing Lists")) throw new Error("multi-category list reference was not found");
+        if(keys.includes("Food:Caseworker Note")) throw new Error("non-list resource was included");
+        if(keys.filter(key => key === "Food:Food Pantries").length !== 1) throw new Error("duplicate mention produced duplicate match");
+        if(keys[0] !== "Housing:Housing Lists") throw new Error("category order was not preserved");
+      }finally{
+        data = previousData;
+      }
+    }
+  });
+
+  tests.push({
     name: "CATEGORY TAGS ARE RESOURCE OWNED",
     fn: () => {
       const previousData = data;
@@ -4304,6 +4420,153 @@ async function mergeImportPackage(event){
    Admin UI
 ========================= */
 
+function getReferenceCategoryEntries(resource){
+  const categoryIds = Array.isArray(resource && resource.categories)
+    ? resource.categories.map(id => String(id || "")).filter(Boolean)
+    : [];
+  const categoryIdSet = new Set(categoryIds);
+  const entries = [];
+  const seen = new Set();
+
+  (Array.isArray(data.categories) ? data.categories : [])
+    .slice()
+    .sort((a,b)=>(a.displayOrder??999)-(b.displayOrder??999))
+    .forEach((cat, index) => {
+      const id = String(cat && cat.id || "");
+      if(!categoryIdSet.has(id)) return;
+      const label = String(cat && cat.label || id || "Uncategorized");
+      const key = label.toLowerCase();
+      if(seen.has(key)) return;
+      seen.add(key);
+      entries.push({ label, order:index });
+    });
+
+  categoryIds.forEach(id => {
+    if(entries.some(entry => entry.label === id)) return;
+    if((data.categories || []).some(cat => String(cat && cat.id || "") === id)) return;
+    const key = id.toLowerCase();
+    if(seen.has(key)) return;
+    seen.add(key);
+    entries.push({ label:id, order:9999 });
+  });
+
+  if(!entries.length){
+    entries.push({ label:"Uncategorized", order:9999 });
+  }
+
+  return entries;
+}
+
+function findReferencingLists(resourceName){
+  const needle = String(resourceName || "").trim().toLowerCase();
+  if(!needle) return [];
+
+  const matches = [];
+  const seen = new Set();
+  (Array.isArray(data.resources) ? data.resources : []).forEach(resource => {
+    if(!Array.isArray(resource && resource.tags) || !resource.tags.includes("List")) return;
+    const servicesText = String(resource && resource.servicesText || "");
+    if(!servicesText.toLowerCase().includes(needle)) return;
+
+    getReferenceCategoryEntries(resource).forEach(category => {
+      const listName = String(resource && resource.name || "(Unnamed list)");
+      const key = `${category.label.toLowerCase()}\u0000${String(resource && resource.id || listName).toLowerCase()}`;
+      if(seen.has(key)) return;
+      seen.add(key);
+      matches.push({
+        categoryLabel: category.label,
+        categoryOrder: category.order,
+        listName
+      });
+    });
+  });
+
+  return matches.sort((a, b) => {
+    if(a.categoryOrder !== b.categoryOrder) return a.categoryOrder - b.categoryOrder;
+    const categoryCompare = a.categoryLabel.localeCompare(b.categoryLabel, undefined, { sensitivity:"base" });
+    if(categoryCompare) return categoryCompare;
+    return a.listName.localeCompare(b.listName, undefined, { sensitivity:"base" });
+  });
+}
+
+function getReferenceModal(){
+  let modal = document.getElementById("referenceModal");
+  if(modal) return modal;
+
+  modal = document.createElement("div");
+  modal.id = "referenceModal";
+  modal.className = "reference-modal hidden";
+  modal.addEventListener("click", event => {
+    if(event.target === modal) closeReferenceModal();
+  });
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function closeReferenceModal(){
+  const modal = document.getElementById("referenceModal");
+  if(modal) modal.classList.add("hidden");
+}
+
+function showReferenceModal(resourceName, matches){
+  const modal = getReferenceModal();
+  const groups = [];
+  const groupMap = new Map();
+
+  (Array.isArray(matches) ? matches : []).forEach(match => {
+    const categoryLabel = String(match && match.categoryLabel || "Uncategorized");
+    const key = categoryLabel.toLowerCase();
+    if(!groupMap.has(key)){
+      const group = { label:categoryLabel, items:[] };
+      groupMap.set(key, group);
+      groups.push(group);
+    }
+    groupMap.get(key).items.push(String(match && match.listName || "(Unnamed list)"));
+  });
+
+  const bodyHTML = groups.length
+    ? groups.map(group => `
+        <div class="reference-group">
+          <div class="reference-group-title">${escapeHTML(group.label)}</div>
+          <ul class="reference-list">
+            ${group.items.map(name => `<li>${escapeHTML(name)}</li>`).join("")}
+          </ul>
+        </div>
+      `).join("")
+    : `<p class="reference-empty">No list references found.</p>`;
+
+  modal.innerHTML = `
+    <div class="reference-modal-panel" role="dialog" aria-modal="true" aria-labelledby="referenceModalTitle" aria-describedby="referenceModalSubtitle">
+      <div class="reference-modal-header">
+        <div>
+          <div id="referenceModalTitle" class="reference-modal-title">Referenced in Lists</div>
+          <div id="referenceModalSubtitle" class="reference-modal-subtitle">${escapeHTML(resourceName)}</div>
+        </div>
+        <button class="button reference-modal-close" type="button">Close</button>
+      </div>
+      <div class="reference-modal-body">${bodyHTML}</div>
+    </div>
+  `;
+
+  const closeBtn = modal.querySelector(".reference-modal-close");
+  if(closeBtn) closeBtn.addEventListener("click", closeReferenceModal);
+  modal.classList.remove("hidden");
+  if(closeBtn) closeBtn.focus();
+}
+
+function handleAdminResourceReferenceClick(event, sel){
+  if(!event.altKey) return;
+  window.setTimeout(() => {
+    if(!(view === "admin" && adminTab === "resources" && !adminResourceEditMode)) return;
+    const resourceId = sel && sel.value ? String(sel.value) : "";
+    const resource = (data.resources || []).find(res => String(res && res.id || "") === resourceId);
+    const resourceName = String(resource && resource.name || "").trim();
+    if(!resourceName) return;
+    selectedResourceId = resourceId;
+    showReferenceModal(resourceName, findReferencingLists(resourceName));
+  }, 0);
+}
+
 function switchAdminTab(nextTab){
   if(adminTab === nextTab) return;
   if(!commitPendingEditsIfChanged()) return;
@@ -4986,6 +5249,7 @@ function renderAdminResources(container){
 
     populateResourceSelectOptions(sel, selectedResourceId);
     sel.onchange = () => { selectedResourceId = sel.value || ""; };
+    sel.addEventListener("click", event => handleAdminResourceReferenceClick(event, sel));
     sel.ondblclick = () => {
       if(document.activeElement !== sel) return;
       openResourceEditor();
@@ -5412,6 +5676,15 @@ window.addEventListener("keydown", (e) => {
   e.preventDefault();
   e.stopPropagation();
   safeCall("runSelfTests", () => runSelfTests());
+}, true);
+
+window.addEventListener("keydown", (e) => {
+  if(e.key !== "Escape") return;
+  const modal = document.getElementById("referenceModal");
+  if(!modal || modal.classList.contains("hidden")) return;
+  e.preventDefault();
+  e.stopPropagation();
+  closeReferenceModal();
 }, true);
 
 window.addEventListener("keydown", (e) => {
