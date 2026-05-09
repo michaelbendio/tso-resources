@@ -2707,20 +2707,30 @@ function runSelfTests(){
   });
 
   tests.push({
-    name: "LIST REFERENCE LOOKUP",
+    name: "LIST REFERENCE DETECTION",
     fn: () => {
       const previousData = data;
       try{
+        const longText = `${"Long resource guide. ".repeat(30)} GED preparation and earn a GED. Captain Your Story - My Story Matters.`;
         data = {
           categories:[
             { id:"housing", label:"Housing", displayOrder:1 },
-            { id:"food", label:"Food", displayOrder:2 }
+            { id:"food", label:"Food", displayOrder:2 },
+            { id:"education", label:"Education", displayOrder:3 }
           ],
           resources:[
             { id:"target", name:"Community Action", categories:["food"], tags:["Food","List"], servicesText:"Community Action" },
             { id:"list-food", name:"Food Pantries", categories:["food"], tags:["List"], servicesText:"Community-Action\ncommunity action" },
             { id:"list-housing", name:"Housing Lists", categories:["housing","food"], tags:["List"], servicesText:"community action" },
-            { id:"not-list", name:"Caseworker Note", categories:["food"], tags:["Food"], servicesText:"Community Action" }
+            { id:"not-list", name:"Caseworker Note", categories:["food"], tags:["Food"], servicesText:"Community Action" },
+            { id:"ged", name:"GED", categories:["education"], tags:["Education"], servicesText:"" },
+            { id:"can", name:"CAN", categories:["education"], tags:["Education"], servicesText:"" },
+            { id:"ican", name:"ICAN", categories:["education"], tags:["Education"], servicesText:"" },
+            { id:"aid", name:"Aid", categories:["education"], tags:["Education"], servicesText:"" },
+            { id:"story", name:"My Story Matters", categories:["education"], tags:["Education"], servicesText:"" },
+            { id:"list-education", name:"Education Lists", categories:["education"], tags:["List"], servicesText:"GED preparation, earn a GED, abridged notes, American Fork resources, vacancy listings, Captain Your Story - My Story Matters, GED." },
+            { id:"long-guide", name:"Long Education Guide", categories:["education"], tags:["Education"], servicesText:longText },
+            { id:"short-guide", name:"Short Education Note", categories:["education"], tags:["Education"], servicesText:"GED preparation and My Story Matters" }
           ]
         };
 
@@ -2734,6 +2744,19 @@ function runSelfTests(){
         if(names.includes("Caseworker Note")) throw new Error("non-list resource was included");
         if(names.filter(name => name === "Food Pantries").length !== 1) throw new Error("duplicate mention produced duplicate match");
         if(names[0] !== "Housing Lists") throw new Error("category order was not preserved");
+
+        const gedMatches = findReferencingLists({ id:"ged", name:"GED" }).map(match => match.listName);
+        if(!gedMatches.includes("Education Lists")) throw new Error("GED list reference was not found");
+        if(!gedMatches.includes("Long Education Guide")) throw new Error("long list-style resource was not included");
+        if(gedMatches.includes("Short Education Note")) throw new Error("short non-list resource was included");
+        if(gedMatches.filter(name => name === "Education Lists").length !== 1) throw new Error("duplicate GED references were not deduplicated");
+
+        if(findReferencingLists({ id:"can", name:"CAN" }).length) throw new Error("CAN matched inside vacancy");
+        if(findReferencingLists({ id:"ican", name:"ICAN" }).length) throw new Error("ICAN matched inside American");
+        if(findReferencingLists({ id:"aid", name:"Aid" }).length) throw new Error("short non-acronym name should be ignored");
+        const storyMatches = findReferencingLists({ id:"story", name:"My Story Matters" }).map(match => match.listName);
+        if(!storyMatches.includes("Education Lists")) throw new Error("multi-word list reference was not found");
+        if(!storyMatches.includes("Long Education Guide")) throw new Error("multi-word long list-style reference was not found");
       }finally{
         data = previousData;
       }
@@ -3360,11 +3383,15 @@ function render(){
       title.style.marginBottom = "6px";
       appView.appendChild(title);
     }
-    const categoryMessage = document.createElement("p");
-    categoryMessage.textContent = "If you notice resources that need to be added or updated, please send a message to Elder and Sister Gasser.";
-    categoryMessage.style.margin = "0 0 12px";
-    categoryMessage.style.color = "#555";
-    appView.appendChild(categoryMessage);
+    if(!isAdminVisible){
+      const categoryMessage = document.createElement("p");
+      categoryMessage.textContent = "If you notice resources that need to be added or updated, please send a message to Elder and Sister Gasser.";
+      categoryMessage.style.margin = "0 0 12px";
+      categoryMessage.style.color = "#555";
+      categoryMessage.style.fontSize = "14px";
+      categoryMessage.style.lineHeight = "1.35";
+      appView.appendChild(categoryMessage);
+    }
     const categoryTags = getCategoryTagOptions(currentCategory);
     let activeTags = getCategoryFilterTags(currentCategory).filter(tag =>
       categoryTags.some(option => option.toLowerCase() === tag.toLowerCase())
@@ -4472,24 +4499,46 @@ function getReferenceCategoryEntries(resource){
   return entries;
 }
 
-function normalizeReferenceSearchText(value, { compact = false } = {}){
-  const normalized = String(value || "")
+function normalizeReferenceSearchText(value){
+  return String(value || "")
     .toLowerCase()
     .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "");
-  return compact
-    ? normalized.replace(/[^a-z0-9]+/g, "")
-    : normalized.replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function getReferenceTokens(value){
+  const normalized = normalizeReferenceSearchText(value);
+  return normalized ? normalized.split(" ") : [];
+}
+
+function isReferenceNameSearchable(resourceName){
+  const rawName = String(resourceName || "").trim();
+  if(!rawName) return false;
+  if(rawName.length >= 4) return true;
+  if(/\s/.test(rawName)) return true;
+  return /[A-Z]/.test(rawName) && rawName === rawName.toUpperCase();
 }
 
 function servicesTextReferencesName(servicesText, resourceName){
-  const needle = normalizeReferenceSearchText(resourceName);
-  const haystack = normalizeReferenceSearchText(servicesText);
-  if(needle && haystack.includes(needle)) return true;
+  if(!isReferenceNameSearchable(resourceName)) return false;
+  const needleTokens = getReferenceTokens(resourceName);
+  const haystackTokens = getReferenceTokens(servicesText);
+  if(!needleTokens.length || haystackTokens.length < needleTokens.length) return false;
 
-  const compactNeedle = normalizeReferenceSearchText(resourceName, { compact:true });
-  const compactHaystack = normalizeReferenceSearchText(servicesText, { compact:true });
-  return !!compactNeedle && compactHaystack.includes(compactNeedle);
+  for(let i = 0; i <= haystackTokens.length - needleTokens.length; i += 1){
+    let matched = true;
+    for(let j = 0; j < needleTokens.length; j += 1){
+      if(haystackTokens[i + j] !== needleTokens[j]){
+        matched = false;
+        break;
+      }
+    }
+    if(matched) return true;
+  }
+  return false;
 }
 
 function getReferenceSnippet(servicesText, resourceName){
@@ -4512,6 +4561,11 @@ function resourceHasListTag(resource){
     .some(tag => tag.toLowerCase() === "list");
 }
 
+function resourceIsListStyle(resource){
+  if(resourceHasListTag(resource)) return true;
+  return String(resource && resource.servicesText || "").trim().length > 500;
+}
+
 function findReferencingLists(resourceOrName){
   const targetId = resourceOrName && typeof resourceOrName === "object"
     ? String(resourceOrName.id || "")
@@ -4520,14 +4574,14 @@ function findReferencingLists(resourceOrName){
     ? resourceOrName.name
     : resourceOrName;
   const needle = String(resourceName || "").trim();
-  if(!needle) return [];
+  if(!isReferenceNameSearchable(needle)) return [];
 
   const matches = [];
   const seen = new Set();
   (Array.isArray(data.resources) ? data.resources : []).forEach(resource => {
     const resourceId = String(resource && resource.id || "");
     if(targetId && resourceId === targetId) return;
-    if(!resourceHasListTag(resource)) return;
+    if(!resourceIsListStyle(resource)) return;
     const servicesText = String(resource && resource.servicesText || "");
     if(!servicesTextReferencesName(servicesText, needle)) return;
 
