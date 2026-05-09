@@ -2416,6 +2416,7 @@ let data = JSON.parse(localStorage.getItem("tsoData") || "null");
 const APP_VERSION = "1.3";
 const DEBUG = new URLSearchParams(location.search).has("debug");
 const UPDATE_SEEN_STORAGE_KEY = "tsoRecentUpdatesSeen";
+const CATEGORY_REMINDER_TEXT = "If you notice resources that need to be added or updated, please send a message to Elder and Sister Gasser. Report Bugs to Elder Bendio.";
 
 if(!data){
   data = seed;
@@ -3383,7 +3384,7 @@ function render(){
 
   function renderCategoryReminder(){
     const categoryMessage = document.createElement("p");
-    categoryMessage.textContent = "If you notice resources that need to be added or updated, please send a message to Elder and Sister Gasser. Report bugs to Elder Bendio";
+    categoryMessage.textContent = `${CATEGORY_REMINDER_TEXT} `;
     categoryMessage.style.margin = "0 0 12px";
     categoryMessage.style.color = "#555";
     categoryMessage.style.fontSize = "14px";
