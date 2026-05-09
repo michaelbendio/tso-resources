@@ -2672,6 +2672,37 @@ function runSelfTests(){
   });
 
   tests.push({
+    name: "NEW RESOURCE CANCEL CLEANUP",
+    fn: () => {
+      const previousData = data;
+      const previousNewResourceIds = newResourceIds;
+      const previousSelectedResourceId = selectedResourceId;
+      const previousAdminResourceEditMode = adminResourceEditMode;
+      try{
+        data = {
+          categories:[],
+          resources:[
+            { id:"existing", name:"Existing", categories:[], tags:[], pdfs:[], servicesText:"" },
+            { id:"draft", name:"", categories:[], tags:[], pdfs:[], servicesText:"" }
+          ]
+        };
+        newResourceIds = new Set(["draft"]);
+        selectedResourceId = "draft";
+        adminResourceEditMode = true;
+        if(!discardNewResourceDraft("draft")) throw new Error("new resource draft was not discarded");
+        if(data.resources.some(resource => resource.id === "draft")) throw new Error("draft resource remained in data");
+        if(newResourceIds.has("draft")) throw new Error("draft id remained tracked");
+        if(selectedResourceId !== "existing") throw new Error("selection did not move to existing resource");
+      }finally{
+        data = previousData;
+        newResourceIds = previousNewResourceIds;
+        selectedResourceId = previousSelectedResourceId;
+        adminResourceEditMode = previousAdminResourceEditMode;
+      }
+    }
+  });
+
+  tests.push({
     name: "UTC LAST MODIFIED FORMAT",
     fn: () => {
       const formatted = formatDateTimeUTC("2026-05-09T05:16:20.130Z");
@@ -5503,6 +5534,32 @@ function newResource(){
   focusAndSelectResourceName();
 }
 
+function discardNewResourceDraft(resourceId){
+  const draftId = String(resourceId || "");
+  if(!draftId || !newResourceIds.has(draftId)) return false;
+
+  const sortedIds = getAdminResourceBrowseList().map(r => String(r.id || ""));
+  const selectedPos = sortedIds.indexOf(draftId);
+  const idx = getResourceIndexById(draftId);
+  if(idx === -1){
+    newResourceIds.delete(draftId);
+    return false;
+  }
+
+  data.resources.splice(idx, 1);
+  newResourceIds.delete(draftId);
+
+  const remainingIds = getAdminResourceBrowseList().map(r => String(r.id || ""));
+  if(!remainingIds.length){
+    selectedResourceId = "";
+    adminResourceEditMode = false;
+  }else{
+    const nextPos = Math.min(Math.max(selectedPos, 0), remainingIds.length - 1);
+    selectedResourceId = remainingIds[nextPos];
+  }
+  return true;
+}
+
 function isBlankResourceDraft(resource){
   if(!resource) return false;
   const hasText = ["name", "description", "phone", "address", "website", "hours", "servicesText"]
@@ -5566,6 +5623,12 @@ function closeResourceEditor(){
 }
 
 function cancelResourceEditor(){
+  if(discardNewResourceDraft(selectedResourceId)){
+    adminResourceEditMode = false;
+    persist();
+    safeRenderAdmin();
+    return;
+  }
   adminResourceEditMode = false;
   safeRenderAdmin();
 }
