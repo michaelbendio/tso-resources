@@ -2648,6 +2648,18 @@ function runSelfTests(){
   });
 
   tests.push({
+    name: "BLANK RESOURCE CLEANUP DETECTION",
+    fn: () => {
+      const blank = { name:"", description:"", phone:"", address:"", website:"", hours:"", servicesText:"", categories:[], tags:[], pdfs:[] };
+      const named = { ...blank, name:"Named Resource" };
+      const categorized = { ...blank, categories:["food"] };
+      if(!isBlankResourceDraft(blank)) throw new Error("empty resource was not detected");
+      if(isBlankResourceDraft(named)) throw new Error("named resource was treated as blank");
+      if(isBlankResourceDraft(categorized)) throw new Error("categorized resource was treated as blank");
+    }
+  });
+
+  tests.push({
     name: "LIST TAG CANONICALIZATION",
     fn: () => {
       const resource = { tags:["This resource is a list", "Women"] };
@@ -5470,6 +5482,15 @@ function newResource(){
   focusAndSelectResourceName();
 }
 
+function isBlankResourceDraft(resource){
+  if(!resource) return false;
+  const hasText = ["name", "description", "phone", "address", "website", "hours", "servicesText"]
+    .some(key => String(resource[key] || "").trim());
+  const hasLists = ["categories", "tags", "pdfs"]
+    .some(key => Array.isArray(resource[key]) && resource[key].length);
+  return !hasText && !hasLists;
+}
+
 function deleteResource(){
   if(!commitPendingEditsIfChanged()) return;
   if(!selectedResourceId) return;
@@ -5482,11 +5503,15 @@ function deleteResource(){
 
   const confirmDelete = confirm(buildAdminDeleteConfirmation("resource", res.name || "(unnamed)"));
   if(!confirmDelete) return;
-  const updateDescription = prompt("Describe this update (optional):", "") || "";
-  setUndoSnapshot(`deleted resource "${res.name}"`);
+  const isBlankDraft = isBlankResourceDraft(res);
+  const updateDescription = isBlankDraft ? "" : prompt("Describe this update (optional):", "");
+  if(updateDescription === null) return;
+  if(!isBlankDraft) setUndoSnapshot(`deleted resource "${res.name}"`);
 
   data.resources.splice(idx,1);
-  addChangeEntry(createChangeEntry("resource", "removed", res.id, res.name || "(Unnamed resource)", updateDescription, { categoryIds:res.categories }));
+  if(!isBlankDraft){
+    addChangeEntry(createChangeEntry("resource", "removed", res.id, res.name || "(Unnamed resource)", updateDescription, { categoryIds:res.categories }));
+  }
   newResourceIds.delete(res.id);
 
   const remainingIds = getAdminResourceBrowseList().map(r => String(r.id || ""));
