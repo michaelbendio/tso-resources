@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>TSO Resources</title>
+<title>Provo TSO Resources</title>
 
 <!-- ===== APP CSS START ===== -->
 <style>
@@ -182,6 +182,11 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 .reference-group:first-child { margin-top:0; }
 .reference-group-title { font-weight:bold; margin-bottom:6px; }
 .reference-list { margin:0; padding-left:22px; }
+.reference-match { margin-bottom:10px; }
+.reference-match:last-child { margin-bottom:0; }
+.reference-match-name { font-weight:bold; }
+.reference-match-categories { color:#555; font-size:14px; }
+.reference-match-snippet { margin-top:3px; color:#333; font-size:14px; }
 .reference-empty { margin:0; color:#555; }
 
 /* Print modal */
@@ -323,14 +328,14 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 -->
 
 <div id="appErrorBanner" style="display:none; position:fixed; top:0; left:0; right:0; background:#ffd9d9; border-bottom:2px solid #c00; z-index:9999; padding:10px; font-size:16px;">
-  <strong>TSO Resources error</strong>
+  <strong>Provo TSO Resources error</strong>
   <pre id="appErrorDetails" style="white-space:pre-wrap;"></pre>
   <button class="button" id="appErrorCopy">Copy</button>
   <button class="button" id="appErrorDismiss">Dismiss</button>
 </div>
 
 <div class="topbar">
-  <div class="title" id="appTitle">TSO Resources</div>
+  <div class="title" id="appTitle">Provo TSO Resources</div>
   <div class="tabs">
     <span id="tabCategories">Categories</span>
     <span id="tabFavorites">Favorites (0)</span>
@@ -2712,21 +2717,23 @@ function runSelfTests(){
             { id:"food", label:"Food", displayOrder:2 }
           ],
           resources:[
-            { id:"target", name:"Community Action", categories:["food"], tags:["Food"], servicesText:"" },
-            { id:"list-food", name:"Food Pantries", categories:["food"], tags:["List"], servicesText:"Community Action\ncommunity action" },
+            { id:"target", name:"Community Action", categories:["food"], tags:["Food","List"], servicesText:"Community Action" },
+            { id:"list-food", name:"Food Pantries", categories:["food"], tags:["List"], servicesText:"Community-Action\ncommunity action" },
             { id:"list-housing", name:"Housing Lists", categories:["housing","food"], tags:["List"], servicesText:"community action" },
             { id:"not-list", name:"Caseworker Note", categories:["food"], tags:["Food"], servicesText:"Community Action" }
           ]
         };
 
-        const matches = findReferencingLists("COMMUNITY ACTION");
-        const keys = matches.map(match => `${match.categoryLabel}:${match.listName}`);
-        if(!keys.includes("Food:Food Pantries")) throw new Error("food list reference was not found");
-        if(!keys.includes("Housing:Housing Lists")) throw new Error("housing list reference was not found");
-        if(!keys.includes("Food:Housing Lists")) throw new Error("multi-category list reference was not found");
-        if(keys.includes("Food:Caseworker Note")) throw new Error("non-list resource was included");
-        if(keys.filter(key => key === "Food:Food Pantries").length !== 1) throw new Error("duplicate mention produced duplicate match");
-        if(keys[0] !== "Housing:Housing Lists") throw new Error("category order was not preserved");
+        const matches = findReferencingLists({ id:"target", name:"COMMUNITY ACTION" });
+        const names = matches.map(match => match.listName);
+        const housingMatch = matches.find(match => match.listName === "Housing Lists");
+        if(!names.includes("Food Pantries")) throw new Error("food list reference was not found");
+        if(!housingMatch) throw new Error("housing list reference was not found");
+        if(!housingMatch.categoryLabels.includes("Housing") || !housingMatch.categoryLabels.includes("Food")) throw new Error("multi-category list labels were not found");
+        if(names.includes("Community Action")) throw new Error("clicked resource was included as a self-match");
+        if(names.includes("Caseworker Note")) throw new Error("non-list resource was included");
+        if(names.filter(name => name === "Food Pantries").length !== 1) throw new Error("duplicate mention produced duplicate match");
+        if(names[0] !== "Housing Lists") throw new Error("category order was not preserved");
       }finally{
         data = previousData;
       }
@@ -3090,6 +3097,9 @@ function buildResourceCard(res,{expanded=false,showDescription=false,showStar=tr
 
   const card=document.createElement("div");
   card.className="resource-card";
+  card.addEventListener("click", event => {
+    handleAdminListReferenceInspection(event, res);
+  }, true);
 
   if(showStar){
     const star=document.createElement("div");
@@ -3287,7 +3297,7 @@ function render(){
     if(pendingRecentUpdates.length){
       const note = document.createElement("div");
       note.className = "category-card";
-      note.innerHTML = `<strong>Recent Updates</strong><div>${pendingRecentUpdates.length} new updates loaded.</div><div>Click TSO Resources at any time to review recent updates.</div>`;
+      note.innerHTML = `<strong>Recent Updates</strong><div>${pendingRecentUpdates.length} new updates loaded.</div><div>Click Provo TSO Resources at any time to review recent updates.</div>`;
       appView.appendChild(note);
     }
     const grid=document.createElement("div");
@@ -3347,9 +3357,14 @@ function render(){
       title.textContent = cat.label;
       title.style.fontWeight = "bold";
       title.style.fontSize = "1.2em";
-      title.style.marginBottom = "12px";
+      title.style.marginBottom = "6px";
       appView.appendChild(title);
     }
+    const categoryMessage = document.createElement("p");
+    categoryMessage.textContent = "If you notice resources that need to be added or updated, please send a message to Elder and Sister Gasser.";
+    categoryMessage.style.margin = "0 0 12px";
+    categoryMessage.style.color = "#555";
+    appView.appendChild(categoryMessage);
     const categoryTags = getCategoryTagOptions(currentCategory);
     let activeTags = getCategoryFilterTags(currentCategory).filter(tag =>
       categoryTags.some(option => option.toLowerCase() === tag.toLowerCase())
@@ -4457,34 +4472,80 @@ function getReferenceCategoryEntries(resource){
   return entries;
 }
 
-function findReferencingLists(resourceName){
-  const needle = String(resourceName || "").trim().toLowerCase();
+function normalizeReferenceSearchText(value, { compact = false } = {}){
+  const normalized = String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
+  return compact
+    ? normalized.replace(/[^a-z0-9]+/g, "")
+    : normalized.replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+}
+
+function servicesTextReferencesName(servicesText, resourceName){
+  const needle = normalizeReferenceSearchText(resourceName);
+  const haystack = normalizeReferenceSearchText(servicesText);
+  if(needle && haystack.includes(needle)) return true;
+
+  const compactNeedle = normalizeReferenceSearchText(resourceName, { compact:true });
+  const compactHaystack = normalizeReferenceSearchText(servicesText, { compact:true });
+  return !!compactNeedle && compactHaystack.includes(compactNeedle);
+}
+
+function getReferenceSnippet(servicesText, resourceName){
+  const text = String(servicesText || "").replace(/\s+/g, " ").trim();
+  if(!text) return "";
+
+  const lowerText = text.toLowerCase();
+  const lowerName = String(resourceName || "").toLowerCase();
+  const directIndex = lowerName ? lowerText.indexOf(lowerName) : -1;
+  const center = directIndex >= 0 ? directIndex : 0;
+  const start = Math.max(0, center - 70);
+  const end = Math.min(text.length, center + Math.max(lowerName.length, 1) + 90);
+  const prefix = start > 0 ? "... " : "";
+  const suffix = end < text.length ? " ..." : "";
+  return `${prefix}${text.slice(start, end)}${suffix}`;
+}
+
+function resourceHasListTag(resource){
+  return normalizeResourceTags(resource && resource.tags)
+    .some(tag => tag.toLowerCase() === "list");
+}
+
+function findReferencingLists(resourceOrName){
+  const targetId = resourceOrName && typeof resourceOrName === "object"
+    ? String(resourceOrName.id || "")
+    : "";
+  const resourceName = resourceOrName && typeof resourceOrName === "object"
+    ? resourceOrName.name
+    : resourceOrName;
+  const needle = String(resourceName || "").trim();
   if(!needle) return [];
 
   const matches = [];
   const seen = new Set();
   (Array.isArray(data.resources) ? data.resources : []).forEach(resource => {
-    if(!Array.isArray(resource && resource.tags) || !resource.tags.includes("List")) return;
+    const resourceId = String(resource && resource.id || "");
+    if(targetId && resourceId === targetId) return;
+    if(!resourceHasListTag(resource)) return;
     const servicesText = String(resource && resource.servicesText || "");
-    if(!servicesText.toLowerCase().includes(needle)) return;
+    if(!servicesTextReferencesName(servicesText, needle)) return;
 
-    getReferenceCategoryEntries(resource).forEach(category => {
-      const listName = String(resource && resource.name || "(Unnamed list)");
-      const key = `${category.label.toLowerCase()}\u0000${String(resource && resource.id || listName).toLowerCase()}`;
-      if(seen.has(key)) return;
-      seen.add(key);
-      matches.push({
-        categoryLabel: category.label,
-        categoryOrder: category.order,
-        listName
-      });
+    const listName = String(resource && resource.name || "(Unnamed list)");
+    const key = String(resource && resource.id || listName).toLowerCase();
+    if(seen.has(key)) return;
+    seen.add(key);
+    const categoryEntries = getReferenceCategoryEntries(resource);
+    matches.push({
+      categoryLabels: categoryEntries.map(category => category.label),
+      categoryOrder: Math.min(...categoryEntries.map(category => category.order)),
+      listName,
+      snippet: getReferenceSnippet(servicesText, needle)
     });
   });
 
   return matches.sort((a, b) => {
     if(a.categoryOrder !== b.categoryOrder) return a.categoryOrder - b.categoryOrder;
-    const categoryCompare = a.categoryLabel.localeCompare(b.categoryLabel, undefined, { sensitivity:"base" });
-    if(categoryCompare) return categoryCompare;
     return a.listName.localeCompare(b.listName, undefined, { sensitivity:"base" });
   });
 }
@@ -4510,36 +4571,27 @@ function closeReferenceModal(){
 
 function showReferenceModal(resourceName, matches){
   const modal = getReferenceModal();
-  const groups = [];
-  const groupMap = new Map();
-
-  (Array.isArray(matches) ? matches : []).forEach(match => {
-    const categoryLabel = String(match && match.categoryLabel || "Uncategorized");
-    const key = categoryLabel.toLowerCase();
-    if(!groupMap.has(key)){
-      const group = { label:categoryLabel, items:[] };
-      groupMap.set(key, group);
-      groups.push(group);
-    }
-    groupMap.get(key).items.push(String(match && match.listName || "(Unnamed list)"));
-  });
-
-  const bodyHTML = groups.length
-    ? groups.map(group => `
-        <div class="reference-group">
-          <div class="reference-group-title">${escapeHTML(group.label)}</div>
-          <ul class="reference-list">
-            ${group.items.map(name => `<li>${escapeHTML(name)}</li>`).join("")}
-          </ul>
+  const matchItems = Array.isArray(matches) ? matches : [];
+  const bodyHTML = matchItems.length
+    ? matchItems.map(match => {
+      const categoryLabels = Array.isArray(match && match.categoryLabels) && match.categoryLabels.length
+        ? match.categoryLabels
+        : ["Uncategorized"];
+      return `
+        <div class="reference-match">
+          <div class="reference-match-name">${escapeHTML(match && match.listName || "(Unnamed list)")}</div>
+          <div class="reference-match-categories">Categories: ${escapeHTML(categoryLabels.join(", "))}</div>
+          ${match && match.snippet ? `<div class="reference-match-snippet">${escapeHTML(match.snippet)}</div>` : ""}
         </div>
-      `).join("")
-    : `<p class="reference-empty">No list references found.</p>`;
+      `;
+    }).join("")
+    : `<p class="reference-empty">No list resources reference this resource.</p>`;
 
   modal.innerHTML = `
     <div class="reference-modal-panel" role="dialog" aria-modal="true" aria-labelledby="referenceModalTitle" aria-describedby="referenceModalSubtitle">
       <div class="reference-modal-header">
         <div>
-          <div id="referenceModalTitle" class="reference-modal-title">Referenced in Lists</div>
+          <div id="referenceModalTitle" class="reference-modal-title">Referenced By Lists</div>
           <div id="referenceModalSubtitle" class="reference-modal-subtitle">${escapeHTML(resourceName)}</div>
         </div>
         <button class="button reference-modal-close" type="button">Close</button>
@@ -4563,8 +4615,20 @@ function handleAdminResourceReferenceClick(event, sel){
     const resourceName = String(resource && resource.name || "").trim();
     if(!resourceName) return;
     selectedResourceId = resourceId;
-    showReferenceModal(resourceName, findReferencingLists(resourceName));
+    showReferenceModal(resourceName, findReferencingLists(resource));
   }, 0);
+}
+
+function handleAdminListReferenceInspection(event, resource){
+  if(!event.altKey || !isAdminVisible) return false;
+  const resourceName = String(resource && resource.name || "").trim();
+  if(!resourceName) return false;
+
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+  showReferenceModal(resourceName, findReferencingLists(resource));
+  return true;
 }
 
 function switchAdminTab(nextTab){
