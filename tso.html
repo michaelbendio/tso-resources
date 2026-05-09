@@ -2061,6 +2061,18 @@ function formatDateOnly(isoString){
   return date.toLocaleDateString(undefined, { year:"numeric", month:"long", day:"numeric" });
 }
 
+function formatDateTimeUTC(isoString){
+  if(!isoString) return "(none)";
+  const date = new Date(isoString);
+  if(Number.isNaN(date.getTime())) return String(isoString);
+  const month = date.toLocaleString(undefined, { month:"long", timeZone:"UTC" });
+  const day = date.getUTCDate();
+  const year = date.getUTCFullYear();
+  const hour = date.getUTCHours();
+  const minute = String(date.getUTCMinutes()).padStart(2, "0");
+  return `${month} ${day}, ${year}, ${hour}:${minute} UTC`;
+}
+
 function parseMMYYToMonthIndex(mmyy){
   const match = String(mmyy || "").trim().match(/^(0[1-9]|1[0-2])\/(\d{2})$/);
   if(!match) return null;
@@ -2656,6 +2668,16 @@ function runSelfTests(){
       if(!isBlankResourceDraft(blank)) throw new Error("empty resource was not detected");
       if(isBlankResourceDraft(named)) throw new Error("named resource was treated as blank");
       if(isBlankResourceDraft(categorized)) throw new Error("categorized resource was treated as blank");
+    }
+  });
+
+  tests.push({
+    name: "UTC LAST MODIFIED FORMAT",
+    fn: () => {
+      const formatted = formatDateTimeUTC("2026-05-09T05:16:20.130Z");
+      if(formatted !== "May 9, 2026, 5:16 UTC"){
+        throw new Error(`unexpected formatted date '${formatted}'`);
+      }
     }
   });
 
@@ -3740,8 +3762,7 @@ function renderAdmin(){
         <button class="button" onclick="undoLastDeletion()">${escapeHTML(undoButtonLabel)}</button>
         <button class="button" onclick="clearUndoSnapshot(); safeRenderAdmin();">Clear undo</button>
       ` : ""}      <div style="margin-top:10px;">
-
-        Last Modified: ${data.lastModified || "(none)"}
+        Last Modified: ${escapeHTML(formatDateTimeUTC(data.lastModified))}
       </div>
     </div>
 
@@ -5503,15 +5524,12 @@ function deleteResource(){
 
   const confirmDelete = confirm(buildAdminDeleteConfirmation("resource", res.name || "(unnamed)"));
   if(!confirmDelete) return;
-  const isBlankDraft = isBlankResourceDraft(res);
-  const updateDescription = isBlankDraft ? "" : prompt("Describe this update (optional):", "");
+  const updateDescription = prompt("Describe this update (optional):", "");
   if(updateDescription === null) return;
-  if(!isBlankDraft) setUndoSnapshot(`deleted resource "${res.name}"`);
+  setUndoSnapshot(`deleted resource "${res.name}"`);
 
   data.resources.splice(idx,1);
-  if(!isBlankDraft){
-    addChangeEntry(createChangeEntry("resource", "removed", res.id, res.name || "(Unnamed resource)", updateDescription, { categoryIds:res.categories }));
-  }
+  addChangeEntry(createChangeEntry("resource", "removed", res.id, res.name || "(Unnamed resource)", updateDescription, { categoryIds:res.categories }));
   newResourceIds.delete(res.id);
 
   const remainingIds = getAdminResourceBrowseList().map(r => String(r.id || ""));
