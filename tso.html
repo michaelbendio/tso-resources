@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>TSO Resources</title>
+<title>Provo TSO Resources</title>
 
 <!-- ===== APP CSS START ===== -->
 <style>
@@ -122,6 +122,27 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 .pdf-attachment-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 .reload-resources-wrap { margin-top:16px; text-align:right; }
 .reload-resources-wrap .button { font-size:14px; padding:7px 10px; }
+.category-reminder {
+  margin:0 0 12px;
+  color:#5f6f7f;
+  font-size:14px;
+  line-height:1.35;
+}
+.resource-search-wrap { margin-bottom:12px; }
+.resource-search-input {
+  width:100%;
+  box-sizing:border-box;
+}
+.resource-search-count {
+  margin:0 0 10px;
+  color:#555;
+  font-size:14px;
+}
+.admin-reference-hint {
+  margin-top:6px;
+  color:#5f6f7f;
+  font-size:13px;
+}
 .app-toast {
   position:fixed;
   right:18px;
@@ -323,14 +344,14 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 -->
 
 <div id="appErrorBanner" style="display:none; position:fixed; top:0; left:0; right:0; background:#ffd9d9; border-bottom:2px solid #c00; z-index:9999; padding:10px; font-size:16px;">
-  <strong>TSO Resources error</strong>
+  <strong>Provo TSO Resources error</strong>
   <pre id="appErrorDetails" style="white-space:pre-wrap;"></pre>
   <button class="button" id="appErrorCopy">Copy</button>
   <button class="button" id="appErrorDismiss">Dismiss</button>
 </div>
 
 <div class="topbar">
-  <div class="title" id="appTitle">TSO Resources</div>
+  <div class="title" id="appTitle">Provo TSO Resources</div>
   <div class="tabs">
     <span id="tabCategories">Categories</span>
     <span id="tabFavorites">Favorites (0)</span>
@@ -2133,8 +2154,64 @@ function compareResourcesByName(a, b){
   return String((a && a.name) || "").localeCompare(String((b && b.name) || ""), undefined, { sensitivity:"base" });
 }
 
+function normalizeSearchText(value){
+  return String(value || "").toLowerCase().trim();
+}
+
+function getResourceSearchText(resource){
+  return [
+    resource && resource.name,
+    resource && resource.description,
+    resource && resource.servicesText,
+    normalizeResourceTags(resource && resource.tags).join(" ")
+  ].map(normalizeSearchText).join("\n");
+}
+
+function resourceMatchesSearch(resource, query){
+  const normalizedQuery = normalizeSearchText(query);
+  if(!normalizedQuery) return false;
+  return getResourceSearchText(resource).includes(normalizedQuery);
+}
+
+function getResourceSearchResults(query, resources = data.resources){
+  const normalizedQuery = normalizeSearchText(query);
+  if(!normalizedQuery) return [];
+  const seen = new Set();
+  return (Array.isArray(resources) ? resources : [])
+    .filter(resource => {
+      const id = String(resource && resource.id || "");
+      if(id && seen.has(id)) return false;
+      if(!resourceMatchesSearch(resource, normalizedQuery)) return false;
+      if(id) seen.add(id);
+      return true;
+    })
+    .sort(compareResourcesByName);
+}
+
+function isListStyleResource(resource){
+  const tags = normalizeResourceTags(resource && resource.tags);
+  const tagKeys = new Set(tags.map(tag => tag.toLowerCase()));
+  if(tagKeys.has("list")) return true;
+
+  const labelText = normalizeSearchText([
+    resource && resource.name,
+    resource && resource.description,
+    tags.join(" ")
+  ].join(" "));
+  if(/\blist\b/.test(labelText)) return true;
+
+  const servicesText = String(resource && resource.servicesText || "");
+  const dividers = (servicesText.match(/(^|\n)---(\n|$)/g) || []).length;
+  const headings = (servicesText.match(/\*\*[^*]+\*\*/g) || []).length;
+  return dividers >= 2 && headings >= 2;
+}
+
 function getAdminResourceBrowseList(){
-  const resources = data.resources.slice();
+  let resources = data.resources.slice();
+  const searchQuery = normalizeSearchText(adminResourceSearchQuery);
+  if(searchQuery){
+    resources = getResourceSearchResults(searchQuery, resources);
+  }
   if(!adminShowVerifiedDates){
     return resources.sort(compareResourcesByName);
   }
@@ -2429,6 +2506,8 @@ let adminCategoryOrderEditorOpen = false;
 let adminCategoryOrderDraft = null; // array of { idx, value } in fixed editor row order
 let editing = null;
 let editorSnapshot = "";
+let resourceSearchQuery = "";
+let adminResourceSearchQuery = "";
 let categoryTagFilters = {}; // categoryId -> [tag, ...]
 const UNDO_STORAGE_KEY = "tsoUndo";
 let pendingRecentUpdates = [];
@@ -2702,6 +2781,34 @@ function runSelfTests(){
   });
 
   tests.push({
+    name: "RESOURCE SEARCH CONTENT FIELDS",
+    fn: () => {
+      const previousData = data;
+      try{
+        data = {
+          categories:[{ id:"food", label:"Food" }],
+          resources:[
+            { id:"name", name:"GED Prep", description:"", servicesText:"", tags:[], categories:["food"] },
+            { id:"description", name:"Description Match", description:"Helps with plasma donation", servicesText:"", tags:[], categories:["food"] },
+            { id:"services", name:"Service Match", description:"", servicesText:"Meals and groceries", tags:[], categories:["food"] },
+            { id:"tags", name:"Tag Match", description:"", servicesText:"", tags:["Women"], categories:["food"] },
+            { id:"list", name:"List Match", description:"compiled", servicesText:"Includes ex-offender support", tags:["List"], categories:["food"] }
+          ]
+        };
+        if(getResourceSearchResults("ged").map(r => r.id).join(",") !== "name") throw new Error("name search failed");
+        if(getResourceSearchResults("plasma").map(r => r.id).join(",") !== "description") throw new Error("description search failed");
+        if(getResourceSearchResults("meals").map(r => r.id).join(",") !== "services") throw new Error("servicesText search failed");
+        if(getResourceSearchResults("women").map(r => r.id).join(",") !== "tags") throw new Error("tag search failed");
+        if(getResourceSearchResults("ex-offender").map(r => r.id).join(",") !== "list") throw new Error("list content search failed");
+        const duplicateIds = getResourceSearchResults("match").map(r => r.id);
+        if(new Set(duplicateIds).size !== duplicateIds.length) throw new Error("search returned duplicate resources");
+      }finally{
+        data = previousData;
+      }
+    }
+  });
+
+  tests.push({
     name: "LIST REFERENCE LOOKUP",
     fn: () => {
       const previousData = data;
@@ -2714,7 +2821,8 @@ function runSelfTests(){
           resources:[
             { id:"target", name:"Community Action", categories:["food"], tags:["Food"], servicesText:"" },
             { id:"list-food", name:"Food Pantries", categories:["food"], tags:["List"], servicesText:"Community Action\ncommunity action" },
-            { id:"list-housing", name:"Housing Lists", categories:["housing","food"], tags:["List"], servicesText:"community action" },
+            { id:"list-housing", name:"Housing Lists", categories:["housing","food"], tags:["This resource is a list"], servicesText:"community action" },
+            { id:"list-description", name:"Utility Agencies", description:"Community Action", categories:["housing"], tags:[], servicesText:"---\n**One**\n---\n**Two**" },
             { id:"not-list", name:"Caseworker Note", categories:["food"], tags:["Food"], servicesText:"Community Action" }
           ]
         };
@@ -2724,6 +2832,7 @@ function runSelfTests(){
         if(!keys.includes("Food:Food Pantries")) throw new Error("food list reference was not found");
         if(!keys.includes("Housing:Housing Lists")) throw new Error("housing list reference was not found");
         if(!keys.includes("Food:Housing Lists")) throw new Error("multi-category list reference was not found");
+        if(!keys.includes("Housing:Utility Agencies")) throw new Error("compiled-list description match was not found");
         if(keys.includes("Food:Caseworker Note")) throw new Error("non-list resource was included");
         if(keys.filter(key => key === "Food:Food Pantries").length !== 1) throw new Error("duplicate mention produced duplicate match");
         if(keys[0] !== "Housing:Housing Lists") throw new Error("category order was not preserved");
@@ -3284,36 +3393,83 @@ function render(){
   appView.innerHTML="";
 
   if(view==="categories"){
+    const searchWrap = document.createElement("div");
+    searchWrap.className = "resource-search-wrap";
+    const searchInput = document.createElement("input");
+    searchInput.id = "resourceSearch";
+    searchInput.className = "resource-search-input";
+    searchInput.type = "search";
+    searchInput.placeholder = "Search resources by name, services, tags, or list content";
+    searchInput.value = resourceSearchQuery;
+    searchInput.oninput = () => {
+      resourceSearchQuery = searchInput.value || "";
+      safeRender();
+      const nextInput = document.getElementById("resourceSearch");
+      if(nextInput){
+        nextInput.focus();
+        nextInput.setSelectionRange(nextInput.value.length, nextInput.value.length);
+      }
+    };
+    searchWrap.appendChild(searchInput);
+    appView.appendChild(searchWrap);
+
     if(pendingRecentUpdates.length){
       const note = document.createElement("div");
       note.className = "category-card";
-      note.innerHTML = `<strong>Recent Updates</strong><div>${pendingRecentUpdates.length} new updates loaded.</div><div>Click TSO Resources at any time to review recent updates.</div>`;
+      note.innerHTML = `<strong>Recent Updates</strong><div>${pendingRecentUpdates.length} new updates loaded.</div><div>Click Provo TSO Resources at any time to review recent updates.</div>`;
       appView.appendChild(note);
     }
-    const grid=document.createElement("div");
-    grid.className="grid";
-    const updatesByCategory = getCategoryUpdateMap();
 
-    data.categories.slice().sort((a,b)=>(a.displayOrder??999)-(b.displayOrder??999)).forEach(cat=>{
-      const card=document.createElement("div");
-      card.className="category-card";
-      const updates = updatesByCategory.get(cat.id) || [];
-      card.innerHTML=`<strong>${cat.label}</strong>${updates.length ? `<div><button type="button" class="button secondary category-update-badge">Updates: ${updates.length}</button></div>` : ""}`;
-      const updateBadge = card.querySelector(".category-update-badge");
-      if(updateBadge){
-        updateBadge.onclick = e => {
-          e.stopPropagation();
-          recentUpdateDetail = updates;
-          markChangesViewed(updates.map(entry => entry.id));
-          view = "recent-updates";
-          safeRender();
-        };
+    const normalizedSearch = normalizeSearchText(resourceSearchQuery);
+    if(normalizedSearch){
+      const results = getResourceSearchResults(normalizedSearch);
+      const count = document.createElement("p");
+      count.className = "resource-search-count";
+      count.textContent = `${results.length} ${results.length === 1 ? "resource" : "resources"} found`;
+      appView.appendChild(count);
+      if(!results.length){
+        const empty = document.createElement("p");
+        empty.textContent = "No resources match this search.";
+        appView.appendChild(empty);
+      }else{
+        results.forEach(res => {
+          let expanded = false;
+          const card = buildResourceCard(res,{showDescription:true});
+          card.onclick=()=>{
+            expanded=!expanded;
+            const d=card.querySelector(".resource-details");
+            d.classList.toggle("collapsed",!expanded);
+            d.classList.toggle("expanded",expanded);
+          };
+          appView.appendChild(card);
+        });
       }
-      card.onclick=()=>{ currentCategory=cat.id; setCategoryFilterTags(currentCategory, []); view="category"; safeRender(); };
-      grid.appendChild(card);
-    });
+    }else{
+      const grid=document.createElement("div");
+      grid.className="grid";
+      const updatesByCategory = getCategoryUpdateMap();
 
-    appView.appendChild(grid);
+      data.categories.slice().sort((a,b)=>(a.displayOrder??999)-(b.displayOrder??999)).forEach(cat=>{
+        const card=document.createElement("div");
+        card.className="category-card";
+        const updates = updatesByCategory.get(cat.id) || [];
+        card.innerHTML=`<strong>${cat.label}</strong>${updates.length ? `<div><button type="button" class="button secondary category-update-badge">Updates: ${updates.length}</button></div>` : ""}`;
+        const updateBadge = card.querySelector(".category-update-badge");
+        if(updateBadge){
+          updateBadge.onclick = e => {
+            e.stopPropagation();
+            recentUpdateDetail = updates;
+            markChangesViewed(updates.map(entry => entry.id));
+            view = "recent-updates";
+            safeRender();
+          };
+        }
+        card.onclick=()=>{ currentCategory=cat.id; setCategoryFilterTags(currentCategory, []); view="category"; safeRender(); };
+        grid.appendChild(card);
+      });
+
+      appView.appendChild(grid);
+    }
 
     const reloadWrap = document.createElement("div");
     reloadWrap.className = "reload-resources-wrap";
@@ -3349,6 +3505,12 @@ function render(){
       title.style.fontSize = "1.2em";
       title.style.marginBottom = "12px";
       appView.appendChild(title);
+      if(!isAdminVisible){
+        const reminder = document.createElement("div");
+        reminder.className = "category-reminder";
+        reminder.textContent = "If you notice resources that need to be added or updated, please send a message to Elder and Sister Gasser.";
+        appView.appendChild(reminder);
+      }
     }
     const categoryTags = getCategoryTagOptions(currentCategory);
     let activeTags = getCategoryFilterTags(currentCategory).filter(tag =>
@@ -4457,16 +4619,16 @@ function getReferenceCategoryEntries(resource){
   return entries;
 }
 
-function findReferencingLists(resourceName){
+function findReferencingLists(resourceName, excludeResourceId = ""){
   const needle = String(resourceName || "").trim().toLowerCase();
   if(!needle) return [];
 
   const matches = [];
   const seen = new Set();
   (Array.isArray(data.resources) ? data.resources : []).forEach(resource => {
-    if(!Array.isArray(resource && resource.tags) || !resource.tags.includes("List")) return;
-    const servicesText = String(resource && resource.servicesText || "");
-    if(!servicesText.toLowerCase().includes(needle)) return;
+    if(excludeResourceId && String(resource && resource.id || "") === String(excludeResourceId)) return;
+    if(!isListStyleResource(resource)) return;
+    if(!getResourceSearchText(resource).includes(needle)) return;
 
     getReferenceCategoryEntries(resource).forEach(category => {
       const listName = String(resource && resource.name || "(Unnamed list)");
@@ -4563,7 +4725,7 @@ function handleAdminResourceReferenceClick(event, sel){
     const resourceName = String(resource && resource.name || "").trim();
     if(!resourceName) return;
     selectedResourceId = resourceId;
-    showReferenceModal(resourceName, findReferencingLists(resourceName));
+    showReferenceModal(resourceName, findReferencingLists(resourceName, resourceId));
   }, 0);
 }
 
@@ -5215,39 +5377,51 @@ function renderAdminResources(container){
     selectedResourceId = data.resources[0].id;
   }
 
-  if(!adminResourceEditMode){
-    container.innerHTML += `
-      <div class="admin-panel">
-        <div class="admin-box">
-          <h3 class="admin-panel-title">Resources</h3>
-      <div class="resource-browse-wrap">
-        <label class="admin-option-row" style="display:block;">
-          <input type="checkbox" id="resSortShowVerified">
-          Show verified dates
-        </label>
-            <div class="resource-browse-actions admin-action-row" style="margin-top:12px;">
-              <button class="button" onclick="newResource()">New</button>
-              <button class="button danger" onclick="deleteResource()">Delete</button>
-              <span class="spacer"></span>
-              <button class="button primary" onclick="openResourceEditor()">Edit</button>
-            </div>
-        <select id="resSelect" class="resource-listbox" size="25" style="margin-top:8px;"></select>
-          </div>
-        </div>
-      </div>
-    `;
+	  if(!adminResourceEditMode){
+	    container.innerHTML += `
+	      <div class="admin-panel">
+	        <div class="admin-box">
+	          <h3 class="admin-panel-title">Resources</h3>
+	          <div class="resource-browse-wrap">
+	            <label class="admin-option-row" style="display:block;">
+	              <input type="checkbox" id="resSortShowVerified">
+	              Show verified dates
+	            </label>
+	            <label class="admin-option-row" style="display:block; margin-top:10px;">
+	              Search resources
+	              <input id="adminResourceSearch" class="resource-search-input" type="search" value="${escapeHTML(adminResourceSearchQuery)}" placeholder="Name, services, description, tags, or list content">
+	            </label>
+	            <div class="admin-reference-hint">Option-click a resource name to show list resources that reference it.</div>
+	            <div class="resource-browse-actions admin-action-row" style="margin-top:12px;">
+	              <button class="button" onclick="newResource()">New</button>
+	              <button class="button danger" onclick="deleteResource()">Delete</button>
+	              <span class="spacer"></span>
+	              <button class="button primary" onclick="openResourceEditor()">Edit</button>
+	            </div>
+	            <select id="resSelect" class="resource-listbox" size="25" style="margin-top:8px;"></select>
+	          </div>
+	        </div>
+	      </div>
+	    `;
 
-    const sel = document.getElementById("resSelect");
-    const sortToggle = document.getElementById("resSortShowVerified");
-    if(sortToggle){
-      sortToggle.checked = adminShowVerifiedDates;
-      sortToggle.onchange = () => {
-        adminShowVerifiedDates = !!sortToggle.checked;
-        populateResourceSelectOptions(sel, selectedResourceId);
-      };
-    }
+	    const sel = document.getElementById("resSelect");
+	    const adminSearch = document.getElementById("adminResourceSearch");
+	    const sortToggle = document.getElementById("resSortShowVerified");
+	    if(sortToggle){
+	      sortToggle.checked = adminShowVerifiedDates;
+	      sortToggle.onchange = () => {
+	        adminShowVerifiedDates = !!sortToggle.checked;
+	        populateResourceSelectOptions(sel, selectedResourceId);
+	      };
+	    }
+	    if(adminSearch){
+	      adminSearch.oninput = () => {
+	        adminResourceSearchQuery = adminSearch.value || "";
+	        populateResourceSelectOptions(sel, selectedResourceId);
+	      };
+	    }
 
-    populateResourceSelectOptions(sel, selectedResourceId);
+	    populateResourceSelectOptions(sel, selectedResourceId);
     sel.onchange = () => { selectedResourceId = sel.value || ""; };
     sel.addEventListener("click", event => handleAdminResourceReferenceClick(event, sel));
     sel.ondblclick = () => {
