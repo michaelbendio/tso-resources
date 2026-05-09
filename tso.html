@@ -3316,6 +3316,16 @@ function render(){
 
   appView.innerHTML="";
 
+  function renderCategoryReminder(){
+    const categoryMessage = document.createElement("p");
+    categoryMessage.textContent = "If you notice resources that need to be added or updated, please send a message to Elder and Sister Gasser.";
+    categoryMessage.style.margin = "0 0 12px";
+    categoryMessage.style.color = "#555";
+    categoryMessage.style.fontSize = "14px";
+    categoryMessage.style.lineHeight = "1.35";
+    appView.appendChild(categoryMessage);
+  }
+
   if(view==="categories"){
     if(pendingRecentUpdates.length){
       const note = document.createElement("div");
@@ -3323,6 +3333,7 @@ function render(){
       note.innerHTML = `<strong>Recent Updates</strong><div>${pendingRecentUpdates.length} new updates loaded.</div><div>Click Provo TSO Resources at any time to review recent updates.</div>`;
       appView.appendChild(note);
     }
+    renderCategoryReminder();
     const grid=document.createElement("div");
     grid.className="grid";
     const updatesByCategory = getCategoryUpdateMap();
@@ -3382,15 +3393,6 @@ function render(){
       title.style.fontSize = "1.2em";
       title.style.marginBottom = "6px";
       appView.appendChild(title);
-    }
-    if(!isAdminVisible){
-      const categoryMessage = document.createElement("p");
-      categoryMessage.textContent = "If you notice resources that need to be added or updated, please send a message to Elder and Sister Gasser.";
-      categoryMessage.style.margin = "0 0 12px";
-      categoryMessage.style.color = "#555";
-      categoryMessage.style.fontSize = "14px";
-      categoryMessage.style.lineHeight = "1.35";
-      appView.appendChild(categoryMessage);
     }
     const categoryTags = getCategoryTagOptions(currentCategory);
     let activeTags = getCategoryFilterTags(currentCategory).filter(tag =>
