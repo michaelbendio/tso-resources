@@ -3651,7 +3651,7 @@ const PrintWorkflow = {
       return;
     }
     const step = this.queue[this.currentIndex];
-    printProgress.textContent = `Printing ${this.currentIndex + 1} of ${this.queue.length}: ${step.label}`;
+    printProgress.textContent = `Printing ${this.currentIndex + 1} of ${this.queue.length}: ${step.label}. Use double-sided printing in the print dialog.`;
   },
 
   showStep(){
