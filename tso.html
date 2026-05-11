@@ -2228,6 +2228,21 @@ function parseResourceTagsInput(value){
   return normalizeResourceTags(String(value || "").split(/[,\n]/));
 }
 
+function formatResourceTagsInput(tags){
+  return normalizeResourceTags(tags).join("\n");
+}
+
+function toggleResourceTag(tags, tag){
+  const currentTags = normalizeResourceTags(tags);
+  const normalizedTag = normalizeResourceTags([tag])[0];
+  if(!normalizedTag) return currentTags;
+  const key = normalizedTag.toLowerCase();
+  if(currentTags.some(current => current.toLowerCase() === key)){
+    return currentTags.filter(current => current.toLowerCase() !== key);
+  }
+  return normalizeResourceTags([...currentTags, normalizedTag]);
+}
+
 function normalizeDataTagsShape(nextData){
   if(!nextData || typeof nextData !== "object") return;
   if(!Array.isArray(nextData.tags)) nextData.tags = [];
@@ -2752,6 +2767,27 @@ function runSelfTests(){
       const deduped = normalizeResourceTags(["List", "this is a list"]);
       if(JSON.stringify(deduped) !== JSON.stringify(["List"])){
         throw new Error(`expected ["List"], got ${JSON.stringify(deduped)}`);
+      }
+    }
+  });
+
+  tests.push({
+    name: "TAG BUTTON TEXT SYNC HELPERS",
+    fn: () => {
+      const added = toggleResourceTag(["GED"], "List");
+      if(JSON.stringify(added) !== JSON.stringify(["GED", "List"])){
+        throw new Error(`expected GED/List, got ${JSON.stringify(added)}`);
+      }
+      const removed = toggleResourceTag(added, "ged");
+      if(JSON.stringify(removed) !== JSON.stringify(["List"])){
+        throw new Error(`expected GED removal, got ${JSON.stringify(removed)}`);
+      }
+      const canonical = toggleResourceTag([], "this resource is a list");
+      if(JSON.stringify(canonical) !== JSON.stringify(["List"])){
+        throw new Error(`expected List canonicalization, got ${JSON.stringify(canonical)}`);
+      }
+      if(formatResourceTagsInput(["GED", "List"]) !== "GED\nList"){
+        throw new Error("tag input formatting changed");
       }
     }
   });
@@ -5673,8 +5709,9 @@ function editResource(idx){
   normalizeResourcePDFs(res);
   res.tags = normalizeResourceTags(res.tags);
   const verifiedDisplay = formatVerifiedOnForDisplay(res.verifiedOn);
-  const tagInputValue = res.tags.join("\n");
-  const tagSuggestions = getAllTags(res.id);
+  const tagInputValue = formatResourceTagsInput(res.tags);
+  const tagSuggestions = normalizeResourceTags([...res.tags, ...getAllTags(res.id)])
+    .sort((a,b)=>a.localeCompare(b, undefined, { sensitivity:"base" }));
 
   const catChecks = data.categories
     .slice()
@@ -5814,17 +5851,32 @@ function editResource(idx){
   }
   setServicesEditorMode("preview");
 
-  function insertTagSuggestion(tag){
+  function getCurrentTagKeys(){
+    return new Set(parseResourceTagsInput(tagsEl ? tagsEl.value : "").map(tag => tag.toLowerCase()));
+  }
+
+  function refreshTagSuggestionButtons(){
+    const selectedKeys = getCurrentTagKeys();
+    editor.querySelectorAll("[data-tag-suggestion]").forEach(btn => {
+      const tag = btn.getAttribute("data-tag-suggestion") || "";
+      const normalized = normalizeResourceTags([tag])[0] || "";
+      btn.classList.toggle("primary", !!normalized && selectedKeys.has(normalized.toLowerCase()));
+    });
+  }
+
+  function toggleTagSuggestion(tag){
     if(!tagsEl) return;
-    const nextTags = normalizeResourceTags([...parseResourceTagsInput(tagsEl.value), tag]);
-    tagsEl.value = nextTags.join("\n");
+    const nextTags = toggleResourceTag(parseResourceTagsInput(tagsEl.value), tag);
+    tagsEl.value = formatResourceTagsInput(nextTags);
     tagsEl.dispatchEvent(new Event("input", { bubbles:true }));
     tagsEl.focus();
   }
 
   editor.querySelectorAll("[data-tag-suggestion]").forEach(btn => {
-    btn.onclick = () => insertTagSuggestion(btn.getAttribute("data-tag-suggestion") || "");
+    btn.onclick = () => toggleTagSuggestion(btn.getAttribute("data-tag-suggestion") || "");
   });
+  if(tagsEl) tagsEl.addEventListener("input", refreshTagSuggestionButtons);
+  refreshTagSuggestionButtons();
 
   function updateVerifiedDisplayAndWarning(){
     if(!verifiedInput || !verifiedDisplayEl) return true;
