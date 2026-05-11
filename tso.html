@@ -91,6 +91,7 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 }
 .print-list-flyer h2 { margin:0 0 12px; }
 .print-list-field { margin:0 0 10px; }
+.print-resource-separator { border:0; border-top:1px solid #aaa; margin:14px 0; }
 .admin-panel { display:flex; gap:20px; }
 .admin-box { flex:1; border:1px solid #ddd; padding:12px; }
 .category-grid { display:grid; gap:6px; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); }
@@ -302,6 +303,12 @@ textarea.services-editor { min-height:320px; resize:vertical; }
     padding-left: 14pt;
   }
 
+  .print-resource-separator {
+    border: 0;
+    border-top: 1px solid #999;
+    margin: 10pt 0;
+  }
+
   .print-list-flyer {
     border: none;
     border-radius: 0;
@@ -356,7 +363,6 @@ textarea.services-editor { min-height:320px; resize:vertical; }
   <div id="printContentWrapper">
     <button class="button" id="printCloseBtn" onclick="closePrintPreview()">Close</button>
     <button class="button primary" onclick="doPrint()">Print</button>
-    <button class="button" id="printSkipBtn" onclick="skipPrintStep()">Skip</button>
     <button class="button" id="printNextBtn" onclick="nextPrintStep()">Next</button>
     <div id="printProgress" style="margin:10px 0 12px; font-size:14px; color:#555;"></div>
     <div id="printContent"></div>
@@ -1879,7 +1885,7 @@ SUBSYSTEMS
 PrintWorkflow
   Guided printing system.
   Responsible for building the print queue, rendering steps,
-  and handling Print / Skip / Next / Close actions.
+  and handling Print / Next / Close actions.
 
 AGENT EDITING RULES
 
@@ -2709,6 +2715,27 @@ function runSelfTests(){
       const formatted = formatDateTimeUTC("2026-05-09T05:16:20.130Z");
       if(formatted !== "May 9, 2026, 5:16 UTC"){
         throw new Error(`unexpected formatted date '${formatted}'`);
+      }
+    }
+  });
+
+  tests.push({
+    name: "PRINT RESOURCE SEPARATORS",
+    fn: () => {
+      const container = document.createElement("div");
+      PrintWorkflow.renderPrintableResourceCards(container, [
+        { id:"print-one", name:"Print One", categories:[], tags:[], pdfs:[], servicesText:"" },
+        { id:"print-two", name:"Print Two", categories:[], tags:[], pdfs:[], servicesText:"" },
+        { id:"print-three", name:"Print Three", categories:[], tags:[], pdfs:[], servicesText:"" }
+      ]);
+      if(container.querySelectorAll(".resource-card").length !== 3){
+        throw new Error("print resource cards were not rendered");
+      }
+      if(container.querySelectorAll(".print-resource-separator").length !== 2){
+        throw new Error("print resource separators were not inserted between cards");
+      }
+      if(container.firstElementChild && container.firstElementChild.classList.contains("print-resource-separator")){
+        throw new Error("separator was inserted before the first resource");
       }
     }
   });
@@ -3644,7 +3671,6 @@ const PrintWorkflow = {
     const active = this.queue.length > 0 && this.currentIndex >= 0 && this.currentIndex < this.queue.length;
     const isLastStep = active && this.currentIndex === this.queue.length - 1;
     printCloseBtn.classList.toggle("hidden", active && !isLastStep);
-    printSkipBtn.classList.toggle("hidden", !active);
     printNextBtn.classList.toggle("hidden", !active || isLastStep);
     if(!active){
       printProgress.textContent = "";
@@ -3670,10 +3696,19 @@ const PrintWorkflow = {
   openPreview(resources){
     this.openPreviewContent(container => {
       container.innerHTML="<h2>Suggested Resources</h2>";
-      resources.forEach(res=>{
-        const card=buildResourceCard(res,{expanded:true,showStar:false});
-        container.appendChild(card);
-      });
+      this.renderPrintableResourceCards(container, resources);
+    });
+  },
+
+  renderPrintableResourceCards(container, resources){
+    (Array.isArray(resources) ? resources : []).forEach((res, index)=>{
+      if(index > 0){
+        const separator = document.createElement("hr");
+        separator.className = "print-resource-separator";
+        container.appendChild(separator);
+      }
+      const card=buildResourceCard(res,{expanded:true,showStar:false});
+      container.appendChild(card);
     });
   },
 
@@ -3702,10 +3737,7 @@ const PrintWorkflow = {
     this.openPreviewContent(container => {
       if(normalFavs.length){
         container.innerHTML = "<h2>Suggested Resources</h2>";
-        normalFavs.forEach(res => {
-          const card = buildResourceCard(res,{expanded:true,showStar:false});
-          container.appendChild(card);
-        });
+        this.renderPrintableResourceCards(container, normalFavs);
       }
 
       listFavs.forEach((resource, index) => {
@@ -3734,10 +3766,6 @@ const PrintWorkflow = {
     this.showStep();
   },
 
-  skip(){
-    this.next();
-  },
-
   close(){
     this.queue = [];
     this.currentIndex = -1;
@@ -3759,7 +3787,6 @@ const PrintWorkflow = {
 
 function startFavoritesPacketPrint(){ PrintWorkflow.startFavoritesPacket(); }
 function nextPrintStep(){ PrintWorkflow.next(); }
-function skipPrintStep(){ PrintWorkflow.skip(); }
 function closePrintPreview(){ PrintWorkflow.close(); }
 function doPrint(){ PrintWorkflow.doPrint(); }
 
