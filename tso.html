@@ -2434,7 +2434,7 @@ function renderServicesHTML(text){
 const seed = JSON.parse(document.getElementById("seed-data").textContent);
 // Main persisted app data snapshot (categories/resources + metadata).
 let data = JSON.parse(localStorage.getItem("tsoData") || "null");
-const APP_VERSION = "1.3";
+const APP_VERSION = "1.4";
 const DEBUG = new URLSearchParams(location.search).has("debug");
 const UPDATE_SEEN_STORAGE_KEY = "tsoRecentUpdatesSeen";
 const CATEGORY_REMINDER_TEXT = "If you notice resources that need to be added or updated, please send a message to Elder and Sister Gasser. Report bugs to Elder Bendio (michaelbendio@gmail.com).";
@@ -5763,7 +5763,7 @@ function editResource(idx){
       <textarea id="res_update_description" class="big" style="min-height:60px;"></textarea>
     </label><br>
 
-    <label style="display:block; margin-top:8px;">Tags (comma-separated or one per line)<br>
+    <label style="display:block; margin-top:8px;">Choose tags or add new ones (comma-separated or one per line).<br>
       <textarea id="res_tags" class="big" style="min-height:72px;">${escapeHTML(tagInputValue)}</textarea>
     </label>
     ${tagSuggestions.length ? `
