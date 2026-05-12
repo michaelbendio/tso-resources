@@ -39,33 +39,6 @@ body { font-family: -apple-system, sans-serif; margin:0; padding:0; font-size:18
 }
 
 .hidden { display:none; }
-.search-panel {
-  padding:10px 24px;
-  background:white;
-  border-bottom:1px solid #ddd;
-  display:flex;
-  gap:8px;
-  align-items:center;
-  flex-wrap:wrap;
-}
-.search-panel.hidden { display:none; }
-.search-panel input { flex:1; min-width:220px; max-width:520px; box-sizing:border-box; }
-.search-results-title { font-weight:bold; margin:0 0 12px; }
-.search-result-group { margin:0 0 16px; }
-.search-result-group-title { font-weight:bold; margin-bottom:4px; }
-.search-result-list { margin:0; padding-left:22px; }
-.search-result-item { margin:0 0 6px; }
-.search-result-button {
-  border:0;
-  padding:0;
-  background:transparent;
-  color:#003366;
-  font:inherit;
-  text-align:left;
-  cursor:pointer;
-}
-.search-result-button:hover { text-decoration:underline; }
-.search-result-snippet { color:#555; font-size:14px; margin-top:2px; }
 .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); }
 .category-card, .resource-card { border:1px solid #ddd; padding:12px; border-radius:6px; background:white; }
 .resource-card { position:relative; }
@@ -118,7 +91,6 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 }
 .print-list-flyer h2 { margin:0 0 12px; }
 .print-list-field { margin:0 0 10px; }
-.print-resource-separator { border:0; border-top:1px solid #aaa; margin:14px 0; }
 .admin-panel { display:flex; gap:20px; }
 .admin-box { flex:1; border:1px solid #ddd; padding:12px; }
 .category-grid { display:grid; gap:6px; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); }
@@ -330,12 +302,6 @@ textarea.services-editor { min-height:320px; resize:vertical; }
     padding-left: 14pt;
   }
 
-  .print-resource-separator {
-    border: 0;
-    border-top: 1px solid #999;
-    margin: 10pt 0;
-  }
-
   .print-list-flyer {
     border: none;
     border-radius: 0;
@@ -371,16 +337,10 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 <div class="topbar">
   <div class="title" id="appTitle">Provo TSO Resources</div>
   <div class="tabs">
-    <span id="tabSearch" role="button" aria-label="Search" title="Search">&#128269;</span>
     <span id="tabCategories">Categories</span>
     <span id="tabFavorites">Favorites (0)</span>
     <span id="tabAdmin">Admin</span>
   </div>
-</div>
-
-<div id="searchPanel" class="search-panel hidden">
-  <input id="searchInput" type="search" placeholder="Search resources">
-  <button class="button primary" id="searchButton" type="button">Search</button>
 </div>
 
 <div id="appView"></div>
@@ -396,6 +356,7 @@ textarea.services-editor { min-height:320px; resize:vertical; }
   <div id="printContentWrapper">
     <button class="button" id="printCloseBtn" onclick="closePrintPreview()">Close</button>
     <button class="button primary" onclick="doPrint()">Print</button>
+    <button class="button" id="printSkipBtn" onclick="skipPrintStep()">Skip</button>
     <button class="button" id="printNextBtn" onclick="nextPrintStep()">Next</button>
     <div id="printProgress" style="margin:10px 0 12px; font-size:14px; color:#555;"></div>
     <div id="printContent"></div>
@@ -1918,7 +1879,7 @@ SUBSYSTEMS
 PrintWorkflow
   Guided printing system.
   Responsible for building the print queue, rendering steps,
-  and handling Print / Next / Close actions.
+  and handling Print / Skip / Next / Close actions.
 
 AGENT EDITING RULES
 
@@ -2100,18 +2061,6 @@ function formatDateOnly(isoString){
   return date.toLocaleDateString(undefined, { year:"numeric", month:"long", day:"numeric" });
 }
 
-function formatDateTimeUTC(isoString){
-  if(!isoString) return "(none)";
-  const date = new Date(isoString);
-  if(Number.isNaN(date.getTime())) return String(isoString);
-  const month = date.toLocaleString(undefined, { month:"long", timeZone:"UTC" });
-  const day = date.getUTCDate();
-  const year = date.getUTCFullYear();
-  const hour = date.getUTCHours();
-  const minute = String(date.getUTCMinutes()).padStart(2, "0");
-  return `${month} ${day}, ${year}, ${hour}:${minute} UTC`;
-}
-
 function parseMMYYToMonthIndex(mmyy){
   const match = String(mmyy || "").trim().match(/^(0[1-9]|1[0-2])\/(\d{2})$/);
   if(!match) return null;
@@ -2259,21 +2208,6 @@ function normalizeResourceTags(tags){
 
 function parseResourceTagsInput(value){
   return normalizeResourceTags(String(value || "").split(/[,\n]/));
-}
-
-function formatResourceTagsInput(tags){
-  return normalizeResourceTags(tags).join("\n");
-}
-
-function toggleResourceTag(tags, tag){
-  const currentTags = normalizeResourceTags(tags);
-  const normalizedTag = normalizeResourceTags([tag])[0];
-  if(!normalizedTag) return currentTags;
-  const key = normalizedTag.toLowerCase();
-  if(currentTags.some(current => current.toLowerCase() === key)){
-    return currentTags.filter(current => current.toLowerCase() !== key);
-  }
-  return normalizeResourceTags([...currentTags, normalizedTag]);
 }
 
 function normalizeDataTagsShape(nextData){
@@ -2467,10 +2401,9 @@ function renderServicesHTML(text){
 const seed = JSON.parse(document.getElementById("seed-data").textContent);
 // Main persisted app data snapshot (categories/resources + metadata).
 let data = JSON.parse(localStorage.getItem("tsoData") || "null");
-const APP_VERSION = "1.4.1";
+const APP_VERSION = "1.3";
 const DEBUG = new URLSearchParams(location.search).has("debug");
 const UPDATE_SEEN_STORAGE_KEY = "tsoRecentUpdatesSeen";
-const CATEGORY_REMINDER_TEXT = "If you notice resources that need to be added or updated, please send a message to Elder and Sister Gasser. Report bugs to Elder Bendio (michaelbendio@gmail.com).";
 
 if(!data){
   data = seed;
@@ -2482,7 +2415,6 @@ normalizeDataPDFShape(data);
 normalizeDataTagsShape(data);
 normalizeDataVerifiedOnShape(data);
 normalizeChanges(data);
-normalizeLastLoadedPackageInfo(data);
 data.appVersion = APP_VERSION;
 
 // Favorites persist separately to keep starring lightweight across views.
@@ -2492,10 +2424,6 @@ if(DEBUG) assertInvariants("startup");
 // Remaining fields are runtime UI state; they are not persisted directly.
 let view = "categories";
 let currentCategory = null;
-let isSearchOpen = false;
-let searchQuery = "";
-let searchResults = null;
-let expandedSearchResourceId = "";
 let isAdminVisible = false;
 let adminTab = "categories";
 let adminShowVerifiedDates = false;
@@ -2671,94 +2599,6 @@ function runSelfTests(){
   });
 
   tests.push({
-    name: "PACKAGE VERSION FALLBACK",
-    fn: () => {
-      if(normalizePackageVersionValue(undefined) !== "Unknown") throw new Error("missing packageVersion should fallback");
-      if(normalizePackageVersionValue("") !== "Unknown") throw new Error("blank packageVersion should fallback");
-      if(normalizePackageVersionValue(12) !== 12) throw new Error("numeric packageVersion should be preserved");
-      if(normalizePackageVersionValue("13") !== 13) throw new Error("string numeric packageVersion should normalize to number");
-    }
-  });
-
-  tests.push({
-    name: "LAST LOADED PACKAGE INFO NORMALIZATION",
-    fn: () => {
-      const sample = {
-        lastLoadedPackageInfo: {
-          packageVersion: "",
-          loadedAt: "not-a-date",
-          changes: [" Added one ", "", "Added two"]
-        }
-      };
-      normalizeLastLoadedPackageInfo(sample);
-      if(!sample.lastLoadedPackageInfo) throw new Error("package info missing after normalize");
-      if(sample.lastLoadedPackageInfo.packageVersion !== "Unknown") throw new Error("package version fallback failed");
-      if(sample.lastLoadedPackageInfo.changes.length !== 2) throw new Error("package changes were not normalized");
-      if(!Date.parse(sample.lastLoadedPackageInfo.loadedAt)) throw new Error("loadedAt was not normalized");
-    }
-  });
-
-  tests.push({
-    name: "LAST LOADED PACKAGE INFO REPLACEMENT",
-    fn: () => {
-      const sample = {
-        lastLoadedPackageInfo: {
-          packageVersion: 1,
-          loadedAt: "2026-01-01T00:00:00.000Z",
-          changes: ["one"]
-        }
-      };
-      sample.lastLoadedPackageInfo = {
-        packageVersion: 2,
-        loadedAt: "2026-02-01T00:00:00.000Z",
-        changes: ["two"]
-      };
-      normalizeLastLoadedPackageInfo(sample);
-      if(sample.lastLoadedPackageInfo.packageVersion !== 2) throw new Error("package info did not replace");
-      if(sample.lastLoadedPackageInfo.changes.length !== 1 || sample.lastLoadedPackageInfo.changes[0] !== "two"){
-        throw new Error("replacement changes were not preserved");
-      }
-    }
-  });
-
-  tests.push({
-    name: "RECENT UPDATES PACKAGE SECTION RENDERING",
-    fn: () => {
-      const previousData = data;
-      const previousView = view;
-      const previousRecentUpdateDetail = recentUpdateDetail;
-      const previousPendingRecentUpdates = pendingRecentUpdates;
-      try{
-        data = { appVersion:"1.4.1", lastModified:nowISO(), categories:[], resources:[], changes:[], lastLoadedPackageInfo:null };
-        view = "recent-updates";
-        recentUpdateDetail = [];
-        pendingRecentUpdates = [];
-        render();
-        if(!/No resource package updates loaded\./.test(appView.textContent || "")){
-          throw new Error("missing no-package-loaded message");
-        }
-        data.lastLoadedPackageInfo = {
-          packageVersion: 12,
-          loadedAt: nowISO(),
-          changes: ["Added Housing Assistance category"]
-        };
-        render();
-        if(!/Resource package 12:/.test(appView.textContent || "")){
-          throw new Error("missing package version heading");
-        }
-        if(!/Added Housing Assistance category/.test(appView.textContent || "")){
-          throw new Error("missing package change text");
-        }
-      }finally{
-        data = previousData;
-        view = previousView;
-        recentUpdateDetail = previousRecentUpdateDetail;
-        pendingRecentUpdates = previousPendingRecentUpdates;
-      }
-    }
-  });
-
-  tests.push({
     name: "ADMIN CHANGE ENTRY CREATION",
     fn: () => {
       const entry = createChangeEntry("resource", "updated", "r1", "Resource One", "  Updated phone  ");
@@ -2808,80 +2648,6 @@ function runSelfTests(){
   });
 
   tests.push({
-    name: "BLANK RESOURCE CLEANUP DETECTION",
-    fn: () => {
-      const blank = { name:"", description:"", phone:"", address:"", website:"", hours:"", servicesText:"", categories:[], tags:[], pdfs:[] };
-      const named = { ...blank, name:"Named Resource" };
-      const categorized = { ...blank, categories:["food"] };
-      if(!isBlankResourceDraft(blank)) throw new Error("empty resource was not detected");
-      if(isBlankResourceDraft(named)) throw new Error("named resource was treated as blank");
-      if(isBlankResourceDraft(categorized)) throw new Error("categorized resource was treated as blank");
-    }
-  });
-
-  tests.push({
-    name: "NEW RESOURCE CANCEL CLEANUP",
-    fn: () => {
-      const previousData = data;
-      const previousNewResourceIds = newResourceIds;
-      const previousSelectedResourceId = selectedResourceId;
-      const previousAdminResourceEditMode = adminResourceEditMode;
-      try{
-        data = {
-          categories:[],
-          resources:[
-            { id:"existing", name:"Existing", categories:[], tags:[], pdfs:[], servicesText:"" },
-            { id:"draft", name:"", categories:[], tags:[], pdfs:[], servicesText:"" }
-          ]
-        };
-        newResourceIds = new Set(["draft"]);
-        selectedResourceId = "draft";
-        adminResourceEditMode = true;
-        if(!discardNewResourceDraft("draft")) throw new Error("new resource draft was not discarded");
-        if(data.resources.some(resource => resource.id === "draft")) throw new Error("draft resource remained in data");
-        if(newResourceIds.has("draft")) throw new Error("draft id remained tracked");
-        if(selectedResourceId !== "existing") throw new Error("selection did not move to existing resource");
-      }finally{
-        data = previousData;
-        newResourceIds = previousNewResourceIds;
-        selectedResourceId = previousSelectedResourceId;
-        adminResourceEditMode = previousAdminResourceEditMode;
-      }
-    }
-  });
-
-  tests.push({
-    name: "UTC LAST MODIFIED FORMAT",
-    fn: () => {
-      const formatted = formatDateTimeUTC("2026-05-09T05:16:20.130Z");
-      if(formatted !== "May 9, 2026, 5:16 UTC"){
-        throw new Error(`unexpected formatted date '${formatted}'`);
-      }
-    }
-  });
-
-  tests.push({
-    name: "PRINT RESOURCE SEPARATORS",
-    fn: () => {
-      const container = document.createElement("div");
-      PrintWorkflow.renderPrintableResourceCards(container, [
-        { id:"print-one", name:"Print One", categories:[], tags:[], pdfs:[], servicesText:"" },
-        { id:"print-two", name:"Print Two", categories:[], tags:[], pdfs:[], servicesText:"" },
-        { id:"print-three", name:"Print Three", categories:[], tags:[], pdfs:[], servicesText:"" }
-      ]);
-      if(container.querySelectorAll(".resource-card").length !== 3){
-        throw new Error("print resource cards were not rendered");
-      }
-      if(container.querySelectorAll(".print-resource-separator").length !== 2){
-        throw new Error("print resource separators were not inserted between cards");
-      }
-      if(container.firstElementChild && container.firstElementChild.classList.contains("print-resource-separator")){
-        throw new Error("separator was inserted before the first resource");
-      }
-    }
-  });
-
-  tests.push({
     name: "LIST TAG CANONICALIZATION",
     fn: () => {
       const resource = { tags:["This resource is a list", "Women"] };
@@ -2893,27 +2659,6 @@ function runSelfTests(){
       const deduped = normalizeResourceTags(["List", "this is a list"]);
       if(JSON.stringify(deduped) !== JSON.stringify(["List"])){
         throw new Error(`expected ["List"], got ${JSON.stringify(deduped)}`);
-      }
-    }
-  });
-
-  tests.push({
-    name: "TAG BUTTON TEXT SYNC HELPERS",
-    fn: () => {
-      const added = toggleResourceTag(["GED"], "List");
-      if(JSON.stringify(added) !== JSON.stringify(["GED", "List"])){
-        throw new Error(`expected GED/List, got ${JSON.stringify(added)}`);
-      }
-      const removed = toggleResourceTag(added, "ged");
-      if(JSON.stringify(removed) !== JSON.stringify(["List"])){
-        throw new Error(`expected GED removal, got ${JSON.stringify(removed)}`);
-      }
-      const canonical = toggleResourceTag([], "this resource is a list");
-      if(JSON.stringify(canonical) !== JSON.stringify(["List"])){
-        throw new Error(`expected List canonicalization, got ${JSON.stringify(canonical)}`);
-      }
-      if(formatResourceTagsInput(["GED", "List"]) !== "GED\nList"){
-        throw new Error("tag input formatting changed");
       }
     }
   });
@@ -2962,30 +2707,20 @@ function runSelfTests(){
   });
 
   tests.push({
-    name: "LIST REFERENCE DETECTION",
+    name: "LIST REFERENCE LOOKUP",
     fn: () => {
       const previousData = data;
       try{
-        const longText = `${"Long resource guide. ".repeat(30)} GED preparation and earn a GED. Captain Your Story - My Story Matters.`;
         data = {
           categories:[
             { id:"housing", label:"Housing", displayOrder:1 },
-            { id:"food", label:"Food", displayOrder:2 },
-            { id:"education", label:"Education", displayOrder:3 }
+            { id:"food", label:"Food", displayOrder:2 }
           ],
           resources:[
             { id:"target", name:"Community Action", categories:["food"], tags:["Food","List"], servicesText:"Community Action" },
             { id:"list-food", name:"Food Pantries", categories:["food"], tags:["List"], servicesText:"Community-Action\ncommunity action" },
             { id:"list-housing", name:"Housing Lists", categories:["housing","food"], tags:["List"], servicesText:"community action" },
-            { id:"not-list", name:"Caseworker Note", categories:["food"], tags:["Food"], servicesText:"Community Action" },
-            { id:"ged", name:"GED", categories:["education"], tags:["Education"], servicesText:"" },
-            { id:"can", name:"CAN", categories:["education"], tags:["Education"], servicesText:"" },
-            { id:"ican", name:"ICAN", categories:["education"], tags:["Education"], servicesText:"" },
-            { id:"aid", name:"Aid", categories:["education"], tags:["Education"], servicesText:"" },
-            { id:"story", name:"My Story Matters", categories:["education"], tags:["Education"], servicesText:"" },
-            { id:"list-education", name:"Education Lists", categories:["education"], tags:["List"], servicesText:"GED preparation, earn a GED, abridged notes, American Fork resources, vacancy listings, Captain Your Story - My Story Matters, GED." },
-            { id:"long-guide", name:"Long Education Guide", categories:["education"], tags:["Education"], servicesText:longText },
-            { id:"short-guide", name:"Short Education Note", categories:["education"], tags:["Education"], servicesText:"GED preparation and My Story Matters" }
+            { id:"not-list", name:"Caseworker Note", categories:["food"], tags:["Food"], servicesText:"Community Action" }
           ]
         };
 
@@ -2999,120 +2734,8 @@ function runSelfTests(){
         if(names.includes("Caseworker Note")) throw new Error("non-list resource was included");
         if(names.filter(name => name === "Food Pantries").length !== 1) throw new Error("duplicate mention produced duplicate match");
         if(names[0] !== "Housing Lists") throw new Error("category order was not preserved");
-
-        const gedMatches = findReferencingLists({ id:"ged", name:"GED" }).map(match => match.listName);
-        if(!gedMatches.includes("Education Lists")) throw new Error("GED list reference was not found");
-        if(!gedMatches.includes("Long Education Guide")) throw new Error("long list-style resource was not included");
-        if(gedMatches.includes("Short Education Note")) throw new Error("short non-list resource was included");
-        if(gedMatches.filter(name => name === "Education Lists").length !== 1) throw new Error("duplicate GED references were not deduplicated");
-
-        if(findReferencingLists({ id:"can", name:"CAN" }).length) throw new Error("CAN matched inside vacancy");
-        if(findReferencingLists({ id:"ican", name:"ICAN" }).length) throw new Error("ICAN matched inside American");
-        if(findReferencingLists({ id:"aid", name:"Aid" }).length) throw new Error("short non-acronym name should be ignored");
-        const storyMatches = findReferencingLists({ id:"story", name:"My Story Matters" }).map(match => match.listName);
-        if(!storyMatches.includes("Education Lists")) throw new Error("multi-word list reference was not found");
-        if(!storyMatches.includes("Long Education Guide")) throw new Error("multi-word long list-style reference was not found");
       }finally{
         data = previousData;
-      }
-    }
-  });
-
-  tests.push({
-    name: "SEARCH WHOLE WORD MATCHING",
-    fn: () => {
-      if(!textContainsTokenPhrase("GED preparation", "ged")) throw new Error("case-insensitive GED match failed");
-      if(!textContainsTokenPhrase("BioLife Plasma", "plasma")) throw new Error("whole-word plasma match failed");
-      if(textContainsTokenPhrase("parent support", "rent")) throw new Error("rent matched inside parent");
-      if(textContainsTokenPhrase("paid utility help", "aid")) throw new Error("aid matched inside paid");
-      if(!textContainsTokenPhrase("Captain Your Story - My Story Matters", "My Story Matters")) throw new Error("multi-word search failed");
-    }
-  });
-
-  tests.push({
-    name: "SEARCH NAME STAGE GROUPING",
-    fn: () => {
-      const previousData = data;
-      try{
-        data = {
-          categories:[
-            { id:"employment", label:"Employment", displayOrder:1 },
-            { id:"health", label:"Health Care", displayOrder:2 }
-          ],
-          resources:[
-            { id:"bio", name:"BioLife Plasma", categories:["employment","employment","health"], tags:[], pdfs:[], servicesText:"" },
-            { id:"talecris", name:"Talecris Plasma", categories:["employment"], tags:[], pdfs:[], servicesText:"" }
-          ]
-        };
-        const results = buildSearchResults("plasma");
-        if(results.mode !== "name") throw new Error(`expected name mode, got ${results.mode}`);
-        const employment = results.groups.find(group => group.categoryId === "employment");
-        const health = results.groups.find(group => group.categoryId === "health");
-        if(!employment || !health) throw new Error("expected category groups were missing");
-        if(employment.items.length !== 2) throw new Error("employment group did not include both resources");
-        if(health.items.length !== 1 || health.items[0].resourceId !== "bio") throw new Error("health group was incorrect");
-      }finally{
-        data = previousData;
-      }
-    }
-  });
-
-  tests.push({
-    name: "SEARCH SERVICES FALLBACK",
-    fn: () => {
-      const previousData = data;
-      try{
-        data = {
-          categories:[{ id:"housing", label:"Housing", displayOrder:1 }],
-          resources:[
-            { id:"parent", name:"Parent Support", categories:["housing"], tags:[], pdfs:[], servicesText:"paid utility help" },
-            { id:"uca", name:"Utah Community Action", categories:["housing"], tags:[], pdfs:[], servicesText:"Emergency rental assistance and deposit help" }
-          ]
-        };
-        const rentResults = buildSearchResults("rent");
-        if(rentResults.mode !== "none") throw new Error("rent should not match parent or rental");
-        const emergencyResults = buildSearchResults("emergency");
-        if(emergencyResults.mode !== "services") throw new Error(`expected services mode, got ${emergencyResults.mode}`);
-        if(emergencyResults.groups[0].items[0].resourceId !== "uca") throw new Error("services result resource was incorrect");
-        if(!emergencyResults.groups[0].items[0].snippet) throw new Error("services result snippet was missing");
-
-        data.resources.push({ id:"emergency-name", name:"Emergency Center", categories:["housing"], tags:[], pdfs:[], servicesText:"" });
-        const nameResults = buildSearchResults("emergency");
-        if(nameResults.mode !== "name") throw new Error("name matches should suppress services fallback");
-        if(nameResults.groups[0].items.some(item => item.resourceId === "uca")) throw new Error("services fallback appeared when name matches existed");
-      }finally{
-        data = previousData;
-      }
-    }
-  });
-
-  tests.push({
-    name: "SEARCH RESULT NAVIGATION",
-    fn: () => {
-      const previousData = data;
-      const previousView = view;
-      const previousCategory = currentCategory;
-      const previousExpanded = expandedSearchResourceId;
-      const previousFilters = categoryTagFilters;
-      const previousSearchOpen = isSearchOpen;
-      try{
-        data = {
-          categories:[{ id:"housing", label:"Housing", displayOrder:1 }],
-          resources:[{ id:"uca", name:"Utah Community Action", categories:["housing"], tags:[], pdfs:[], servicesText:"" }]
-        };
-        categoryTagFilters = { housing:["Shelter"] };
-        openSearchResult("housing", "uca");
-        if(view !== "category") throw new Error("search result did not switch to category view");
-        if(currentCategory !== "housing") throw new Error("search result did not set category");
-        if(expandedSearchResourceId !== "uca") throw new Error("search result did not mark resource for expansion");
-        if(getCategoryFilterTags("housing").length) throw new Error("category filters were not cleared");
-      }finally{
-        data = previousData;
-        view = previousView;
-        currentCategory = previousCategory;
-        expandedSearchResourceId = previousExpanded;
-        categoryTagFilters = previousFilters;
-        isSearchOpen = previousSearchOpen;
       }
     }
   });
@@ -3415,7 +3038,6 @@ function setView(nextView){
   if(view === "admin" && nextView !== "admin"){
     if(!commitPendingEditsIfChanged()) return;
   }
-  if(nextView !== "category") expandedSearchResourceId = "";
   view = nextView;
   safeRender();
 }
@@ -3437,57 +3059,6 @@ function setAdminVisibility(visible){
 tabCategories.onclick = ()=>{ setView("categories"); };
 tabFavorites.onclick = ()=>{ setView("favorites"); };
 tabAdmin.onclick = ()=>{ setView("admin"); };
-
-function syncSearchPanel(){
-  const panel = document.getElementById("searchPanel");
-  const input = document.getElementById("searchInput");
-  if(!panel) return;
-  panel.classList.toggle("hidden", !isSearchOpen);
-  if(input && isSearchOpen && document.activeElement !== input){
-    input.value = searchQuery;
-  }
-}
-
-function toggleSearchPanel(){
-  isSearchOpen = !isSearchOpen;
-  syncSearchPanel();
-  if(isSearchOpen){
-    window.setTimeout(() => {
-      const input = document.getElementById("searchInput");
-      if(input){
-        input.focus();
-        input.select();
-      }
-    }, 0);
-  }
-}
-
-function performSearch(query){
-  if(view === "admin" && !commitPendingEditsIfChanged()) return;
-  searchQuery = String(query || "").trim();
-  searchResults = buildSearchResults(searchQuery);
-  expandedSearchResourceId = "";
-  view = "search-results";
-  safeRender();
-}
-
-const tabSearch = document.getElementById("tabSearch");
-if(tabSearch) tabSearch.onclick = toggleSearchPanel;
-const searchButton = document.getElementById("searchButton");
-if(searchButton){
-  searchButton.onclick = () => {
-    const input = document.getElementById("searchInput");
-    performSearch(input ? input.value : "");
-  };
-}
-const searchInput = document.getElementById("searchInput");
-if(searchInput){
-  searchInput.addEventListener("keydown", event => {
-    if(event.key !== "Enter") return;
-    event.preventDefault();
-    performSearch(searchInput.value);
-  });
-}
 const appTitle = document.getElementById("appTitle");
 if(appTitle){
   appTitle.onclick = () => {
@@ -3658,56 +3229,6 @@ function getCategoryTagOptions(categoryId){
   return getTagsForCategory(categoryId);
 }
 
-function renderSearchResultsView(){
-  const results = searchResults || buildSearchResults(searchQuery);
-  const title = document.createElement("div");
-  title.className = "search-results-title";
-  title.textContent = `Search results for: ${results.query || ""}`;
-  appView.appendChild(title);
-
-  if(!results.groups.length){
-    const empty = document.createElement("p");
-    empty.textContent = results.query ? "No matching resources." : "Enter a search term.";
-    appView.appendChild(empty);
-    return;
-  }
-
-  results.groups.forEach(group => {
-    const section = document.createElement("div");
-    section.className = "search-result-group";
-
-    const heading = document.createElement("div");
-    heading.className = "search-result-group-title";
-    heading.textContent = group.categoryLabel;
-    section.appendChild(heading);
-
-    const list = document.createElement("ul");
-    list.className = "search-result-list";
-    group.items.forEach(item => {
-      const row = document.createElement("li");
-      row.className = "search-result-item";
-
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "search-result-button";
-      btn.textContent = item.resourceName;
-      btn.onclick = () => openSearchResult(group.categoryId, item.resourceId);
-      row.appendChild(btn);
-
-      if(item.snippet){
-        const snippet = document.createElement("div");
-        snippet.className = "search-result-snippet";
-        snippet.textContent = item.snippet;
-        row.appendChild(snippet);
-      }
-
-      list.appendChild(row);
-    });
-    section.appendChild(list);
-    appView.appendChild(section);
-  });
-}
-
 // ============================================================
 // UNDO SYSTEM
 // ============================================================
@@ -3756,7 +3277,6 @@ function render(){
   // Main view router: decides which screen to draw from current app state.
   tabFavorites.textContent=`Favorites (${favorites.length})`;
   tabAdmin.style.display = isAdminVisible ? "" : "none";
-  syncSearchPanel();
   appView.classList.toggle("hidden", view==="admin");
   adminView.classList.toggle("hidden", !isAdminVisible || view!=="admin");
 
@@ -3773,16 +3293,6 @@ function render(){
 
   appView.innerHTML="";
 
-  function renderCategoryReminder(){
-    const categoryMessage = document.createElement("p");
-    categoryMessage.textContent = `${CATEGORY_REMINDER_TEXT} `;
-    categoryMessage.style.margin = "0 0 12px";
-    categoryMessage.style.color = "#555";
-    categoryMessage.style.fontSize = "14px";
-    categoryMessage.style.lineHeight = "1.35";
-    appView.appendChild(categoryMessage);
-  }
-
   if(view==="categories"){
     if(pendingRecentUpdates.length){
       const note = document.createElement("div");
@@ -3790,7 +3300,6 @@ function render(){
       note.innerHTML = `<strong>Recent Updates</strong><div>${pendingRecentUpdates.length} new updates loaded.</div><div>Click Provo TSO Resources at any time to review recent updates.</div>`;
       appView.appendChild(note);
     }
-    renderCategoryReminder();
     const grid=document.createElement("div");
     grid.className="grid";
     const updatesByCategory = getCategoryUpdateMap();
@@ -3810,7 +3319,7 @@ function render(){
           safeRender();
         };
       }
-      card.onclick=()=>{ currentCategory=cat.id; expandedSearchResourceId=""; setCategoryFilterTags(currentCategory, []); view="category"; safeRender(); };
+      card.onclick=()=>{ currentCategory=cat.id; setCategoryFilterTags(currentCategory, []); view="category"; safeRender(); };
       grid.appendChild(card);
     });
 
@@ -3821,7 +3330,7 @@ function render(){
     const reloadBtn = document.createElement("button");
     reloadBtn.type = "button";
     reloadBtn.className = "button secondary";
-    reloadBtn.textContent = "Load Resource Package";
+    reloadBtn.textContent = "Reload Resources";
     reloadBtn.onclick = beginMergeImportPackage;
     reloadWrap.appendChild(reloadBtn);
     appView.appendChild(reloadWrap);
@@ -3851,6 +3360,11 @@ function render(){
       title.style.marginBottom = "6px";
       appView.appendChild(title);
     }
+    const categoryMessage = document.createElement("p");
+    categoryMessage.textContent = "If you notice resources that need to be added or updated, please send a message to Elder and Sister Gasser.";
+    categoryMessage.style.margin = "0 0 12px";
+    categoryMessage.style.color = "#555";
+    appView.appendChild(categoryMessage);
     const categoryTags = getCategoryTagOptions(currentCategory);
     let activeTags = getCategoryFilterTags(currentCategory).filter(tag =>
       categoryTags.some(option => option.toLowerCase() === tag.toLowerCase())
@@ -3916,8 +3430,8 @@ function render(){
     }
 
     filtered.forEach(res=>{
-      let expanded=String(res && res.id || "") === String(expandedSearchResourceId || "");
-      const card=buildResourceCard(res,{expanded,showDescription:true});
+      let expanded=false;
+      const card=buildResourceCard(res,{showDescription:true});
       const resourceUpdates = getChangesForResource(res.id, { unseenOnly:true });
       if(resourceUpdates.length){
         const badge = document.createElement("button");
@@ -3942,22 +3456,9 @@ function render(){
     });
     }
 
-  if(view==="search-results"){
-    renderSearchResultsView();
-  }
-
   if(view==="recent-updates"){
     const entries = Array.isArray(recentUpdateDetail) ? recentUpdateDetail : getRecentChanges();
-    const packageInfo = (data && data.lastLoadedPackageInfo && typeof data.lastLoadedPackageInfo === "object")
-      ? data.lastLoadedPackageInfo
-      : null;
-    const packageChanges = packageInfo && Array.isArray(packageInfo.changes) ? packageInfo.changes : [];
-    appView.innerHTML = `<div class="category-card"><div>App version: ${escapeHTML(data.appVersion || APP_VERSION)}</div><div>Last modified: ${escapeHTML(formatDateOnly(data.lastModified))}</div></div>`;
-    if(!packageInfo){
-      appView.innerHTML += `<div class="category-card"><strong>Resource package:</strong><div>No resource package updates loaded.</div></div>`;
-    }else{
-      appView.innerHTML += `<div class="category-card"><strong>Resource package ${escapeHTML(String(packageInfo.packageVersion))}:</strong>${packageChanges.length ? `<ul>${packageChanges.map(change => `<li>${escapeHTML(change)}</li>`).join("")}</ul>` : `<div>No resource package updates loaded.</div>`}</div>`;
-    }
+    appView.innerHTML = `<div class="category-card"><strong>Recent Updates</strong><div>App version: ${escapeHTML(data.appVersion || APP_VERSION)}</div><div>Last modified: ${escapeHTML(formatDateOnly(data.lastModified))}</div></div>`;
     if(!entries.length){
       appView.innerHTML += `<p>No recent updates.</p>`;
     }else{
@@ -4048,13 +3549,14 @@ const PrintWorkflow = {
     const active = this.queue.length > 0 && this.currentIndex >= 0 && this.currentIndex < this.queue.length;
     const isLastStep = active && this.currentIndex === this.queue.length - 1;
     printCloseBtn.classList.toggle("hidden", active && !isLastStep);
+    printSkipBtn.classList.toggle("hidden", !active);
     printNextBtn.classList.toggle("hidden", !active || isLastStep);
     if(!active){
       printProgress.textContent = "";
       return;
     }
     const step = this.queue[this.currentIndex];
-    printProgress.textContent = `Printing ${this.currentIndex + 1} of ${this.queue.length}: ${step.label}. Use double-sided printing in the print dialog.`;
+    printProgress.textContent = `Printing ${this.currentIndex + 1} of ${this.queue.length}: ${step.label}`;
   },
 
   showStep(){
@@ -4073,19 +3575,10 @@ const PrintWorkflow = {
   openPreview(resources){
     this.openPreviewContent(container => {
       container.innerHTML="<h2>Suggested Resources</h2>";
-      this.renderPrintableResourceCards(container, resources);
-    });
-  },
-
-  renderPrintableResourceCards(container, resources){
-    (Array.isArray(resources) ? resources : []).forEach((res, index)=>{
-      if(index > 0){
-        const separator = document.createElement("hr");
-        separator.className = "print-resource-separator";
-        container.appendChild(separator);
-      }
-      const card=buildResourceCard(res,{expanded:true,showStar:false});
-      container.appendChild(card);
+      resources.forEach(res=>{
+        const card=buildResourceCard(res,{expanded:true,showStar:false});
+        container.appendChild(card);
+      });
     });
   },
 
@@ -4114,7 +3607,10 @@ const PrintWorkflow = {
     this.openPreviewContent(container => {
       if(normalFavs.length){
         container.innerHTML = "<h2>Suggested Resources</h2>";
-        this.renderPrintableResourceCards(container, normalFavs);
+        normalFavs.forEach(res => {
+          const card = buildResourceCard(res,{expanded:true,showStar:false});
+          container.appendChild(card);
+        });
       }
 
       listFavs.forEach((resource, index) => {
@@ -4143,6 +3639,10 @@ const PrintWorkflow = {
     this.showStep();
   },
 
+  skip(){
+    this.next();
+  },
+
   close(){
     this.queue = [];
     this.currentIndex = -1;
@@ -4164,6 +3664,7 @@ const PrintWorkflow = {
 
 function startFavoritesPacketPrint(){ PrintWorkflow.startFavoritesPacket(); }
 function nextPrintStep(){ PrintWorkflow.next(); }
+function skipPrintStep(){ PrintWorkflow.skip(); }
 function closePrintPreview(){ PrintWorkflow.close(); }
 function doPrint(){ PrintWorkflow.doPrint(); }
 
@@ -4198,7 +3699,8 @@ function renderAdmin(){
         <button class="button" onclick="undoLastDeletion()">${escapeHTML(undoButtonLabel)}</button>
         <button class="button" onclick="clearUndoSnapshot(); safeRenderAdmin();">Clear undo</button>
       ` : ""}      <div style="margin-top:10px;">
-        Last Modified: ${escapeHTML(formatDateTimeUTC(data.lastModified))}
+
+        Last Modified: ${data.lastModified || "(none)"}
       </div>
     </div>
 
@@ -4491,34 +3993,6 @@ function normalizeChanges(packageData){
   packageData.changes = normalized;
 }
 
-function normalizePackageVersionValue(value){
-  if(typeof value === "number" && Number.isFinite(value)) return value;
-  if(typeof value === "string" && value.trim()){
-    const asNumber = Number(value.trim());
-    if(Number.isFinite(asNumber)) return asNumber;
-  }
-  return "Unknown";
-}
-
-function normalizeLastLoadedPackageInfo(packageData){
-  if(!packageData || typeof packageData !== "object") return;
-  const source = packageData.lastLoadedPackageInfo;
-  if(!source || typeof source !== "object"){
-    packageData.lastLoadedPackageInfo = null;
-    return;
-  }
-  const changes = Array.isArray(source.changes)
-    ? source.changes
-      .map(entry => String(entry || "").trim())
-      .filter(Boolean)
-    : [];
-  packageData.lastLoadedPackageInfo = {
-    packageVersion: normalizePackageVersionValue(source.packageVersion),
-    loadedAt: Date.parse(String(source.loadedAt || "")) ? String(source.loadedAt) : nowISO(),
-    changes
-  };
-}
-
 function createChangeEntry(type, action, targetId, targetName, description, options = {}){
   const cleanDescription = String(description || "").trim();
   if(!cleanDescription) return null;
@@ -4659,8 +4133,6 @@ function normalizePackageData(nextData){
   normalizeDataTagsShape(nextData);
   normalizeDataVerifiedOnShape(nextData);
   normalizeChanges(nextData);
-  nextData.packageVersion = normalizePackageVersionValue(nextData.packageVersion);
-  normalizeLastLoadedPackageInfo(nextData);
   return nextData;
 }
 
@@ -4905,7 +4377,6 @@ async function mergeImportPackage(event){
     }
     normalizePackageData(imported);
     const importedChangeIds = new Set((imported.changes || []).map(entry => String(entry && entry.id || "")).filter(Boolean));
-    const importedPackageVersion = normalizePackageVersionValue(imported.packageVersion);
 
     const localResourcesWithPdf = ((data && data.resources) || [])
       .map(r => ({ resource:r, paths:collectPDFPathsFromResource(r) }))
@@ -4923,13 +4394,6 @@ async function mergeImportPackage(event){
     const missingPdfPaths = await mergeZipAssets(zip, mergedData);
     applyMergedData(mergedData);
     const loadedChanges = getRecentChanges().filter(entry => importedChangeIds.has(String(entry.id || "")));
-    data.lastLoadedPackageInfo = {
-      packageVersion: importedPackageVersion,
-      loadedAt: nowISO(),
-      changes: loadedChanges.map(entry => String(entry && entry.description || "").trim()).filter(Boolean)
-    };
-    normalizeLastLoadedPackageInfo(data);
-    persist();
     if(loadedChanges.length){
       pendingRecentUpdates = loadedChanges;
       recentUpdateDetail = loadedChanges;
@@ -5008,50 +4472,24 @@ function getReferenceCategoryEntries(resource){
   return entries;
 }
 
-function normalizeReferenceSearchText(value){
-  return String(value || "")
+function normalizeReferenceSearchText(value, { compact = false } = {}){
+  const normalized = String(value || "")
     .toLowerCase()
     .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-function getReferenceTokens(value){
-  const normalized = normalizeReferenceSearchText(value);
-  return normalized ? normalized.split(" ") : [];
-}
-
-function textContainsTokenPhrase(text, phrase){
-  const needleTokens = getReferenceTokens(phrase);
-  const haystackTokens = getReferenceTokens(text);
-  if(!needleTokens.length || haystackTokens.length < needleTokens.length) return false;
-
-  for(let i = 0; i <= haystackTokens.length - needleTokens.length; i += 1){
-    let matched = true;
-    for(let j = 0; j < needleTokens.length; j += 1){
-      if(haystackTokens[i + j] !== needleTokens[j]){
-        matched = false;
-        break;
-      }
-    }
-    if(matched) return true;
-  }
-  return false;
-}
-
-function isReferenceNameSearchable(resourceName){
-  const rawName = String(resourceName || "").trim();
-  if(!rawName) return false;
-  if(rawName.length >= 4) return true;
-  if(/\s/.test(rawName)) return true;
-  return /[A-Z]/.test(rawName) && rawName === rawName.toUpperCase();
+    .replace(/[\u0300-\u036f]/g, "");
+  return compact
+    ? normalized.replace(/[^a-z0-9]+/g, "")
+    : normalized.replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
 }
 
 function servicesTextReferencesName(servicesText, resourceName){
-  if(!isReferenceNameSearchable(resourceName)) return false;
-  return textContainsTokenPhrase(servicesText, resourceName);
+  const needle = normalizeReferenceSearchText(resourceName);
+  const haystack = normalizeReferenceSearchText(servicesText);
+  if(needle && haystack.includes(needle)) return true;
+
+  const compactNeedle = normalizeReferenceSearchText(resourceName, { compact:true });
+  const compactHaystack = normalizeReferenceSearchText(servicesText, { compact:true });
+  return !!compactNeedle && compactHaystack.includes(compactNeedle);
 }
 
 function getReferenceSnippet(servicesText, resourceName){
@@ -5069,122 +4507,9 @@ function getReferenceSnippet(servicesText, resourceName){
   return `${prefix}${text.slice(start, end)}${suffix}`;
 }
 
-function getResourceCategoryEntriesForSearch(resource){
-  const categoryIds = Array.isArray(resource && resource.categories)
-    ? resource.categories.map(id => String(id || "")).filter(Boolean)
-    : [];
-  const categoryIdSet = new Set(categoryIds);
-  const entries = [];
-  const seen = new Set();
-
-  (Array.isArray(data.categories) ? data.categories : [])
-    .slice()
-    .sort((a,b)=>(a.displayOrder??999)-(b.displayOrder??999))
-    .forEach((cat, index) => {
-      const id = String(cat && cat.id || "");
-      if(!categoryIdSet.has(id) || seen.has(id)) return;
-      seen.add(id);
-      entries.push({
-        id,
-        label:String(cat && cat.label || id || "Uncategorized"),
-        order:index
-      });
-    });
-
-  categoryIds.forEach(id => {
-    if(seen.has(id)) return;
-    seen.add(id);
-    entries.push({ id, label:id, order:9999 });
-  });
-
-  return entries;
-}
-
-function addSearchResult(groupMap, groups, category, resource, options = {}){
-  if(!category || !category.id || !resource) return;
-  const groupKey = String(category.id);
-  if(!groupMap.has(groupKey)){
-    const group = { categoryId:category.id, categoryLabel:category.label, categoryOrder:category.order, items:[], seen:new Set() };
-    groupMap.set(groupKey, group);
-    groups.push(group);
-  }
-  const group = groupMap.get(groupKey);
-  const resourceId = String(resource.id || "");
-  if(group.seen.has(resourceId)) return;
-  group.seen.add(resourceId);
-  group.items.push({
-    resourceId,
-    resourceName:String(resource.name || "(Unnamed resource)"),
-    snippet:String(options.snippet || "")
-  });
-}
-
-function buildSearchResults(query){
-  const cleanQuery = String(query || "").trim();
-  const empty = { query:cleanQuery, mode:"none", groups:[] };
-  if(!getReferenceTokens(cleanQuery).length) return empty;
-
-  const resources = Array.isArray(data.resources) ? data.resources : [];
-  let groups = [];
-  let groupMap = new Map();
-
-  resources.forEach(resource => {
-    if(!textContainsTokenPhrase(resource && resource.name, cleanQuery)) return;
-    getResourceCategoryEntriesForSearch(resource).forEach(category => {
-      addSearchResult(groupMap, groups, category, resource);
-    });
-  });
-
-  if(groups.length){
-    return { query:cleanQuery, mode:"name", groups:sortSearchResultGroups(groups) };
-  }
-
-  groups = [];
-  groupMap = new Map();
-  resources.forEach(resource => {
-    if(!textContainsTokenPhrase(resource && resource.servicesText, cleanQuery)) return;
-    getResourceCategoryEntriesForSearch(resource).forEach(category => {
-      addSearchResult(groupMap, groups, category, resource, {
-        snippet:getReferenceSnippet(resource && resource.servicesText, cleanQuery)
-      });
-    });
-  });
-
-  return { query:cleanQuery, mode:groups.length ? "services" : "none", groups:sortSearchResultGroups(groups) };
-}
-
-function sortSearchResultGroups(groups){
-  return (Array.isArray(groups) ? groups : [])
-    .map(group => ({
-      ...group,
-      items:group.items.slice().sort((a,b)=>a.resourceName.localeCompare(b.resourceName, undefined, { sensitivity:"base" }))
-    }))
-    .sort((a, b) => {
-      if(a.categoryOrder !== b.categoryOrder) return a.categoryOrder - b.categoryOrder;
-      return a.categoryLabel.localeCompare(b.categoryLabel, undefined, { sensitivity:"base" });
-    });
-}
-
-function openSearchResult(categoryId, resourceId){
-  const nextCategory = String(categoryId || "");
-  const nextResource = String(resourceId || "");
-  if(!nextCategory || !nextResource) return;
-  currentCategory = nextCategory;
-  setCategoryFilterTags(currentCategory, []);
-  expandedSearchResourceId = nextResource;
-  isSearchOpen = false;
-  view = "category";
-  safeRender();
-}
-
 function resourceHasListTag(resource){
   return normalizeResourceTags(resource && resource.tags)
     .some(tag => tag.toLowerCase() === "list");
-}
-
-function resourceIsListStyle(resource){
-  if(resourceHasListTag(resource)) return true;
-  return String(resource && resource.servicesText || "").trim().length > 500;
 }
 
 function findReferencingLists(resourceOrName){
@@ -5195,14 +4520,14 @@ function findReferencingLists(resourceOrName){
     ? resourceOrName.name
     : resourceOrName;
   const needle = String(resourceName || "").trim();
-  if(!isReferenceNameSearchable(needle)) return [];
+  if(!needle) return [];
 
   const matches = [];
   const seen = new Set();
   (Array.isArray(data.resources) ? data.resources : []).forEach(resource => {
     const resourceId = String(resource && resource.id || "");
     if(targetId && resourceId === targetId) return;
-    if(!resourceIsListStyle(resource)) return;
+    if(!resourceHasListTag(resource)) return;
     const servicesText = String(resource && resource.servicesText || "");
     if(!servicesTextReferencesName(servicesText, needle)) return;
 
@@ -6089,41 +5414,6 @@ function newResource(){
   focusAndSelectResourceName();
 }
 
-function discardNewResourceDraft(resourceId){
-  const draftId = String(resourceId || "");
-  if(!draftId || !newResourceIds.has(draftId)) return false;
-
-  const sortedIds = getAdminResourceBrowseList().map(r => String(r.id || ""));
-  const selectedPos = sortedIds.indexOf(draftId);
-  const idx = getResourceIndexById(draftId);
-  if(idx === -1){
-    newResourceIds.delete(draftId);
-    return false;
-  }
-
-  data.resources.splice(idx, 1);
-  newResourceIds.delete(draftId);
-
-  const remainingIds = getAdminResourceBrowseList().map(r => String(r.id || ""));
-  if(!remainingIds.length){
-    selectedResourceId = "";
-    adminResourceEditMode = false;
-  }else{
-    const nextPos = Math.min(Math.max(selectedPos, 0), remainingIds.length - 1);
-    selectedResourceId = remainingIds[nextPos];
-  }
-  return true;
-}
-
-function isBlankResourceDraft(resource){
-  if(!resource) return false;
-  const hasText = ["name", "description", "phone", "address", "website", "hours", "servicesText"]
-    .some(key => String(resource[key] || "").trim());
-  const hasLists = ["categories", "tags", "pdfs"]
-    .some(key => Array.isArray(resource[key]) && resource[key].length);
-  return !hasText && !hasLists;
-}
-
 function deleteResource(){
   if(!commitPendingEditsIfChanged()) return;
   if(!selectedResourceId) return;
@@ -6136,8 +5426,7 @@ function deleteResource(){
 
   const confirmDelete = confirm(buildAdminDeleteConfirmation("resource", res.name || "(unnamed)"));
   if(!confirmDelete) return;
-  const updateDescription = prompt("Describe this update (optional):", "");
-  if(updateDescription === null) return;
+  const updateDescription = prompt("Describe this update (optional):", "") || "";
   setUndoSnapshot(`deleted resource "${res.name}"`);
 
   data.resources.splice(idx,1);
@@ -6178,12 +5467,6 @@ function closeResourceEditor(){
 }
 
 function cancelResourceEditor(){
-  if(discardNewResourceDraft(selectedResourceId)){
-    adminResourceEditMode = false;
-    persist();
-    safeRenderAdmin();
-    return;
-  }
   adminResourceEditMode = false;
   safeRenderAdmin();
 }
@@ -6200,9 +5483,8 @@ function editResource(idx){
   normalizeResourcePDFs(res);
   res.tags = normalizeResourceTags(res.tags);
   const verifiedDisplay = formatVerifiedOnForDisplay(res.verifiedOn);
-  const tagInputValue = formatResourceTagsInput(res.tags);
-  const tagSuggestions = normalizeResourceTags([...res.tags, ...getAllTags(res.id)])
-    .sort((a,b)=>a.localeCompare(b, undefined, { sensitivity:"base" }));
+  const tagInputValue = res.tags.join("\n");
+  const tagSuggestions = getAllTags(res.id);
 
   const catChecks = data.categories
     .slice()
@@ -6254,7 +5536,7 @@ function editResource(idx){
       <textarea id="res_update_description" class="big" style="min-height:60px;"></textarea>
     </label><br>
 
-    <label style="display:block; margin-top:8px;">Choose tags or add new ones (comma-separated or one per line).<br>
+    <label style="display:block; margin-top:8px;">Tags (comma-separated or one per line)<br>
       <textarea id="res_tags" class="big" style="min-height:72px;">${escapeHTML(tagInputValue)}</textarea>
     </label>
     ${tagSuggestions.length ? `
@@ -6342,32 +5624,17 @@ function editResource(idx){
   }
   setServicesEditorMode("preview");
 
-  function getCurrentTagKeys(){
-    return new Set(parseResourceTagsInput(tagsEl ? tagsEl.value : "").map(tag => tag.toLowerCase()));
-  }
-
-  function refreshTagSuggestionButtons(){
-    const selectedKeys = getCurrentTagKeys();
-    editor.querySelectorAll("[data-tag-suggestion]").forEach(btn => {
-      const tag = btn.getAttribute("data-tag-suggestion") || "";
-      const normalized = normalizeResourceTags([tag])[0] || "";
-      btn.classList.toggle("primary", !!normalized && selectedKeys.has(normalized.toLowerCase()));
-    });
-  }
-
-  function toggleTagSuggestion(tag){
+  function insertTagSuggestion(tag){
     if(!tagsEl) return;
-    const nextTags = toggleResourceTag(parseResourceTagsInput(tagsEl.value), tag);
-    tagsEl.value = formatResourceTagsInput(nextTags);
+    const nextTags = normalizeResourceTags([...parseResourceTagsInput(tagsEl.value), tag]);
+    tagsEl.value = nextTags.join("\n");
     tagsEl.dispatchEvent(new Event("input", { bubbles:true }));
     tagsEl.focus();
   }
 
   editor.querySelectorAll("[data-tag-suggestion]").forEach(btn => {
-    btn.onclick = () => toggleTagSuggestion(btn.getAttribute("data-tag-suggestion") || "");
+    btn.onclick = () => insertTagSuggestion(btn.getAttribute("data-tag-suggestion") || "");
   });
-  if(tagsEl) tagsEl.addEventListener("input", refreshTagSuggestionButtons);
-  refreshTagSuggestionButtons();
 
   function updateVerifiedDisplayAndWarning(){
     if(!verifiedInput || !verifiedDisplayEl) return true;
