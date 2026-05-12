@@ -2467,7 +2467,7 @@ function renderServicesHTML(text){
 const seed = JSON.parse(document.getElementById("seed-data").textContent);
 // Main persisted app data snapshot (categories/resources + metadata).
 let data = JSON.parse(localStorage.getItem("tsoData") || "null");
-const APP_VERSION = "1.4";
+const APP_VERSION = "1.4.1";
 const DEBUG = new URLSearchParams(location.search).has("debug");
 const UPDATE_SEEN_STORAGE_KEY = "tsoRecentUpdatesSeen";
 const CATEGORY_REMINDER_TEXT = "If you notice resources that need to be added or updated, please send a message to Elder and Sister Gasser. Report bugs to Elder Bendio (michaelbendio@gmail.com).";
@@ -2482,6 +2482,7 @@ normalizeDataPDFShape(data);
 normalizeDataTagsShape(data);
 normalizeDataVerifiedOnShape(data);
 normalizeChanges(data);
+normalizeLastLoadedPackageInfo(data);
 data.appVersion = APP_VERSION;
 
 // Favorites persist separately to keep starring lightweight across views.
@@ -2666,6 +2667,109 @@ function runSelfTests(){
       const sample = {};
       normalizeChanges(sample);
       if(!Array.isArray(sample.changes)) throw new Error("changes should normalize to array");
+    }
+  });
+
+  tests.push({
+    name: "PACKAGE VERSION FALLBACK",
+    fn: () => {
+      if(normalizePackageVersionValue(undefined) !== "Unknown") throw new Error("missing packageVersion should fallback");
+      if(normalizePackageVersionValue("") !== "Unknown") throw new Error("blank packageVersion should fallback");
+      if(normalizePackageVersionValue(12) !== 12) throw new Error("numeric packageVersion should be preserved");
+      if(normalizePackageVersionValue("13") !== 13) throw new Error("string numeric packageVersion should normalize to number");
+    }
+  });
+
+  tests.push({
+    name: "LAST LOADED PACKAGE INFO NORMALIZATION",
+    fn: () => {
+      const sample = {
+        lastLoadedPackageInfo: {
+          packageVersion: "",
+          loadedAt: "not-a-date",
+          changes: [" Added one ", "", "Added two"]
+        }
+      };
+      normalizeLastLoadedPackageInfo(sample);
+      if(!sample.lastLoadedPackageInfo) throw new Error("package info missing after normalize");
+      if(sample.lastLoadedPackageInfo.packageVersion !== "Unknown") throw new Error("package version fallback failed");
+      if(sample.lastLoadedPackageInfo.changes.length !== 2) throw new Error("package changes were not normalized");
+      if(!Array.isArray(sample.lastLoadedPackageInfo.changeIds)) throw new Error("changeIds were not normalized");
+      if(!Date.parse(sample.lastLoadedPackageInfo.loadedAt)) throw new Error("loadedAt was not normalized");
+    }
+  });
+
+  tests.push({
+    name: "LAST LOADED PACKAGE INFO REPLACEMENT",
+    fn: () => {
+      const sample = {
+        lastLoadedPackageInfo: {
+          packageVersion: 1,
+          loadedAt: "2026-01-01T00:00:00.000Z",
+          changes: ["one"]
+        }
+      };
+      sample.lastLoadedPackageInfo = {
+        packageVersion: 2,
+        loadedAt: "2026-02-01T00:00:00.000Z",
+        changes: ["two"]
+      };
+      normalizeLastLoadedPackageInfo(sample);
+      if(sample.lastLoadedPackageInfo.packageVersion !== 2) throw new Error("package info did not replace");
+      if(sample.lastLoadedPackageInfo.changes.length !== 1 || sample.lastLoadedPackageInfo.changes[0] !== "two"){
+        throw new Error("replacement changes were not preserved");
+      }
+    }
+  });
+
+  tests.push({
+    name: "RECENT UPDATES PACKAGE SECTION RENDERING",
+    fn: () => {
+      const previousData = data;
+      const previousView = view;
+      const previousRecentUpdateDetail = recentUpdateDetail;
+      const previousPendingRecentUpdates = pendingRecentUpdates;
+      try{
+        data = { appVersion:"1.4.1", lastModified:nowISO(), categories:[], resources:[], changes:[], lastLoadedPackageInfo:null };
+        view = "recent-updates";
+        recentUpdateDetail = [];
+        pendingRecentUpdates = [];
+        render();
+        if(!/No resource package updates loaded\./.test(appView.textContent || "")){
+          throw new Error("missing no-package-loaded message");
+        }
+        data.lastLoadedPackageInfo = {
+          packageVersion: 12,
+          loadedAt: nowISO(),
+          changes: ["Added Housing Assistance category"],
+          changeIds: ["resource:1"]
+        };
+        recentUpdateDetail = [{
+          id: "resource:1",
+          type: "resource",
+          action: "updated",
+          targetId: "resource-1",
+          targetName: "Resource One",
+          description: "Added Housing Assistance category",
+          timestamp: nowISO(),
+          categoryIds: []
+        }];
+        render();
+        if(!/Resource package 12:/.test(appView.textContent || "")){
+          throw new Error("missing package version heading");
+        }
+        if(!/Added Housing Assistance category/.test(appView.textContent || "")){
+          throw new Error("missing package change text");
+        }
+        if(/Resource One/.test(appView.textContent || "")){
+          throw new Error("package update entry was duplicated in recent cards");
+        }
+      }finally{
+        data = previousData;
+        view = previousView;
+        recentUpdateDetail = previousRecentUpdateDetail;
+        pendingRecentUpdates = previousPendingRecentUpdates;
+      }
     }
   });
 
@@ -3859,11 +3963,25 @@ function render(){
 
   if(view==="recent-updates"){
     const entries = Array.isArray(recentUpdateDetail) ? recentUpdateDetail : getRecentChanges();
-    appView.innerHTML = `<div class="category-card"><strong>Recent Updates</strong><div>App version: ${escapeHTML(data.appVersion || APP_VERSION)}</div><div>Last modified: ${escapeHTML(formatDateOnly(data.lastModified))}</div></div>`;
-    if(!entries.length){
+    const packageInfo = (data && data.lastLoadedPackageInfo && typeof data.lastLoadedPackageInfo === "object")
+      ? data.lastLoadedPackageInfo
+      : null;
+    const displayPackageVersion = packageInfo && packageInfo.packageVersion !== "Unknown"
+      ? packageInfo.packageVersion
+      : ((typeof data.packageVersion === "number" && Number.isFinite(data.packageVersion)) ? data.packageVersion : "Unknown");
+    const packageChanges = packageInfo && Array.isArray(packageInfo.changes) ? packageInfo.changes : [];
+    const packageChangeIds = new Set(packageInfo && Array.isArray(packageInfo.changeIds) ? packageInfo.changeIds.map(String) : []);
+    const nonPackageEntries = entries.filter(entry => !packageChangeIds.has(String(entry && entry.id || "")));
+    appView.innerHTML = `<div class="category-card"><div>App version: ${escapeHTML(data.appVersion || APP_VERSION)}</div><div>Last modified: ${escapeHTML(formatDateOnly(data.lastModified))}</div></div>`;
+    if(!packageInfo){
+      appView.innerHTML += `<div class="category-card"><strong>Resource package:</strong><div>No resource package updates loaded.</div></div>`;
+    }else{
+      appView.innerHTML += `<div class="category-card"><strong>Resource package ${escapeHTML(String(displayPackageVersion))}:</strong>${packageChanges.length ? `<ul>${packageChanges.map(change => `<li>${escapeHTML(change)}</li>`).join("")}</ul>` : `<div>No resource package updates loaded.</div>`}</div>`;
+    }
+    if(!nonPackageEntries.length){
       appView.innerHTML += `<p>No recent updates.</p>`;
     }else{
-      entries.forEach(entry => {
+      nonPackageEntries.forEach(entry => {
         const card = document.createElement("div");
         card.className = "resource-card";
         card.innerHTML = formatChangeEntryHTML(entry);
@@ -4132,6 +4250,7 @@ function showChangeLog(){
 function clearChangeLog(){
   if(!confirm("Clear change log?")) return;
   data.changes = [];
+  data.lastLoadedPackageInfo = null;
   pendingRecentUpdates = [];
   recentUpdateDetail = null;
   localStorage.removeItem(UPDATE_SEEN_STORAGE_KEY);
@@ -4393,6 +4512,38 @@ function normalizeChanges(packageData){
   packageData.changes = normalized;
 }
 
+function normalizePackageVersionValue(value){
+  if(typeof value === "number" && Number.isFinite(value)) return value;
+  if(typeof value === "string" && value.trim()){
+    const asNumber = Number(value.trim());
+    if(Number.isFinite(asNumber)) return asNumber;
+  }
+  return "Unknown";
+}
+
+function normalizeLastLoadedPackageInfo(packageData){
+  if(!packageData || typeof packageData !== "object") return;
+  const source = packageData.lastLoadedPackageInfo;
+  if(!source || typeof source !== "object"){
+    packageData.lastLoadedPackageInfo = null;
+    return;
+  }
+  const changes = Array.isArray(source.changes)
+    ? source.changes
+      .map(entry => String(entry || "").trim())
+      .filter(Boolean)
+    : [];
+  const changeIds = Array.isArray(source.changeIds)
+    ? source.changeIds.map(id => String(id || "").trim()).filter(Boolean)
+    : [];
+  packageData.lastLoadedPackageInfo = {
+    packageVersion: normalizePackageVersionValue(source.packageVersion),
+    loadedAt: Date.parse(String(source.loadedAt || "")) ? String(source.loadedAt) : nowISO(),
+    changes,
+    changeIds
+  };
+}
+
 function createChangeEntry(type, action, targetId, targetName, description, options = {}){
   const cleanDescription = String(description || "").trim();
   if(!cleanDescription) return null;
@@ -4533,6 +4684,8 @@ function normalizePackageData(nextData){
   normalizeDataTagsShape(nextData);
   normalizeDataVerifiedOnShape(nextData);
   normalizeChanges(nextData);
+  nextData.packageVersion = normalizePackageVersionValue(nextData.packageVersion);
+  normalizeLastLoadedPackageInfo(nextData);
   return nextData;
 }
 
@@ -4649,6 +4802,13 @@ async function exportPackage(){
     const saveTarget = await beginResourcePackageSave();
     const zip = new JSZip();
     normalizePackageData(data);
+    if(typeof data.packageVersion !== "number" || !Number.isFinite(data.packageVersion)){
+      const fallbackVersion = data.lastLoadedPackageInfo && typeof data.lastLoadedPackageInfo.packageVersion === "number" && Number.isFinite(data.lastLoadedPackageInfo.packageVersion)
+        ? data.lastLoadedPackageInfo.packageVersion
+        : 1;
+      data.packageVersion = fallbackVersion;
+    }
+    persist();
     zip.file("tso-resources.json", JSON.stringify(data, null, 2));
 
     const pdfKeys = collectPDFPathsFromResources(data.resources);
@@ -4777,6 +4937,7 @@ async function mergeImportPackage(event){
     }
     normalizePackageData(imported);
     const importedChangeIds = new Set((imported.changes || []).map(entry => String(entry && entry.id || "")).filter(Boolean));
+    const importedPackageVersion = normalizePackageVersionValue(imported.packageVersion);
 
     const localResourcesWithPdf = ((data && data.resources) || [])
       .map(r => ({ resource:r, paths:collectPDFPathsFromResource(r) }))
@@ -4794,6 +4955,14 @@ async function mergeImportPackage(event){
     const missingPdfPaths = await mergeZipAssets(zip, mergedData);
     applyMergedData(mergedData);
     const loadedChanges = getRecentChanges().filter(entry => importedChangeIds.has(String(entry.id || "")));
+    data.lastLoadedPackageInfo = {
+      packageVersion: importedPackageVersion,
+      loadedAt: nowISO(),
+      changes: loadedChanges.map(entry => String(entry && entry.description || "").trim()).filter(Boolean),
+      changeIds: loadedChanges.map(entry => String(entry && entry.id || "")).filter(Boolean)
+    };
+    normalizeLastLoadedPackageInfo(data);
+    persist();
     if(loadedChanges.length){
       pendingRecentUpdates = loadedChanges;
       recentUpdateDetail = loadedChanges;
