@@ -3787,7 +3787,7 @@ function render(){
     if(pendingRecentUpdates.length){
       const note = document.createElement("div");
       note.className = "category-card";
-      note.innerHTML = `<strong>Recent Updates</strong><div>${pendingRecentUpdates.length} new updates loaded.</div><div>Click Provo TSO Resources at any time to review recent updates.</div>`;
+      note.innerHTML = `<div>${pendingRecentUpdates.length} new updates loaded.</div><div>Click Provo TSO Resources at any time to review updates.</div>`;
       appView.appendChild(note);
     }
     renderCategoryReminder();
@@ -3953,11 +3953,8 @@ function render(){
       : null;
     const packageChanges = packageInfo && Array.isArray(packageInfo.changes) ? packageInfo.changes : [];
     appView.innerHTML = `<div class="category-card"><div>App version: ${escapeHTML(data.appVersion || APP_VERSION)}</div><div>Last modified: ${escapeHTML(formatDateOnly(data.lastModified))}</div></div>`;
-    if(!packageInfo){
-      appView.innerHTML += `<div class="category-card"><strong>Resource package:</strong><div>No resource package updates loaded.</div></div>`;
-    }else{
-      appView.innerHTML += `<div class="category-card"><strong>Resource package ${escapeHTML(String(packageInfo.packageVersion))}:</strong>${packageChanges.length ? `<ul>${packageChanges.map(change => `<li>${escapeHTML(change)}</li>`).join("")}</ul>` : `<div>No resource package updates loaded.</div>`}</div>`;
-    }
+    const resourcePackageVersion = packageInfo ? packageInfo.packageVersion : normalizePackageVersionValue(data && data.packageVersion);
+    appView.innerHTML += `<div class="category-card"><strong>Resource Package ${escapeHTML(String(resourcePackageVersion))}:</strong>${packageChanges.length ? `<ul>${packageChanges.map(change => `<li>${escapeHTML(change)}</li>`).join("")}</ul>` : `<div>No resource package updates loaded.</div>`}</div>`;
     if(!entries.length){
       appView.innerHTML += `<p>No recent updates.</p>`;
     }else{
