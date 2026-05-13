@@ -2771,28 +2771,16 @@ function runSelfTests(){
   });
 
   tests.push({
-    name: "CATEGORY DELETE DESCRIPTION SOURCE",
+    name: "CATEGORY DELETE CHANGE LOG ENTRY",
     fn: () => {
-      const previousData = data;
-      const previousEditing = editing;
-      const host = document.createElement("div");
-      try{
-        data = { categories:[{ id:"holiday-neets", label:"Holiday Neets" }], resources:[] };
-        editing = { kind:"category", idx:0 };
-        host.innerHTML = `
-          <input id="cat_label" value="Holiday Neets">
-          <input id="cat_order" type="number" value="">
-          <textarea id="cat_update_description">  Removed stale category  </textarea>
-        `;
-        document.body.insertBefore(host, document.body.firstChild);
-        const description = getCategoryDeleteUpdateDescription(0);
-        if(description !== "Removed stale category"){
-          throw new Error(`unexpected delete description '${description}'`);
-        }
-      }finally{
-        host.remove();
-        data = previousData;
-        editing = previousEditing;
+      const description = getCategoryDeleteChangeDescription("");
+      if(description !== "Deleted category."){
+        throw new Error(`unexpected fallback description '${description}'`);
+      }
+      const entry = createChangeEntry("category", "removed", "holiday-needs", "Holiday Needs", description);
+      if(!entry) throw new Error("category deletion should create a change entry");
+      if(entry.targetName !== "Holiday Needs" || entry.action !== "removed"){
+        throw new Error("category deletion entry fields were not set");
       }
     }
   });
@@ -5882,10 +5870,87 @@ function cancelCategoryEdit(){
   editCategory(editing.idx);
 }
 
-function getCategoryDeleteUpdateDescription(idx){
-  if(!editing || editing.kind !== "category" || editing.idx !== idx) return "";
-  const draft = categoryEditorDraft();
-  return draft ? draft.updateDescription : "";
+function getCategoryDeleteChangeDescription(description){
+  return String(description || "").trim() || "Deleted category.";
+}
+
+function closeCategoryDeletePrompt(){
+  const modal = document.getElementById("categoryDeletePrompt");
+  if(modal) modal.remove();
+}
+
+function promptCategoryDeleteDescription(cat, onSubmit){
+  closeCategoryDeletePrompt();
+  const modal = document.createElement("div");
+  modal.id = "categoryDeletePrompt";
+  modal.className = "reference-modal";
+  modal.innerHTML = `
+    <div class="reference-modal-panel" role="dialog" aria-modal="true" aria-labelledby="categoryDeletePromptTitle" aria-describedby="categoryDeletePromptSubtitle">
+      <div class="reference-modal-header">
+        <div>
+          <div id="categoryDeletePromptTitle" class="reference-modal-title">Delete Category</div>
+          <div id="categoryDeletePromptSubtitle" class="reference-modal-subtitle">${escapeHTML(cat.label || "(unnamed)")}</div>
+        </div>
+      </div>
+      <div class="reference-modal-body">
+        <label>Describe this update (optional)<br>
+          <textarea id="category_delete_description" class="big" style="min-height:90px;"></textarea>
+        </label>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+          <button class="button" type="button" id="categoryDeleteCancelBtn">Cancel</button>
+          <button class="button danger" type="button" id="categoryDeleteConfirmBtn">Delete</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  const input = document.getElementById("category_delete_description");
+  const cancelBtn = document.getElementById("categoryDeleteCancelBtn");
+  const confirmBtn = document.getElementById("categoryDeleteConfirmBtn");
+  const submit = () => {
+    const description = input ? input.value : "";
+    closeCategoryDeletePrompt();
+    onSubmit(description);
+  };
+  if(cancelBtn) cancelBtn.onclick = closeCategoryDeletePrompt;
+  if(confirmBtn) confirmBtn.onclick = submit;
+  modal.addEventListener("click", event => {
+    if(event.target === modal) closeCategoryDeletePrompt();
+  });
+  modal.addEventListener("keydown", event => {
+    if(event.key === "Escape"){
+      event.preventDefault();
+      closeCategoryDeletePrompt();
+    }
+    if((event.ctrlKey || event.metaKey) && event.key === "Enter"){
+      event.preventDefault();
+      submit();
+    }
+  });
+  if(input) input.focus();
+}
+
+function completeCategoryDelete(categoryId, updateDescription){
+  const idx = data.categories.findIndex(cat => String(cat && cat.id || "") === String(categoryId || ""));
+  const cat = data.categories[idx];
+  if(!cat) return;
+  const changeDescription = getCategoryDeleteChangeDescription(updateDescription);
+  setUndoSnapshot(`deleted category "${cat.label}"`);
+
+  // remove category from resources too
+  data.resources.forEach(r=>{
+    if(Array.isArray(r.categories)){
+      r.categories = r.categories.filter(id => id !== cat.id);
+    }
+  });
+
+  data.categories.splice(idx,1);
+  delete categoryTagFilters[cat.id];
+  addChangeEntry(createChangeEntry("category", "removed", cat.id, cat.label || "(Unnamed category)", changeDescription));
+  newCategoryIds.delete(cat.id);
+  selectedCategoryIndex = "";
+  persist();
+  showChangeLog();
 }
 
 function deleteCategory(){
@@ -5899,23 +5964,9 @@ function deleteCategory(){
 
   const confirmDelete = confirm(buildAdminDeleteConfirmation("category", cat.label || "(unnamed)"));
   if(!confirmDelete) return;
-  const updateDescription = getCategoryDeleteUpdateDescription(idx);
-  setUndoSnapshot(`deleted category "${cat.label}"`);
-
-  // remove category from resources too
-  data.resources.forEach(r=>{
-    if(Array.isArray(r.categories)){
-      r.categories = r.categories.filter(id => id !== cat.id);
-    }
+  promptCategoryDeleteDescription(cat, description => {
+    completeCategoryDelete(cat.id, description);
   });
-
-  data.categories.splice(idx,1);
-  delete categoryTagFilters[cat.id];
-  addChangeEntry(createChangeEntry("category", "removed", cat.id, cat.label || "(Unnamed category)", updateDescription));
-  newCategoryIds.delete(cat.id);
-  selectedCategoryIndex = "";
-  persist();
-  safeRenderAdmin();
 }
 
 function closeCategoryEditor(){
