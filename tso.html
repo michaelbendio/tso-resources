@@ -167,6 +167,13 @@ textarea.services-editor { min-height:320px; resize:vertical; }
   white-space:pre-line;
 }
 .app-toast.hidden { display:none; }
+.app-toast.important {
+  max-width:460px;
+  border:2px solid #b45309;
+  background:#fff7ed;
+  color:#7c2d12;
+  font-weight:bold;
+}
 .category-order-input { appearance:textfield; -moz-appearance:textfield; }
 .category-order-input::-webkit-outer-spin-button,
 .category-order-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
@@ -381,6 +388,7 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 <div id="searchPanel" class="search-panel hidden">
   <input id="searchInput" type="search" placeholder="Search resources">
   <button class="button primary" id="searchButton" type="button">Search</button>
+  <button class="button" id="searchCancelButton" type="button">Cancel</button>
 </div>
 
 <div id="appView"></div>
@@ -1983,7 +1991,7 @@ function buildPDFStoragePath(resourceId, attachmentId, fileName){
   return `pdfs/${encodeURIComponent(resourceId || "resource")}/${attachmentId}-${safePDFFileName(fileName)}`;
 }
 
-function showToast(message){
+function showToast(message, options = {}){
   let toast = document.getElementById("appToast");
   if(!toast){
     toast = document.createElement("div");
@@ -1994,11 +2002,17 @@ function showToast(message){
     document.body.appendChild(toast);
   }
   toast.textContent = message;
+  toast.classList.toggle("important", !!options.important);
   toast.classList.remove("hidden");
   if(showToast.timer) clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => {
-    toast.classList.add("hidden");
-  }, 4500);
+  if(options.sticky){
+    showToast.timer = null;
+  }else{
+    showToast.timer = setTimeout(() => {
+      toast.classList.add("hidden");
+      toast.classList.remove("important");
+    }, 4500);
+  }
 }
 
 // ============================================================
@@ -2512,6 +2526,7 @@ let pendingRecentUpdates = [];
 let recentUpdateDetail = null;
 let showUpdateInfo = false;
 let showRecentChangeLog = true;
+let allowBlankUpdateDescriptionOnce = false;
 let newCategoryIds = new Set();
 let newResourceIds = new Set();
 
@@ -2807,6 +2822,33 @@ function runSelfTests(){
       const sample = { changes:[blankEntry] };
       normalizeChanges(sample);
       if(sample.changes.length !== 1) throw new Error("blank-description entries should survive normalization");
+    }
+  });
+
+  tests.push({
+    name: "BLANK UPDATE DESCRIPTION PROMPT",
+    fn: () => {
+      const previousEditing = editing;
+      try{
+        editing = { kind:"resource", idx:0 };
+        promptBlankUpdateDescription();
+        const modal = document.getElementById("blankUpdateDescriptionPrompt");
+        const describeBtn = document.getElementById("blankUpdateDescribeBtn");
+        const saveBtn = document.getElementById("blankUpdateSaveAnywayBtn");
+        if(!modal) throw new Error("blank update prompt was not rendered");
+        if(!/Please describe the change\(s\) you made/.test(modal.textContent || "")){
+          throw new Error("blank update prompt text was missing");
+        }
+        if(!describeBtn || describeBtn.textContent !== "Describe changes"){
+          throw new Error("describe button label changed");
+        }
+        if(!saveBtn || saveBtn.textContent !== "Save without description"){
+          throw new Error("non-compliance button label changed");
+        }
+      }finally{
+        closeBlankUpdateDescriptionPrompt();
+        editing = previousEditing;
+      }
     }
   });
 
@@ -3515,6 +3557,11 @@ function syncSearchPanel(){
   }
 }
 
+function closeSearchPanel(){
+  isSearchOpen = false;
+  syncSearchPanel();
+}
+
 function toggleSearchPanel(){
   isSearchOpen = !isSearchOpen;
   syncSearchPanel();
@@ -3547,6 +3594,8 @@ if(searchButton){
     performSearch(input ? input.value : "");
   };
 }
+const searchCancelButton = document.getElementById("searchCancelButton");
+if(searchCancelButton) searchCancelButton.onclick = closeSearchPanel;
 const searchInput = document.getElementById("searchInput");
 if(searchInput){
   searchInput.addEventListener("keydown", event => {
@@ -5023,12 +5072,14 @@ async function mergeImportPackage(event){
       changes: loadedChanges.map(formatPackageChangeSummary)
     };
     normalizeLastLoadedPackageInfo(data);
+    data.changes = [];
     persist();
     if(loadedChanges.length){
-      pendingRecentUpdates = loadedChanges;
-      recentUpdateDetail = loadedChanges;
+      pendingRecentUpdates = [];
+      recentUpdateDetail = null;
+      showUpdateInfo = true;
+      showRecentChangeLog = false;
       view = "recent-updates";
-      markChangesViewed(loadedChanges.map(entry => entry.id));
       safeRender();
     }
     const warningBlocks = [];
@@ -5046,12 +5097,12 @@ async function mergeImportPackage(event){
     }
     if(warningBlocks.length){
       alert(warningBlocks.join("\n\n"));
-    }else{
-      showToast(
-        "Resources loaded successfully.\n" +
-        "You may now delete tso-resource-package.zip if desired."
-      );
     }
+    showToast(
+      "Resources loaded successfully.\n\n" +
+      "Important: delete tso-resource-package.zip now.",
+      { important:true, sticky:true }
+    );
   }catch(e){
     alert("Load failed: " + e.message);
   }finally{
@@ -5726,6 +5777,75 @@ function applyResourceDraft(idx, draft){
   refreshAdminCategoryResourceList();
 }
 
+function getUpdateDescriptionFieldId(){
+  return editing && editing.kind === "category"
+    ? "cat_update_description"
+    : "res_update_description";
+}
+
+function focusUpdateDescriptionField(){
+  const field = document.getElementById(getUpdateDescriptionFieldId());
+  if(field) field.focus();
+}
+
+function closeBlankUpdateDescriptionPrompt(){
+  const modal = document.getElementById("blankUpdateDescriptionPrompt");
+  if(modal) modal.remove();
+}
+
+function promptBlankUpdateDescription(){
+  closeBlankUpdateDescriptionPrompt();
+  const modal = document.createElement("div");
+  modal.id = "blankUpdateDescriptionPrompt";
+  modal.className = "reference-modal";
+  modal.innerHTML = `
+    <div class="reference-modal-panel" role="dialog" aria-modal="true" aria-labelledby="blankUpdateDescriptionTitle">
+      <div class="reference-modal-header">
+        <div id="blankUpdateDescriptionTitle" class="reference-modal-title">Please describe the change(s) you made</div>
+      </div>
+      <div class="reference-modal-body">
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:4px;">
+          <button class="button primary" type="button" id="blankUpdateDescribeBtn">Describe changes</button>
+          <button class="button" type="button" id="blankUpdateSaveAnywayBtn">Save without description</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  const describeBtn = document.getElementById("blankUpdateDescribeBtn");
+  const saveAnywayBtn = document.getElementById("blankUpdateSaveAnywayBtn");
+  const describe = () => {
+    closeBlankUpdateDescriptionPrompt();
+    focusUpdateDescriptionField();
+  };
+  const saveAnyway = () => {
+    const kind = editing && editing.kind;
+    closeBlankUpdateDescriptionPrompt();
+    allowBlankUpdateDescriptionOnce = true;
+    if(kind === "category") closeCategoryEditor();
+    if(kind === "resource") closeResourceEditor();
+  };
+  if(describeBtn) describeBtn.onclick = describe;
+  if(saveAnywayBtn) saveAnywayBtn.onclick = saveAnyway;
+  modal.addEventListener("keydown", event => {
+    if(event.key === "Escape"){
+      event.preventDefault();
+      describe();
+    }
+  });
+  if(describeBtn) describeBtn.focus();
+}
+
+function confirmBlankUpdateDescription(draft){
+  if(String(draft && draft.updateDescription || "").trim()) return true;
+  if(allowBlankUpdateDescriptionOnce){
+    allowBlankUpdateDescriptionOnce = false;
+    return true;
+  }
+  promptBlankUpdateDescription();
+  return false;
+}
+
 function commitPendingEditsIfChanged(){
   // Editor commit pattern:
   // UI fields -> draft snapshot -> validation -> apply canonical update -> persist.
@@ -5744,6 +5864,7 @@ function commitPendingEditsIfChanged(){
       return false;
     }
     if(nextSnapshot !== editorSnapshot){
+      if(!confirmBlankUpdateDescription(draft)) return false;
       const action = newCategoryIds.has(draft.id) ? "added" : "updated";
       applyCategoryDraft(editing.idx, draft);
       addChangeEntry(createChangeEntry("category", action, draft.id, draft.label || "(Unnamed category)", draft.updateDescription));
@@ -5772,10 +5893,9 @@ function commitPendingEditsIfChanged(){
       if(verifiedInput) verifiedInput.focus();
       return false;
     }
-    if(nextSnapshot !== editorSnapshot && !confirmCategoryAssignmentHint(draft)){
-      return false;
-    }
     if(nextSnapshot !== editorSnapshot){
+      if(!confirmCategoryAssignmentHint(draft)) return false;
+      if(!confirmBlankUpdateDescription(draft)) return false;
       const resource = data.resources[editing.idx];
       const resourceId = resource && resource.id ? resource.id : "";
       const action = newResourceIds.has(resourceId) ? "added" : "updated";
