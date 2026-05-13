@@ -1,7 +1,7 @@
 #!/bin/bash
 
 HTML="tso.html"
-JSON="tso-resources.json"
+JSON="tso-resource-package/tso-resources.json"
 BACKUP="tso.html.bak"
 
 if [ ! -f "$HTML" ]; then
@@ -43,14 +43,22 @@ path = sys.argv[1]
 with open(path, "r", encoding="utf-8") as f:
     text = f.read()
 
-version_re = re.compile(r'(?m)^(\s*)const APP_VERSION = "(\d+)\.(\d+)";$')
-match = version_re.search(text)
+version_re = re.compile(r'(?m)^(\s*)const APP_VERSION = "(\d+(?:\.\d+)+)";$')
+matches = list(version_re.finditer(text))
 
-if match:
-    old_version = f"{match.group(2)}.{match.group(3)}"
-    new_version = f"{match.group(2)}.{int(match.group(3)) + 1}"
+if matches:
+    match = matches[0]
+    old_version = match.group(2)
+    parts = [int(part) for part in old_version.split(".")]
+    parts[-1] += 1
+    new_version = ".".join(str(part) for part in parts)
     replacement = f'{match.group(1)}const APP_VERSION = "{new_version}";'
-    text = version_re.sub(replacement, text, count=1)
+    text = text[:match.start()] + replacement + text[match.end():]
+    for duplicate in reversed(matches[1:]):
+        line_end = duplicate.end()
+        if line_end < len(text) and text[line_end] == "\n":
+            line_end += 1
+        text = text[:duplicate.start()] + text[line_end:]
     print(f"Version bumped: {old_version} → {new_version}")
 else:
     version_line = 'const APP_VERSION = "1.0";\n'
