@@ -2743,7 +2743,7 @@ function runSelfTests(){
           changes: ["Added Housing Assistance category"]
         };
         render();
-        if(!/Resource package 12:/.test(appView.textContent || "")){
+        if(!/Resource Package 12:/.test(appView.textContent || "")){
           throw new Error("missing package version heading");
         }
         if(!/Added Housing Assistance category/.test(appView.textContent || "")){
@@ -2767,6 +2767,33 @@ function runSelfTests(){
       if(entry.type !== "resource" || entry.action !== "updated" || entry.targetId !== "r1") throw new Error("entry fields were not set");
       if(!Date.parse(entry.timestamp)) throw new Error("timestamp is not parseable");
       if(createChangeEntry("resource", "updated", "r1", "Resource One", "   ") !== null) throw new Error("blank descriptions should not create entries");
+    }
+  });
+
+  tests.push({
+    name: "CATEGORY DELETE DESCRIPTION SOURCE",
+    fn: () => {
+      const previousData = data;
+      const previousEditing = editing;
+      const host = document.createElement("div");
+      try{
+        data = { categories:[{ id:"holiday-neets", label:"Holiday Neets" }], resources:[] };
+        editing = { kind:"category", idx:0 };
+        host.innerHTML = `
+          <input id="cat_label" value="Holiday Neets">
+          <input id="cat_order" type="number" value="">
+          <textarea id="cat_update_description">  Removed stale category  </textarea>
+        `;
+        document.body.insertBefore(host, document.body.firstChild);
+        const description = getCategoryDeleteUpdateDescription(0);
+        if(description !== "Removed stale category"){
+          throw new Error(`unexpected delete description '${description}'`);
+        }
+      }finally{
+        host.remove();
+        data = previousData;
+        editing = previousEditing;
+      }
     }
   });
 
@@ -5855,18 +5882,24 @@ function cancelCategoryEdit(){
   editCategory(editing.idx);
 }
 
+function getCategoryDeleteUpdateDescription(idx){
+  if(!editing || editing.kind !== "category" || editing.idx !== idx) return "";
+  const draft = categoryEditorDraft();
+  return draft ? draft.updateDescription : "";
+}
+
 function deleteCategory(){
-  if(!commitPendingEditsIfChanged()) return;
   const sel = document.getElementById("catSelect");
   if(!sel || !sel.value) return;
 
   const idx = parseInt(sel.value,10);
   const cat = data.categories[idx];
   if(!cat) return;
+  if((!editing || editing.kind !== "category" || editing.idx !== idx) && !commitPendingEditsIfChanged()) return;
 
   const confirmDelete = confirm(buildAdminDeleteConfirmation("category", cat.label || "(unnamed)"));
   if(!confirmDelete) return;
-  const updateDescription = prompt("Describe this update (optional):", "") || "";
+  const updateDescription = getCategoryDeleteUpdateDescription(idx);
   setUndoSnapshot(`deleted category "${cat.label}"`);
 
   // remove category from resources too
