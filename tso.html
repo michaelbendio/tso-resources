@@ -2807,6 +2807,37 @@ function runSelfTests(){
   });
 
   tests.push({
+    name: "TITLE UPDATE TOGGLE",
+    fn: () => {
+      const previousView = view;
+      const previousShowUpdateInfo = showUpdateInfo;
+      const previousShowRecentChangeLog = showRecentChangeLog;
+      const previousRecentUpdateDetail = recentUpdateDetail;
+      const previousPendingRecentUpdates = pendingRecentUpdates;
+      try{
+        view = "categories";
+        showUpdateInfo = false;
+        showRecentChangeLog = false;
+        toggleUpdateInfoView();
+        if(view !== "recent-updates" || !showUpdateInfo || !showRecentChangeLog){
+          throw new Error("title click should show update info");
+        }
+        showRecentChangeLog = false;
+        toggleUpdateInfoView();
+        if(view !== "categories" || showUpdateInfo || showRecentChangeLog){
+          throw new Error("second title click should return to categories");
+        }
+      }finally{
+        view = previousView;
+        showUpdateInfo = previousShowUpdateInfo;
+        showRecentChangeLog = previousShowRecentChangeLog;
+        recentUpdateDetail = previousRecentUpdateDetail;
+        pendingRecentUpdates = previousPendingRecentUpdates;
+      }
+    }
+  });
+
+  tests.push({
     name: "ADMIN CHANGE ENTRY CREATION",
     fn: () => {
       const entry = createChangeEntry("resource", "updated", "r1", "Resource One", "  Updated phone  ");
@@ -3605,18 +3636,25 @@ if(searchInput){
   });
 }
 const appTitle = document.getElementById("appTitle");
-if(appTitle){
-  appTitle.onclick = () => {
-    const shouldShow = view !== "recent-updates" || !showUpdateInfo || !showRecentChangeLog;
-    showUpdateInfo = shouldShow;
-    showRecentChangeLog = shouldShow;
-    view = "recent-updates";
-    const seen = getSeenUpdateIds();
-    getRecentChanges().forEach(entry => seen.add(String(entry.id)));
-    saveSeenUpdateIds(seen);
+function toggleUpdateInfoView(){
+  if(view === "recent-updates" && showUpdateInfo){
+    showUpdateInfo = false;
+    showRecentChangeLog = false;
+    recentUpdateDetail = null;
+    pendingRecentUpdates = [];
+    view = "categories";
     safeRender();
-  };
+    return;
+  }
+  showUpdateInfo = true;
+  showRecentChangeLog = true;
+  view = "recent-updates";
+  const seen = getSeenUpdateIds();
+  getRecentChanges().forEach(entry => seen.add(String(entry.id)));
+  saveSeenUpdateIds(seen);
+  safeRender();
 }
+if(appTitle) appTitle.onclick = toggleUpdateInfoView;
 
 function getUnseenUpdates(){
   const seen = getSeenUpdateIds();
