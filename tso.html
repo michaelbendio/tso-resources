@@ -2511,6 +2511,7 @@ const UNDO_STORAGE_KEY = "tsoUndo";
 let pendingRecentUpdates = [];
 let recentUpdateDetail = null;
 let showUpdateInfo = false;
+let showRecentChangeLog = true;
 let newCategoryIds = new Set();
 let newResourceIds = new Set();
 
@@ -2730,17 +2731,23 @@ function runSelfTests(){
       const previousRecentUpdateDetail = recentUpdateDetail;
       const previousPendingRecentUpdates = pendingRecentUpdates;
       const previousShowUpdateInfo = showUpdateInfo;
+      const previousShowRecentChangeLog = showRecentChangeLog;
       try{
         data = { appVersion:"1.4.1", lastModified:nowISO(), categories:[], resources:[], changes:[], lastLoadedPackageInfo:null };
         view = "recent-updates";
         showUpdateInfo = false;
+        showRecentChangeLog = false;
         recentUpdateDetail = [];
         pendingRecentUpdates = [];
         render();
         if(/App version:/.test(appView.textContent || "")){
           throw new Error("package info should be hidden before title toggle");
         }
+        if(/No recent updates\./.test(appView.textContent || "")){
+          throw new Error("change log should be hidden before title toggle");
+        }
         showUpdateInfo = true;
+        showRecentChangeLog = true;
         recentUpdateDetail = [];
         pendingRecentUpdates = [];
         render();
@@ -2748,15 +2755,15 @@ function runSelfTests(){
           throw new Error("missing no-package-loaded message");
         }
         data.lastLoadedPackageInfo = {
-          packageVersion: 12,
+          packageVersion: 1,
           loadedAt: nowISO(),
-          changes: ["Added Housing Assistance category"]
+          changes: ["Career Education - Formatted the services"]
         };
         render();
-        if(!/Resource Package 12:/.test(appView.textContent || "")){
+        if(!/Resource Package 1:/.test(appView.textContent || "")){
           throw new Error("missing package version heading");
         }
-        if(!/Added Housing Assistance category/.test(appView.textContent || "")){
+        if(!/Career Education - Formatted the services/.test(appView.textContent || "")){
           throw new Error("missing package change text");
         }
       }finally{
@@ -2765,6 +2772,21 @@ function runSelfTests(){
         recentUpdateDetail = previousRecentUpdateDetail;
         pendingRecentUpdates = previousPendingRecentUpdates;
         showUpdateInfo = previousShowUpdateInfo;
+        showRecentChangeLog = previousShowRecentChangeLog;
+      }
+    }
+  });
+
+  tests.push({
+    name: "PACKAGE SAVE VERSION BUMP",
+    fn: () => {
+      if(getNextPackageVersionValue(undefined) !== 1) throw new Error("missing package version should start at 1");
+      if(getNextPackageVersionValue("Unknown") !== 1) throw new Error("unknown package version should start at 1");
+      if(getNextPackageVersionValue(1) !== 2) throw new Error("numeric package version should increment");
+      if(getNextPackageVersionValue("7") !== 8) throw new Error("string numeric package version should increment");
+      const summary = formatPackageChangeSummary(createChangeEntry("resource", "updated", "career-education", "Career Education", "Formatted the services"));
+      if(summary !== "Career Education - Formatted the services"){
+        throw new Error(`unexpected package change summary '${summary}'`);
       }
     }
   });
@@ -3536,7 +3558,9 @@ if(searchInput){
 const appTitle = document.getElementById("appTitle");
 if(appTitle){
   appTitle.onclick = () => {
-    showUpdateInfo = view !== "recent-updates" || !showUpdateInfo;
+    const shouldShow = view !== "recent-updates" || !showUpdateInfo || !showRecentChangeLog;
+    showUpdateInfo = shouldShow;
+    showRecentChangeLog = shouldShow;
     view = "recent-updates";
     const seen = getSeenUpdateIds();
     getRecentChanges().forEach(entry => seen.add(String(entry.id)));
@@ -4004,9 +4028,9 @@ function render(){
       appView.innerHTML += `<div class="category-card"><div>App version: ${escapeHTML(data.appVersion || APP_VERSION)}</div><div>Last modified: ${escapeHTML(formatDateOnly(data.lastModified))}</div></div>`;
       appView.innerHTML += `<div class="category-card"><strong>Resource Package ${escapeHTML(String(resourcePackageVersion))}:</strong>${packageChanges.length ? `<ul>${packageChanges.map(change => `<li>${escapeHTML(change)}</li>`).join("")}</ul>` : `<div>No resource package updates loaded.</div>`}</div>`;
     }
-    if(!entries.length){
+    if(showRecentChangeLog && !entries.length){
       appView.innerHTML += `<p>No recent updates.</p>`;
-    }else{
+    }else if(showRecentChangeLog){
       entries.forEach(entry => {
         const card = document.createElement("div");
         card.className = "resource-card";
@@ -4269,6 +4293,7 @@ function renderAdmin(){
 function showChangeLog(){
   view = "recent-updates";
   showUpdateInfo = false;
+  showRecentChangeLog = true;
   recentUpdateDetail = null;
   markChangesViewed(getRecentChanges().map(entry => entry.id));
   safeRender();
@@ -4546,6 +4571,14 @@ function normalizePackageVersionValue(value){
   return "Unknown";
 }
 
+function getNextPackageVersionValue(value){
+  const normalized = normalizePackageVersionValue(value);
+  if(typeof normalized === "number" && Number.isFinite(normalized)){
+    return Math.max(1, Math.floor(normalized) + 1);
+  }
+  return 1;
+}
+
 function normalizeLastLoadedPackageInfo(packageData){
   if(!packageData || typeof packageData !== "object") return;
   const source = packageData.lastLoadedPackageInfo;
@@ -4643,6 +4676,13 @@ function formatChangeEntryHTML(entry){
   const detail = `${entry && entry.type ? entry.type : ""} ${entry && entry.action ? entry.action : ""}`.trim();
   const description = String(entry && entry.description || "").trim();
   return `<strong>${escapeHTML(entry.targetName || "(Unnamed)")}</strong><div>${escapeHTML(dateText)}: ${escapeHTML(detail)}</div>${description ? `<div>${escapeHTML(description)}</div>` : ""}`;
+}
+
+function formatPackageChangeSummary(entry){
+  const targetName = String(entry && entry.targetName || "(Unnamed)").trim() || "(Unnamed)";
+  const description = String(entry && entry.description || "").trim();
+  const fallback = `${entry && entry.type ? entry.type : ""} ${entry && entry.action ? entry.action : ""}`.trim();
+  return `${targetName} - ${description || fallback || "updated"}`;
 }
 
 function chooseMergeObject(localItem, incomingItem){
@@ -4820,10 +4860,15 @@ async function exportPackage(){
     return;
   }
 
+  let previousPackageVersion;
+  let packageVersionBumped = false;
   try{
     const saveTarget = await beginResourcePackageSave();
     const zip = new JSZip();
     normalizePackageData(data);
+    previousPackageVersion = data.packageVersion;
+    data.packageVersion = getNextPackageVersionValue(data.packageVersion);
+    packageVersionBumped = true;
     zip.file("tso-resources.json", JSON.stringify(data, null, 2));
 
     const pdfKeys = collectPDFPathsFromResources(data.resources);
@@ -4837,9 +4882,11 @@ async function exportPackage(){
 
     const blob = await zip.generateAsync({ type: "blob" });
     await saveResourcePackageBlob(saveTarget, blob);
+    persist();
     showToast("Resource package saved");
   }catch(err){
     if(err && err.name === "AbortError") return;
+    if(packageVersionBumped) data.packageVersion = previousPackageVersion;
     alert("Save failed: " + err.message);
   }
 }
@@ -4973,7 +5020,7 @@ async function mergeImportPackage(event){
     data.lastLoadedPackageInfo = {
       packageVersion: importedPackageVersion,
       loadedAt: nowISO(),
-      changes: loadedChanges.map(entry => String(entry && entry.description || "").trim()).filter(Boolean)
+      changes: loadedChanges.map(formatPackageChangeSummary)
     };
     normalizeLastLoadedPackageInfo(data);
     persist();
