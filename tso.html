@@ -105,7 +105,7 @@ textarea.services-editor { min-height:320px; resize:vertical; }
   padding:10px;
   background:#fff;
 }
-.services-rendered ul { margin:6px 0 6px 20px; }
+.services-rendered ul { margin:6px 0; padding-left:1.15em; }
 .services-rendered .services-line { margin:0; }
 .services-rendered .services-blank { min-height:1.1em; }
 .services-rendered hr { border:0; border-top:1px solid #ccc; margin:10px 0; }
@@ -2510,6 +2510,7 @@ let categoryTagFilters = {}; // categoryId -> [tag, ...]
 const UNDO_STORAGE_KEY = "tsoUndo";
 let pendingRecentUpdates = [];
 let recentUpdateDetail = null;
+let showUpdateInfo = false;
 let newCategoryIds = new Set();
 let newResourceIds = new Set();
 
@@ -2728,9 +2729,18 @@ function runSelfTests(){
       const previousView = view;
       const previousRecentUpdateDetail = recentUpdateDetail;
       const previousPendingRecentUpdates = pendingRecentUpdates;
+      const previousShowUpdateInfo = showUpdateInfo;
       try{
         data = { appVersion:"1.4.1", lastModified:nowISO(), categories:[], resources:[], changes:[], lastLoadedPackageInfo:null };
         view = "recent-updates";
+        showUpdateInfo = false;
+        recentUpdateDetail = [];
+        pendingRecentUpdates = [];
+        render();
+        if(/App version:/.test(appView.textContent || "")){
+          throw new Error("package info should be hidden before title toggle");
+        }
+        showUpdateInfo = true;
         recentUpdateDetail = [];
         pendingRecentUpdates = [];
         render();
@@ -2754,6 +2764,7 @@ function runSelfTests(){
         view = previousView;
         recentUpdateDetail = previousRecentUpdateDetail;
         pendingRecentUpdates = previousPendingRecentUpdates;
+        showUpdateInfo = previousShowUpdateInfo;
       }
     }
   });
@@ -2766,7 +2777,14 @@ function runSelfTests(){
       if(entry.description !== "Updated phone") throw new Error("description was not trimmed");
       if(entry.type !== "resource" || entry.action !== "updated" || entry.targetId !== "r1") throw new Error("entry fields were not set");
       if(!Date.parse(entry.timestamp)) throw new Error("timestamp is not parseable");
-      if(createChangeEntry("resource", "updated", "r1", "Resource One", "   ") !== null) throw new Error("blank descriptions should not create entries");
+      const blankEntry = createChangeEntry("resource", "updated", "r1", "Resource One", "   ");
+      if(!blankEntry) throw new Error("blank descriptions should still create entries");
+      if(blankEntry.description !== "") throw new Error("blank description should be preserved as blank");
+      if(!/Resource One/.test(formatChangeEntryHTML(blankEntry))) throw new Error("blank-description entry should render target name");
+      if(!/resource updated/.test(formatChangeEntryHTML(blankEntry))) throw new Error("blank-description entry should render change type");
+      const sample = { changes:[blankEntry] };
+      normalizeChanges(sample);
+      if(sample.changes.length !== 1) throw new Error("blank-description entries should survive normalization");
     }
   });
 
@@ -3233,6 +3251,18 @@ function runSelfTests(){
     fn: () => {
       const html = renderServicesHTML("One\n\n* bullet\n---\n**bold**");
       if(typeof html !== "string" || !html.length) throw new Error("renderer returned empty output");
+      const host = document.createElement("div");
+      try{
+        host.className = "services-rendered";
+        host.innerHTML = html;
+        document.body.appendChild(host);
+        const ul = host.querySelector("ul");
+        if(!ul) throw new Error("renderer did not create a list");
+        const style = getComputedStyle(ul);
+        if(style.marginLeft !== "0px") throw new Error(`list margin should be flush, got ${style.marginLeft}`);
+      }finally{
+        host.remove();
+      }
     }
   });
 
@@ -3506,6 +3536,7 @@ if(searchInput){
 const appTitle = document.getElementById("appTitle");
 if(appTitle){
   appTitle.onclick = () => {
+    showUpdateInfo = view !== "recent-updates" || !showUpdateInfo;
     view = "recent-updates";
     const seen = getSeenUpdateIds();
     getRecentChanges().forEach(entry => seen.add(String(entry.id)));
@@ -3967,9 +3998,12 @@ function render(){
       ? data.lastLoadedPackageInfo
       : null;
     const packageChanges = packageInfo && Array.isArray(packageInfo.changes) ? packageInfo.changes : [];
-    appView.innerHTML = `<div class="category-card"><div>App version: ${escapeHTML(data.appVersion || APP_VERSION)}</div><div>Last modified: ${escapeHTML(formatDateOnly(data.lastModified))}</div></div>`;
+    appView.innerHTML = "";
     const resourcePackageVersion = packageInfo ? packageInfo.packageVersion : normalizePackageVersionValue(data && data.packageVersion);
-    appView.innerHTML += `<div class="category-card"><strong>Resource Package ${escapeHTML(String(resourcePackageVersion))}:</strong>${packageChanges.length ? `<ul>${packageChanges.map(change => `<li>${escapeHTML(change)}</li>`).join("")}</ul>` : `<div>No resource package updates loaded.</div>`}</div>`;
+    if(showUpdateInfo){
+      appView.innerHTML += `<div class="category-card"><div>App version: ${escapeHTML(data.appVersion || APP_VERSION)}</div><div>Last modified: ${escapeHTML(formatDateOnly(data.lastModified))}</div></div>`;
+      appView.innerHTML += `<div class="category-card"><strong>Resource Package ${escapeHTML(String(resourcePackageVersion))}:</strong>${packageChanges.length ? `<ul>${packageChanges.map(change => `<li>${escapeHTML(change)}</li>`).join("")}</ul>` : `<div>No resource package updates loaded.</div>`}</div>`;
+    }
     if(!entries.length){
       appView.innerHTML += `<p>No recent updates.</p>`;
     }else{
@@ -4234,6 +4268,7 @@ function renderAdmin(){
 
 function showChangeLog(){
   view = "recent-updates";
+  showUpdateInfo = false;
   recentUpdateDetail = null;
   markChangesViewed(getRecentChanges().map(entry => entry.id));
   safeRender();
@@ -4482,7 +4517,6 @@ function normalizeChanges(packageData){
   source.forEach((entry, index) => {
     if(!entry || typeof entry !== "object") return;
     const description = String(entry.description || "").trim();
-    if(!description) return;
     const type = entry.type === "category" ? "category" : "resource";
     const action = ["added", "updated", "removed"].includes(entry.action) ? entry.action : "updated";
     const timestamp = Date.parse(String(entry.timestamp || "")) ? String(entry.timestamp) : nowISO();
@@ -4533,7 +4567,6 @@ function normalizeLastLoadedPackageInfo(packageData){
 
 function createChangeEntry(type, action, targetId, targetName, description, options = {}){
   const cleanDescription = String(description || "").trim();
-  if(!cleanDescription) return null;
   const timestamp = nowISO();
   return {
     id: `${type || "change"}:${targetId || "unknown"}:${timestamp}:${Math.random().toString(16).slice(2,8)}`,
@@ -4607,7 +4640,9 @@ function getChangesForCategory(categoryId, { unseenOnly = false } = {}){
 
 function formatChangeEntryHTML(entry){
   const dateText = formatDateOnly(entry && entry.timestamp);
-  return `<strong>${escapeHTML(entry.targetName || "(Unnamed)")}</strong><div>${escapeHTML(dateText)} · ${escapeHTML(entry.type || "")} · ${escapeHTML(entry.action || "")}</div><div>${escapeHTML(entry.description || "")}</div>`;
+  const detail = `${entry && entry.type ? entry.type : ""} ${entry && entry.action ? entry.action : ""}`.trim();
+  const description = String(entry && entry.description || "").trim();
+  return `<strong>${escapeHTML(entry.targetName || "(Unnamed)")}</strong><div>${escapeHTML(dateText)}: ${escapeHTML(detail)}</div>${description ? `<div>${escapeHTML(description)}</div>` : ""}`;
 }
 
 function chooseMergeObject(localItem, incomingItem){
