@@ -3257,7 +3257,7 @@ function renderServicesHTML(text){
 const seed = JSON.parse(document.getElementById("seed-data").textContent);
 // Main persisted app data snapshot (categories/resources + metadata).
 let data = JSON.parse(localStorage.getItem("tsoData") || "null");
-const APP_VERSION = "1.4.2";
+const APP_VERSION = "1.4.4";
 const DEBUG = new URLSearchParams(location.search).has("debug");
 const UPDATE_SEEN_STORAGE_KEY = "tsoRecentUpdatesSeen";
 const CATEGORY_REMINDER_TEXT = "If you notice resources that need to be added or updated, please send a message to Elder and Sister Gasser. Report bugs to Elder Bendio (michaelbendio@gmail.com).";
@@ -3671,6 +3671,42 @@ function runSelfTests(){
       if(!entry) throw new Error("category deletion should create a change entry");
       if(entry.targetName !== "Holiday Needs" || entry.action !== "removed"){
         throw new Error("category deletion entry fields were not set");
+      }
+    }
+  });
+
+  tests.push({
+    name: "ADMIN CATEGORY LISTBOX RENDERING",
+    fn: () => {
+      const previousData = data;
+      const previousAdminTab = adminTab;
+      const previousSelectedCategoryIndex = selectedCategoryIndex;
+      const previousEditing = editing;
+      const previousEditorSnapshot = editorSnapshot;
+      try{
+        data = {
+          categories:[
+            { id:"food", label:"Food", displayOrder:20 },
+            { id:"housing", label:"Housing", displayOrder:10 }
+          ],
+          resources:[],
+          changes:[]
+        };
+        adminTab = "categories";
+        selectedCategoryIndex = "";
+        renderAdmin();
+        const sel = document.getElementById("catSelect");
+        if(!sel) throw new Error("category selector was not rendered");
+        if(sel.size !== 25) throw new Error("category selector should render as a visible listbox");
+        if(!sel.classList.contains("resource-listbox")) throw new Error("category selector should use listbox styling");
+        if(sel.options.length !== 2) throw new Error("category selector options were not populated");
+        if(sel.options[0].textContent !== "Housing") throw new Error("category selector should respect display order");
+      }finally{
+        data = previousData;
+        adminTab = previousAdminTab;
+        selectedCategoryIndex = previousSelectedCategoryIndex;
+        editing = previousEditing;
+        editorSnapshot = previousEditorSnapshot;
       }
     }
   });
@@ -6799,7 +6835,7 @@ function renderAdminCategories(container){
           <button class="button danger" onclick="deleteCategory()">Delete</button>
           <button class="button" onclick="openCategoryOrderEditor()">Edit display order...</button>
         </div>
-        <select id="catSelect"></select>
+        <select id="catSelect" class="resource-listbox" size="25"></select>
         <div id="adminCategoryResourceList" style="display:none;"></div>
         <div id="categoryOrderOverlay" style="${adminCategoryOrderEditorOpen ? "position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:40; display:flex; align-items:center; justify-content:center;" : "display:none;"}">
           <div id="categoryOrderPanel" style="background:#fff; border-radius:8px; border:1px solid #ccc; width:min(640px,90vw); max-height:80vh; overflow:auto; padding:12px;">
@@ -6833,6 +6869,29 @@ function renderAdminCategories(container){
     if(!commitPendingEditsIfChanged()) return;
     selectedCategoryIndex = sel.value;
     editCategory(parseInt(sel.value,10));
+  };
+  sel.ondblclick = () => {
+    const labelInput = document.getElementById("cat_label");
+    if(labelInput){
+      labelInput.focus();
+      labelInput.select();
+    }
+  };
+  sel.onkeydown = (e) => {
+    if(document.activeElement !== sel) return;
+    if(e.key === "Enter"){
+      e.preventDefault();
+      const labelInput = document.getElementById("cat_label");
+      if(labelInput){
+        labelInput.focus();
+        labelInput.select();
+      }
+      return;
+    }
+    if(e.key === "Delete"){
+      e.preventDefault();
+      deleteCategory();
+    }
   };
 
   if(sel.options.length && Array.from(sel.options).some(opt => opt.value === selectedCategoryIndex)){
