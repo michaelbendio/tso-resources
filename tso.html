@@ -3689,7 +3689,9 @@ function runSelfTests(){
             { id:"food", label:"Food", displayOrder:20 },
             { id:"housing", label:"Housing", displayOrder:10 }
           ],
-          resources:[],
+          resources:[
+            { id:"shelter", name:"Shelter Resource", categories:["housing"], tags:[], pdfs:[], servicesText:"" }
+          ],
           changes:[]
         };
         adminTab = "categories";
@@ -3701,6 +3703,14 @@ function runSelfTests(){
         if(!sel.classList.contains("resource-listbox")) throw new Error("category selector should use listbox styling");
         if(sel.options.length !== 2) throw new Error("category selector options were not populated");
         if(sel.options[0].textContent !== "Housing") throw new Error("category selector should respect display order");
+        const resourceList = document.getElementById("adminCategoryResourceList");
+        const editor = document.getElementById("catEditor");
+        if(!resourceList || !editor || resourceList.parentElement !== editor){
+          throw new Error("category resource list should render inside the category editor");
+        }
+        if(!/Shelter Resource/.test(resourceList.textContent || "")){
+          throw new Error("category resource list did not render the selected category resources");
+        }
       }finally{
         data = previousData;
         adminTab = previousAdminTab;
@@ -6836,7 +6846,6 @@ function renderAdminCategories(container){
           <button class="button" onclick="openCategoryOrderEditor()">Edit display order...</button>
         </div>
         <select id="catSelect" class="resource-listbox" size="25"></select>
-        <div id="adminCategoryResourceList" style="display:none;"></div>
         <div id="categoryOrderOverlay" style="${adminCategoryOrderEditorOpen ? "position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:40; display:flex; align-items:center; justify-content:center;" : "display:none;"}">
           <div id="categoryOrderPanel" style="background:#fff; border-radius:8px; border:1px solid #ccc; width:min(640px,90vw); max-height:80vh; overflow:auto; padding:12px;">
             <h4 style="margin:0 0 10px 0;">Edit display order</h4>
@@ -7112,7 +7121,6 @@ function closeCategoryEditor(){
 
 function editCategory(idx){
   const cat = data.categories[idx];
-  renderAdminCategoryResourceList(cat && cat.id ? cat.id : "");
   const editor = document.getElementById("catEditor");
   if(!cat || !editor) return;
   selectedCategoryIndex = String(idx);
@@ -7135,7 +7143,9 @@ function editCategory(idx){
       <button class="button" type="button" onclick="cancelCategoryEdit()">Cancel</button>
       <button class="button primary" type="button" id="cat_done_btn" onclick="closeCategoryEditor()">Done</button>
     </div>
+    <div id="adminCategoryResourceList" style="display:none;"></div>
   `;
+  renderAdminCategoryResourceList(cat && cat.id ? cat.id : "");
 
   editing = { kind: "category", idx };
   editorSnapshot = snapshotCategoryEditor();
