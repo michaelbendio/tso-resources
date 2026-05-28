@@ -7143,6 +7143,7 @@ function editCategory(idx){
       <button class="button" type="button" onclick="cancelCategoryEdit()">Cancel</button>
       <button class="button primary" type="button" id="cat_done_btn" onclick="closeCategoryEditor()">Done</button>
     </div>
+    <hr style="margin:18px 0 12px; border:0; border-top:1px solid #ddd;">
     <div id="adminCategoryResourceList" style="display:none;"></div>
   `;
   renderAdminCategoryResourceList(cat && cat.id ? cat.id : "");
