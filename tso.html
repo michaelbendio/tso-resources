@@ -134,6 +134,9 @@ textarea.services-editor { min-height:320px; resize:vertical; }
 .admin-action-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 .admin-option-row { margin:0; }
 .admin-option-row + .admin-action-row { margin-top:12px; }
+.admin-note { margin:0 0 10px; line-height:1.4; }
+.admin-detail-list { margin:8px 0 0 18px; padding:0; }
+.admin-detail-list li { margin:4px 0; }
 .resource-editor-grid {
   display:grid;
   gap:10px;
@@ -2516,6 +2519,7 @@ let adminShowVerifiedDates = false;
 let adminResourceEditMode = false;
 let selectedResourceId = "";
 let selectedCategoryIndex = "";
+let selectedAdminTag = "";
 let adminCategoryOrderEditorOpen = false;
 let adminCategoryOrderDraft = null; // array of { idx, value } in fixed editor row order
 let editing = null;
@@ -3042,6 +3046,57 @@ function runSelfTests(){
       }
       if(formatResourceTagsInput(["GED", "List"]) !== "GED\nList"){
         throw new Error("tag input formatting changed");
+      }
+    }
+  });
+
+  tests.push({
+    name: "ADMIN TAG DELETE BULK UPDATE",
+    fn: () => {
+      const previousData = data;
+      const previousAdminTab = adminTab;
+      const previousSelectedAdminTag = selectedAdminTag;
+      const previousUndo = localStorage.getItem(UNDO_STORAGE_KEY);
+      const previousStoredData = localStorage.getItem("tsoData");
+      try{
+        data = {
+          categories:[{ id:"education", label:"Education" }],
+          resources:[
+            { id:"adult-ed", name:"Adult Education", categories:["education"], tags:["GED", "List"], lastModified:"2026-01-01T00:00:00.000Z" },
+            { id:"career-ed", name:"Career Education", categories:["education"], tags:["ged"], lastModified:"2026-01-01T00:00:00.000Z" },
+            { id:"food", name:"Food Pantry", categories:[], tags:["Food"], lastModified:"2026-01-01T00:00:00.000Z" }
+          ],
+          changes:[]
+        };
+        adminTab = "tags";
+        selectedAdminTag = "GED";
+        completeTagDelete("GED");
+        const adult = data.resources.find(resource => resource.id === "adult-ed");
+        const career = data.resources.find(resource => resource.id === "career-ed");
+        const food = data.resources.find(resource => resource.id === "food");
+        if(adult.tags.includes("GED") || career.tags.some(tag => tag.toLowerCase() === "ged")){
+          throw new Error("deleted tag remained on a matching resource");
+        }
+        if(!adult.tags.includes("List")) throw new Error("unrelated tag was removed");
+        if(!food.tags.includes("Food")) throw new Error("non-matching resource was changed");
+        if(adult.lastModified === "2026-01-01T00:00:00.000Z" || career.lastModified === "2026-01-01T00:00:00.000Z"){
+          throw new Error("matching resources were not timestamped");
+        }
+        if(food.lastModified !== "2026-01-01T00:00:00.000Z"){
+          throw new Error("non-matching resource timestamp changed");
+        }
+        if(data.changes.length !== 2) throw new Error("tag delete should create one change entry per changed resource");
+        if(!getUndoSnapshot() || !/deleted tag "GED"/.test(getUndoSnapshot().message)){
+          throw new Error("tag delete undo snapshot was not set");
+        }
+      }finally{
+        data = previousData;
+        adminTab = previousAdminTab;
+        selectedAdminTag = previousSelectedAdminTag;
+        if(previousUndo === null) localStorage.removeItem(UNDO_STORAGE_KEY);
+        else localStorage.setItem(UNDO_STORAGE_KEY, previousUndo);
+        if(previousStoredData === null) localStorage.removeItem("tsoData");
+        else localStorage.setItem("tsoData", previousStoredData);
       }
     }
   });
@@ -4369,12 +4424,18 @@ function renderAdmin(){
         onclick="switchAdminTab('resources')">
         Resources
       </button>
+
+      <button class="button ${adminTab==='tags'?'primary':''}"
+        onclick="switchAdminTab('tags')">
+        Tags
+      </button>
     </div>
     <br>
   `;
 
   if(adminTab === "categories") renderAdminCategories(container);
   if(adminTab === "resources") renderAdminResources(container);
+  if(adminTab === "tags") renderAdminTags(container);
 }
 
 function showChangeLog(){
@@ -5491,6 +5552,7 @@ function handleAdminListReferenceInspection(event, resource){
 
 function switchAdminTab(nextTab){
   if(adminTab === nextTab) return;
+  if(!["categories", "resources", "tags"].includes(nextTab)) return;
   if(!commitPendingEditsIfChanged()) return;
   if(nextTab !== "resources"){
     adminResourceEditMode = false;
@@ -6785,6 +6847,164 @@ function editResource(idx){
   focusAndSelectResourceName();
 
   editorSnapshot = snapshotResourceEditor();
+}
+
+/* ---------- Admin: Tags ---------- */
+
+function getResourcesUsingTag(tag){
+  const normalizedTag = normalizeResourceTags([tag])[0] || "";
+  const tagKey = normalizedTag.toLowerCase();
+  if(!tagKey) return [];
+  return (Array.isArray(data.resources) ? data.resources : [])
+    .filter(resource => normalizeResourceTags(resource && resource.tags).some(resourceTag => resourceTag.toLowerCase() === tagKey))
+    .sort((a,b)=>String(a && a.name || "").localeCompare(String(b && b.name || ""), undefined, { sensitivity:"base" }));
+}
+
+function getAdminTagRows(){
+  return getAllTags().map(tag => ({
+    tag,
+    resources: getResourcesUsingTag(tag)
+  })).filter(row => row.resources.length > 0);
+}
+
+function formatResourceCount(count){
+  return `${count} ${count === 1 ? "resource" : "resources"}`;
+}
+
+function closeTagDeletePrompt(){
+  const modal = document.getElementById("tagDeletePrompt");
+  if(modal) modal.remove();
+}
+
+function promptTagDeleteConfirmation(tag){
+  const resources = getResourcesUsingTag(tag);
+  if(!resources.length){
+    selectedAdminTag = "";
+    safeRenderAdmin();
+    return;
+  }
+  closeTagDeletePrompt();
+  const modal = document.createElement("div");
+  modal.id = "tagDeletePrompt";
+  modal.className = "reference-modal";
+  modal.innerHTML = `
+    <div class="reference-modal-panel" role="dialog" aria-modal="true" aria-labelledby="tagDeletePromptTitle" aria-describedby="tagDeletePromptSubtitle">
+      <div class="reference-modal-header">
+        <div>
+          <div id="tagDeletePromptTitle" class="reference-modal-title">Delete tag "${escapeHTML(tag)}"?</div>
+          <div id="tagDeletePromptSubtitle" class="reference-modal-subtitle">This tag will be removed from these ${formatResourceCount(resources.length)}:</div>
+        </div>
+      </div>
+      <div class="reference-modal-body">
+        <ul class="admin-detail-list">
+          ${resources.map(resource => `<li>${escapeHTML(resource.name || "(Unnamed resource)")}</li>`).join("")}
+        </ul>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+          <button class="button" type="button" id="tagDeleteCancelBtn">Cancel</button>
+          <button class="button danger" type="button" id="tagDeleteConfirmBtn">Delete Tag</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  const cancelBtn = document.getElementById("tagDeleteCancelBtn");
+  const confirmBtn = document.getElementById("tagDeleteConfirmBtn");
+  if(cancelBtn) cancelBtn.onclick = closeTagDeletePrompt;
+  if(confirmBtn) confirmBtn.onclick = () => {
+    closeTagDeletePrompt();
+    completeTagDelete(tag);
+  };
+  modal.addEventListener("click", event => {
+    if(event.target === modal) closeTagDeletePrompt();
+  });
+  modal.addEventListener("keydown", event => {
+    if(event.key === "Escape"){
+      event.preventDefault();
+      closeTagDeletePrompt();
+    }
+  });
+  if(cancelBtn) cancelBtn.focus();
+}
+
+function completeTagDelete(tag){
+  const normalizedTag = normalizeResourceTags([tag])[0] || "";
+  const tagKey = normalizedTag.toLowerCase();
+  if(!tagKey) return;
+  const resources = getResourcesUsingTag(normalizedTag);
+  if(!resources.length){
+    selectedAdminTag = "";
+    safeRenderAdmin();
+    return;
+  }
+  const modifiedAt = nowISO();
+  setUndoSnapshot(`deleted tag "${normalizedTag}"`);
+  resources.forEach(resource => {
+    resource.tags = normalizeResourceTags(resource.tags).filter(resourceTag => resourceTag.toLowerCase() !== tagKey);
+    resource.lastModified = modifiedAt;
+    addChangeEntry(createChangeEntry(
+      "resource",
+      "updated",
+      resource.id,
+      resource.name || "(Unnamed resource)",
+      `Removed tag "${normalizedTag}".`,
+      { categoryIds:resource.categories }
+    ));
+  });
+  selectedAdminTag = "";
+  persist();
+  safeRenderAdmin();
+}
+
+function renderAdminTags(container){
+  const rows = getAdminTagRows();
+  if(selectedAdminTag && !rows.some(row => row.tag.toLowerCase() === selectedAdminTag.toLowerCase())){
+    selectedAdminTag = "";
+  }
+  const selectedRow = rows.find(row => row.tag.toLowerCase() === String(selectedAdminTag || "").toLowerCase());
+
+  container.innerHTML += `
+    <div class="admin-panel">
+      <div class="admin-box">
+        <h3 class="admin-panel-title">Tags</h3>
+        <p class="admin-note">When you delete a tag, the app removes that tag from each listed resource and updates each changed resource's lastModified timestamp. That is not just bookkeeping. Package merging uses lastModified to decide which version of a resource wins when a user loads a package.</p>
+        <p class="admin-note">Example: if you delete the GED tag from Adult Education, then another admin later edits Adult Education from an older package and saves it, their newer saved version may bring the GED tag back when packages are merged. To avoid that, admins should load the latest resource package before making edits.</p>
+        <p class="admin-note">These tags are currently being used by one or more resources.</p>
+        <select id="tagSelect" class="resource-listbox" size="18" style="margin-top:8px;">
+          ${rows.map(row => `<option value="${escapeHTML(row.tag)}" ${selectedRow && row.tag === selectedRow.tag ? "selected" : ""}>${escapeHTML(row.tag)} (${formatResourceCount(row.resources.length)})</option>`).join("")}
+        </select>
+      </div>
+      <div class="admin-box" id="tagDetail">
+        ${selectedRow ? `
+          <h3 style="margin-top:0;">${escapeHTML(selectedRow.tag)}</h3>
+          <p>This tag is used by these ${formatResourceCount(selectedRow.resources.length)}:</p>
+          <ul class="admin-detail-list">
+            ${selectedRow.resources.map(resource => `<li>${escapeHTML(resource.name || "(Unnamed resource)")}</li>`).join("")}
+          </ul>
+          <div style="margin-top:12px;">
+            <button class="button danger" type="button" id="tagDeleteBtn">Delete Tag</button>
+          </div>
+        ` : `
+          <h3 style="margin-top:0;">Tag Details</h3>
+          <p>Select a tag to see the resources that use it.</p>
+        `}
+      </div>
+    </div>
+  `;
+
+  const sel = document.getElementById("tagSelect");
+  const deleteBtn = document.getElementById("tagDeleteBtn");
+  if(sel){
+    sel.onchange = () => {
+      selectedAdminTag = sel.value || "";
+      safeRenderAdmin();
+    };
+    sel.ondblclick = () => {
+      if(sel.value) promptTagDeleteConfirmation(sel.value);
+    };
+  }
+  if(deleteBtn && selectedRow){
+    deleteBtn.onclick = () => promptTagDeleteConfirmation(selectedRow.tag);
+  }
 }
 
 /* ---------- Resource Editor Done Shortcut ---------- */
