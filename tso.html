@@ -3584,6 +3584,41 @@ function runSelfTests(){
   });
 
   tests.push({
+    name: "PACKAGE MERGE SUMMARY FALLBACK",
+    fn: () => {
+      const local = {
+        appVersion:"1.4.1",
+        packageVersion:18,
+        lastModified:"2026-01-01T00:00:00.000Z",
+        categories:[],
+        resources:[
+          { id:"r1", name:"Resource One", description:"Old", servicesText:"", lastModified:"2026-01-01T00:00:00.000Z" }
+        ],
+        changes:[]
+      };
+      const incoming = {
+        appVersion:"1.4.1",
+        packageVersion:19,
+        lastModified:"2026-02-01T00:00:00.000Z",
+        categories:[],
+        resources:[
+          { id:"r1", name:"Resource One", description:"New", servicesText:"", lastModified:"2026-02-01T00:00:00.000Z" },
+          { id:"r2", name:"Resource Two", description:"Added", servicesText:"", lastModified:"2026-02-01T00:00:00.000Z" }
+        ],
+        changes:[]
+      };
+      const { summary } = mergeResourcePackages(local, incoming);
+      const fallback = buildPackageMergeSummary(summary);
+      if(!fallback.includes("Resource One - Resource updated")){
+        throw new Error("missing updated resource fallback summary");
+      }
+      if(!fallback.includes("Resource Two - Resource added")){
+        throw new Error("missing added resource fallback summary");
+      }
+    }
+  });
+
+  tests.push({
     name: "TITLE UPDATE TOGGLE",
     fn: () => {
       const previousView = view;
@@ -5652,6 +5687,23 @@ function formatPackageChangeSummary(entry){
   return `${targetName} - ${description || fallback || "updated"}`;
 }
 
+function buildPackageMergeSummary(summary){
+  if(!summary || typeof summary !== "object") return [];
+  const entries = [];
+  [
+    { names:summary.resourceNamesAdded, label:"Resource added" },
+    { names:summary.resourceNamesUpdated, label:"Resource updated" },
+    { names:summary.categoryNamesAdded, label:"Category added" },
+    { names:summary.categoryNamesUpdated, label:"Category updated" }
+  ].forEach(group => {
+    (Array.isArray(group.names) ? group.names : []).forEach(name => {
+      const cleanName = String(name || "").trim();
+      if(cleanName) entries.push(`${cleanName} - ${group.label}`);
+    });
+  });
+  return entries;
+}
+
 function chooseMergeObject(localItem, incomingItem){
   if(!localItem && incomingItem) return { item:incomingItem, changed:true };
   if(localItem && !incomingItem) return { item:localItem, changed:false };
@@ -5678,6 +5730,8 @@ function mergeItemsById(localItems, incomingItems, options = {}){
   const incomingById = new Map(incomingList.map(item => [String(item && item.id || ""), item]).filter(([id]) => id));
   const seen = new Set();
   const merged = [];
+  const addedNames = [];
+  const updatedNames = [];
   let added = 0;
   let updated = 0;
 
@@ -5690,6 +5744,7 @@ function mergeItemsById(localItems, incomingItems, options = {}){
     seen.add(id);
     if(incomingItem && choice.item === incomingItem && choice.changed){
       updated += 1;
+      updatedNames.push(String(incomingItem.name || incomingItem.title || id));
     }
   });
 
@@ -5699,9 +5754,10 @@ function mergeItemsById(localItems, incomingItems, options = {}){
     merged.push(cloneDataObject(incomingItem));
     seen.add(id);
     added += 1;
+    addedNames.push(String(incomingItem.name || incomingItem.title || id));
   });
 
-  return { merged, added, updated };
+  return { merged, added, updated, addedNames, updatedNames };
 }
 
 function normalizePackageData(nextData){
@@ -5738,7 +5794,11 @@ function mergeResourcePackages(localData, incomingData){
       categoriesAdded: categoryMerge.added,
       categoriesUpdated: categoryMerge.updated,
       resourcesAdded: resourceMerge.added,
-      resourcesUpdated: resourceMerge.updated
+      resourcesUpdated: resourceMerge.updated,
+      categoryNamesAdded: categoryMerge.addedNames,
+      categoryNamesUpdated: categoryMerge.updatedNames,
+      resourceNamesAdded: resourceMerge.addedNames,
+      resourceNamesUpdated: resourceMerge.updatedNames
     }
   };
 }
@@ -5971,7 +6031,7 @@ async function mergeImportPackage(event){
     const localResourcesWithPdf = ((data && data.resources) || [])
       .map(r => ({ resource:r, paths:collectPDFPathsFromResource(r) }))
       .filter(item => item.paths.length);
-    const { mergedData } = mergeResourcePackages(data, imported);
+    const { mergedData, summary:mergeSummary } = mergeResourcePackages(data, imported);
     const mergedById = new Map((mergedData.resources || []).map(r => [String(r && r.id || ""), r]));
     const resourcesWithPdf = localResourcesWithPdf
       .filter(item => {
@@ -5984,15 +6044,18 @@ async function mergeImportPackage(event){
     const missingPdfPaths = await mergeZipAssets(zip, mergedData);
     applyMergedData(mergedData);
     const loadedChanges = getRecentChanges().filter(entry => importedChangeIds.has(String(entry.id || "")));
+    const loadedChangeSummaries = loadedChanges.length
+      ? loadedChanges.map(formatPackageChangeSummary)
+      : buildPackageMergeSummary(mergeSummary);
     data.lastLoadedPackageInfo = {
       packageVersion: importedPackageVersion,
       loadedAt: nowISO(),
-      changes: loadedChanges.map(formatPackageChangeSummary)
+      changes: loadedChangeSummaries
     };
     normalizeLastLoadedPackageInfo(data);
     data.changes = [];
     persist();
-    if(loadedChanges.length){
+    if(loadedChangeSummaries.length){
       pendingRecentUpdates = [];
       recentUpdateDetail = null;
       showUpdateInfo = true;
