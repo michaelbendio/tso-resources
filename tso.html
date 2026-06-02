@@ -3257,7 +3257,7 @@ function renderServicesHTML(text){
 const seed = JSON.parse(document.getElementById("seed-data").textContent);
 // Main persisted app data snapshot (categories/resources + metadata).
 let data = JSON.parse(localStorage.getItem("tsoData") || "null");
-const APP_VERSION = "1.4.4";
+const APP_VERSION = "1.5.0";
 const DEBUG = new URLSearchParams(location.search).has("debug");
 const UPDATE_SEEN_STORAGE_KEY = "tsoRecentUpdatesSeen";
 const CATEGORY_REMINDER_TEXT = "If you notice resources that need to be added or updated, please send a message to Elder and Sister Gasser. Report bugs to Elder Bendio (michaelbendio@gmail.com).";
@@ -4887,7 +4887,7 @@ function render(){
     const reloadBtn = document.createElement("button");
     reloadBtn.type = "button";
     reloadBtn.className = "button secondary";
-    reloadBtn.textContent = "Load Resource Package";
+    reloadBtn.textContent = "Merge resource package";
     reloadBtn.onclick = beginMergeImportPackage;
     reloadWrap.appendChild(reloadBtn);
     appView.appendChild(reloadWrap);
@@ -6079,11 +6079,7 @@ async function mergeImportPackage(event){
     if(warningBlocks.length){
       alert(warningBlocks.join("\n\n"));
     }
-    showToast(
-      "Resources loaded successfully.\n\n" +
-      "Important: delete tso-resource-package.zip now.",
-      { important:true, sticky:true }
-    );
+    showToast("Resource package merged. You can delete the package zip when you are done.");
   }catch(e){
     alert("Load failed: " + e.message);
   }finally{
